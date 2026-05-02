@@ -44,3 +44,15 @@ func (r *Runner) renderGraphResult(format app.GraphFormat, result *app.GraphResu
 		return fmt.Errorf("unknown graph format: %s", format)
 	}
 }
+
+func (r *Runner) renderReviewResult(format app.ReviewFormat, result *app.ReviewResult) error {
+	switch format {
+	case app.ReviewFormatJSON:
+		return writeJSON(r.stdout, result)
+	case app.ReviewFormatText, "":
+		report.WriteReviewText(r.stdout, result.ContractChanges)
+		return nil
+	default:
+		return fmt.Errorf("unknown review format: %s", format)
+	}
+}

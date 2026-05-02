@@ -10,6 +10,7 @@ const (
 	SymbolKindUsing   SymbolKind = "using"
 	SymbolKindTypedef SymbolKind = "typedef"
 	SymbolKindMethod  SymbolKind = "method"
+	SymbolKindFriend  SymbolKind = "friend"
 )
 
 type SymbolModel struct {
@@ -18,6 +19,7 @@ type SymbolModel struct {
 	File       string     `json:"file,omitempty"`
 	Parent     string     `json:"parent,omitempty"`
 	Signature  string     `json:"signature,omitempty"`
+	Modifiers  []string   `json:"modifiers,omitempty"`
 	Exported   bool       `json:"exported"`
 	Visibility string     `json:"visibility,omitempty"`
 	Confidence Confidence `json:"confidence"`

@@ -150,3 +150,115 @@ func assertNoMethod(t *testing.T, symbols []DeclaredSymbol, parent string, name 
 		}
 	}
 }
+
+func TestExtractDeclaredSymbols_MethodModifiers(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "camera_adapter.h")
+
+	content := `#pragma once
+
+class ICameraAdapter {
+public:
+	virtual bool RunPreflight() const = 0;
+	bool StartSession(int count) noexcept;
+	void StopSession() override final;
+};
+`
+
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write header: %v", err)
+	}
+
+	symbols, err := ExtractDeclaredSymbols(path)
+	if err != nil {
+		t.Fatalf("ExtractDeclaredSymbols failed: %v", err)
+	}
+
+	assertMethodHasModifiers(t, symbols, "ICameraAdapter", "RunPreflight", []string{
+		"virtual",
+		"const",
+		"pure_virtual",
+	})
+
+	assertMethodHasModifiers(t, symbols, "ICameraAdapter", "StartSession", []string{
+		"noexcept",
+	})
+
+	assertMethodHasModifiers(t, symbols, "ICameraAdapter", "StopSession", []string{
+		"override",
+		"final",
+	})
+}
+
+func assertMethodHasModifiers(t *testing.T, symbols []DeclaredSymbol, parent string, name string, want []string) {
+	t.Helper()
+
+	for _, symbol := range symbols {
+		if symbol.Kind == model.SymbolKindMethod && symbol.Parent == parent && symbol.Name == name {
+			for _, modifier := range want {
+				if !containsString(symbol.Modifiers, modifier) {
+					t.Fatalf("expected method %s::%s to have modifier %q, got %#v", parent, name, modifier, symbol.Modifiers)
+				}
+			}
+
+			return
+		}
+	}
+
+	t.Fatalf("expected method %s::%s in %#v", parent, name, symbols)
+}
+
+func containsString(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+
+	return false
+}
+
+func TestExtractDeclaredSymbols_FriendDeclarations(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "camera.h")
+
+	content := `#pragma once
+
+class Camera {
+private:
+	friend class CameraTest;
+	friend bool operator==(const Camera& lhs, const Camera& rhs);
+
+public:
+	bool Start();
+};
+`
+
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write header: %v", err)
+	}
+
+	symbols, err := ExtractDeclaredSymbols(path)
+	if err != nil {
+		t.Fatalf("ExtractDeclaredSymbols failed: %v", err)
+	}
+
+	assertFriend(t, symbols, "Camera", "CameraTest")
+	assertFriend(t, symbols, "Camera", "operator==")
+}
+
+func assertFriend(t *testing.T, symbols []DeclaredSymbol, parent string, name string) {
+	t.Helper()
+
+	for _, symbol := range symbols {
+		if symbol.Kind == model.SymbolKindFriend && symbol.Parent == parent && symbol.Name == name {
+			if !symbol.Exported {
+				t.Fatalf("expected friend %s::%s to be exported", parent, name)
+			}
+
+			return
+		}
+	}
+
+	t.Fatalf("expected friend %s::%s in %#v", parent, name, symbols)
+}

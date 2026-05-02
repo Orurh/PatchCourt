@@ -38,14 +38,7 @@ func (r *Runner) newRootCommand(ctx context.Context) *cobra.Command {
 	cmd.AddCommand(r.newScanCommand(ctx, &opts))
 	cmd.AddCommand(r.newGraphCommand(ctx, &opts))
 
-	cmd.AddCommand(&cobra.Command{
-		Use:   "review",
-		Short: "Review a patch against a base revision",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cmd.Println("review: not implemented yet")
-			return nil
-		},
-	})
+	cmd.AddCommand(r.newReviewCommand(ctx, &opts))
 
 	return cmd
 }

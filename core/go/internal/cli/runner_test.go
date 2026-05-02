@@ -13,17 +13,20 @@ import (
 )
 
 type fakeApplication struct {
-	initReq  app.InitRequest
-	scanReq  app.ScanRequest
-	graphReq app.GraphRequest
+	initReq   app.InitRequest
+	scanReq   app.ScanRequest
+	graphReq  app.GraphRequest
+	reviewReq app.ReviewRequest
 
-	initResult  *app.InitResult
-	scanResult  *app.ScanResult
-	graphResult *app.GraphResult
+	initResult   *app.InitResult
+	scanResult   *app.ScanResult
+	graphResult  *app.GraphResult
+	reviewResult *app.ReviewResult
 
-	initErr  error
-	scanErr  error
-	graphErr error
+	initErr   error
+	scanErr   error
+	graphErr  error
+	reviewErr error
 }
 
 func (f *fakeApplication) RunInit(ctx context.Context, req app.InitRequest) (*app.InitResult, error) {
@@ -39,6 +42,11 @@ func (f *fakeApplication) RunScan(ctx context.Context, req app.ScanRequest) (*ap
 func (f *fakeApplication) RunGraph(ctx context.Context, req app.GraphRequest) (*app.GraphResult, error) {
 	f.graphReq = req
 	return f.graphResult, f.graphErr
+}
+
+func (f *fakeApplication) RunReview(ctx context.Context, req app.ReviewRequest) (*app.ReviewResult, error) {
+	f.reviewReq = req
+	return f.reviewResult, f.reviewErr
 }
 
 func TestRunner_RunInitUsesInjectedApplication(t *testing.T) {

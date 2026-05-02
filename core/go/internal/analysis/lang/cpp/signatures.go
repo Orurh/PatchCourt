@@ -14,6 +14,7 @@ var (
 	enumRE      = regexp.MustCompile(`^\s*enum\s+(?:class\s+)?([A-Za-z_][A-Za-z0-9_]*)\b`)
 	usingRE     = regexp.MustCompile(`^\s*using\s+([A-Za-z_][A-Za-z0-9_]*)\s*=`)
 	typedefRE   = regexp.MustCompile(`^\s*typedef\s+.+\s+([A-Za-z_][A-Za-z0-9_]*)\s*;`)
+	friendRE    = regexp.MustCompile(`^\s*friend\s+(.+);`)
 	methodRE    = regexp.MustCompile(`^\s*(?:virtual\s+)?[A-Za-z_][A-Za-z0-9_:<>,~*&\s]+\s+([A-Za-z_~][A-Za-z0-9_]*)\s*\([^;{}]*\)\s*(?:const\s*)?(?:noexcept\s*)?(?:override\s*)?(?:final\s*)?(?:=\s*0\s*)?;`)
 	commentLine = regexp.MustCompile(`//.*$`)
 )
@@ -23,6 +24,8 @@ type DeclaredSymbol struct {
 	Kind       model.SymbolKind
 	Parent     string
 	Signature  string
+	Modifiers  []string
+	Exported   bool
 	Visibility string
 	Confidence model.Confidence
 }
@@ -59,6 +62,10 @@ func ExtractDeclaredSymbols(path string) ([]DeclaredSymbol, error) {
 					currentClass = nil
 				}
 				continue
+			}
+
+			if symbol, ok := extractFriendFromLine(line, currentClass.name, currentClass.visibility); ok {
+				symbols = append(symbols, symbol)
 			}
 
 			if currentClass.visibility == "public" {
@@ -108,6 +115,7 @@ func extractDeclaredSymbolFromLine(line string) (DeclaredSymbol, bool) {
 			Name:       match[2],
 			Kind:       classOrStructKind(match[1]),
 			Signature:  line,
+			Exported:   true,
 			Confidence: model.ConfidenceMedium,
 		}, true
 	}
@@ -117,6 +125,7 @@ func extractDeclaredSymbolFromLine(line string) (DeclaredSymbol, bool) {
 			Name:       match[1],
 			Kind:       model.SymbolKindEnum,
 			Signature:  line,
+			Exported:   true,
 			Confidence: model.ConfidenceMedium,
 		}, true
 	}
@@ -126,6 +135,7 @@ func extractDeclaredSymbolFromLine(line string) (DeclaredSymbol, bool) {
 			Name:       match[1],
 			Kind:       model.SymbolKindUsing,
 			Signature:  line,
+			Exported:   true,
 			Confidence: model.ConfidenceMedium,
 		}, true
 	}
@@ -135,6 +145,7 @@ func extractDeclaredSymbolFromLine(line string) (DeclaredSymbol, bool) {
 			Name:       match[1],
 			Kind:       model.SymbolKindTypedef,
 			Signature:  line,
+			Exported:   true,
 			Confidence: model.ConfidenceLow,
 		}, true
 	}
@@ -158,9 +169,91 @@ func extractMethodFromLine(line string, parent string) (DeclaredSymbol, bool) {
 		Kind:       model.SymbolKindMethod,
 		Parent:     parent,
 		Signature:  line,
+		Modifiers:  methodModifiers(line),
+		Exported:   true,
 		Visibility: "public",
 		Confidence: model.ConfidenceLow,
 	}, true
+}
+
+func extractFriendFromLine(line string, parent string, visibility string) (DeclaredSymbol, bool) {
+	match := friendRE.FindStringSubmatch(line)
+	if len(match) != 2 {
+		return DeclaredSymbol{}, false
+	}
+
+	signature := strings.TrimSpace(line)
+	name := friendName(match[1])
+
+	return DeclaredSymbol{
+		Name:       name,
+		Kind:       model.SymbolKindFriend,
+		Parent:     parent,
+		Signature:  signature,
+		Exported:   true,
+		Visibility: visibility,
+		Confidence: model.ConfidenceLow,
+	}, true
+}
+
+func friendName(decl string) string {
+	decl = strings.TrimSpace(decl)
+
+	if strings.HasPrefix(decl, "class ") {
+		return strings.TrimSpace(strings.TrimPrefix(decl, "class "))
+	}
+
+	if strings.HasPrefix(decl, "struct ") {
+		return strings.TrimSpace(strings.TrimPrefix(decl, "struct "))
+	}
+
+	openParen := strings.Index(decl, "(")
+	if openParen == -1 {
+		fields := strings.Fields(decl)
+		if len(fields) == 0 {
+			return decl
+		}
+
+		return strings.Trim(fields[len(fields)-1], "*&")
+	}
+
+	beforeParen := strings.TrimSpace(decl[:openParen])
+	fields := strings.Fields(beforeParen)
+	if len(fields) == 0 {
+		return decl
+	}
+
+	return strings.Trim(fields[len(fields)-1], "*&")
+}
+
+func methodModifiers(line string) []string {
+	modifiers := make([]string, 0, 6)
+
+	if strings.Contains(line, "virtual ") {
+		modifiers = append(modifiers, "virtual")
+	}
+
+	if strings.Contains(line, ") const") {
+		modifiers = append(modifiers, "const")
+	}
+
+	if strings.Contains(line, "noexcept") {
+		modifiers = append(modifiers, "noexcept")
+	}
+
+	if strings.Contains(line, "override") {
+		modifiers = append(modifiers, "override")
+	}
+
+	if strings.Contains(line, "final") {
+		modifiers = append(modifiers, "final")
+	}
+
+	if strings.Contains(line, "= 0") || strings.Contains(line, "=0") {
+		modifiers = append(modifiers, "pure_virtual")
+	}
+
+	return modifiers
 }
 
 func classOrStructKind(keyword string) model.SymbolKind {
