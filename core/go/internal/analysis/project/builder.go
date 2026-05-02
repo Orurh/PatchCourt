@@ -179,17 +179,7 @@ func collectSymbols(absRoot string, project *model.ProjectModel) error {
 		}
 
 		for _, declaredSymbol := range declaredSymbols {
-			symbol := model.SymbolModel{
-				Name:       declaredSymbol.Name,
-				Kind:       declaredSymbol.Kind,
-				File:       file.Path,
-				Parent:     declaredSymbol.Parent,
-				Signature:  declaredSymbol.Signature,
-				Modifiers:  declaredSymbol.Modifiers,
-				Exported:   declaredSymbol.Exported,
-				Visibility: declaredSymbol.Visibility,
-				Confidence: declaredSymbol.Confidence,
-			}
+			symbol := declaredSymbol.ToModel(file.Path)
 
 			file.Symbols = append(file.Symbols, symbol)
 			project.Symbols = append(project.Symbols, symbol)

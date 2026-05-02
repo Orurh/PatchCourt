@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 
 	"github.com/orurh/patchcourt/internal/analysis/compilecmds"
-
 	"github.com/orurh/patchcourt/internal/analysis/project"
 	"github.com/orurh/patchcourt/internal/analysis/rules"
 	"github.com/orurh/patchcourt/internal/config"
