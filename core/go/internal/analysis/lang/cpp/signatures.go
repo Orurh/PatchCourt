@@ -10,18 +10,28 @@ import (
 )
 
 var (
-	classRE     = regexp.MustCompile(`^\s*(?:template\s*<[^>]+>\s*)?(?:class|struct)\s+([A-Za-z_][A-Za-z0-9_]*)\b`)
+	classRE     = regexp.MustCompile(`^\s*(?:template\s*<[^>]+>\s*)?(class|struct)\s+([A-Za-z_][A-Za-z0-9_]*)\b`)
 	enumRE      = regexp.MustCompile(`^\s*enum\s+(?:class\s+)?([A-Za-z_][A-Za-z0-9_]*)\b`)
 	usingRE     = regexp.MustCompile(`^\s*using\s+([A-Za-z_][A-Za-z0-9_]*)\s*=`)
 	typedefRE   = regexp.MustCompile(`^\s*typedef\s+.+\s+([A-Za-z_][A-Za-z0-9_]*)\s*;`)
+	methodRE    = regexp.MustCompile(`^\s*(?:virtual\s+)?[A-Za-z_][A-Za-z0-9_:<>,~*&\s]+\s+([A-Za-z_~][A-Za-z0-9_]*)\s*\([^;{}]*\)\s*(?:const\s*)?(?:noexcept\s*)?(?:override\s*)?(?:final\s*)?(?:=\s*0\s*)?;`)
 	commentLine = regexp.MustCompile(`//.*$`)
 )
 
 type DeclaredSymbol struct {
 	Name       string
 	Kind       model.SymbolKind
+	Parent     string
 	Signature  string
+	Visibility string
 	Confidence model.Confidence
+}
+
+type classContext struct {
+	name       string
+	kind       model.SymbolKind
+	visibility string
+	braceDepth int
 }
 
 func ExtractDeclaredSymbols(path string) ([]DeclaredSymbol, error) {
@@ -32,6 +42,7 @@ func ExtractDeclaredSymbols(path string) ([]DeclaredSymbol, error) {
 	defer file.Close()
 
 	var symbols []DeclaredSymbol
+	var currentClass *classContext
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -40,8 +51,47 @@ func ExtractDeclaredSymbols(path string) ([]DeclaredSymbol, error) {
 			continue
 		}
 
+		if currentClass != nil {
+			if visibility, ok := parseVisibilityLabel(line); ok {
+				currentClass.visibility = visibility
+				currentClass.braceDepth += braceDelta(line)
+				if currentClass.braceDepth <= 0 {
+					currentClass = nil
+				}
+				continue
+			}
+
+			if currentClass.visibility == "public" {
+				if symbol, ok := extractMethodFromLine(line, currentClass.name); ok {
+					symbols = append(symbols, symbol)
+				}
+			}
+		}
+
 		if symbol, ok := extractDeclaredSymbolFromLine(line); ok {
 			symbols = append(symbols, symbol)
+
+			if symbol.Kind == model.SymbolKindClass || symbol.Kind == model.SymbolKindStruct {
+				if strings.Contains(line, "{") {
+					currentClass = &classContext{
+						name:       symbol.Name,
+						kind:       symbol.Kind,
+						visibility: defaultVisibility(symbol.Kind),
+						braceDepth: braceDelta(line),
+					}
+
+					if currentClass.braceDepth <= 0 {
+						currentClass = nil
+					}
+				}
+			}
+		}
+
+		if currentClass != nil {
+			currentClass.braceDepth += braceDeltaWithoutOpeningClassLine(line)
+			if currentClass.braceDepth <= 0 {
+				currentClass = nil
+			}
 		}
 	}
 
@@ -53,10 +103,10 @@ func ExtractDeclaredSymbols(path string) ([]DeclaredSymbol, error) {
 }
 
 func extractDeclaredSymbolFromLine(line string) (DeclaredSymbol, bool) {
-	if match := classRE.FindStringSubmatch(line); len(match) == 2 {
+	if match := classRE.FindStringSubmatch(line); len(match) == 3 {
 		return DeclaredSymbol{
-			Name:       match[1],
-			Kind:       classOrStructKind(line),
+			Name:       match[2],
+			Kind:       classOrStructKind(match[1]),
 			Signature:  line,
 			Confidence: model.ConfidenceMedium,
 		}, true
@@ -92,16 +142,66 @@ func extractDeclaredSymbolFromLine(line string) (DeclaredSymbol, bool) {
 	return DeclaredSymbol{}, false
 }
 
-func classOrStructKind(line string) model.SymbolKind {
-	line = strings.TrimSpace(line)
-	line = strings.TrimPrefix(line, "template")
-	line = strings.TrimSpace(line)
+func extractMethodFromLine(line string, parent string) (DeclaredSymbol, bool) {
+	match := methodRE.FindStringSubmatch(line)
+	if len(match) != 2 {
+		return DeclaredSymbol{}, false
+	}
 
-	if strings.HasPrefix(line, "struct ") || strings.Contains(line, "> struct ") {
+	name := match[1]
+	if strings.HasPrefix(name, "~") {
+		return DeclaredSymbol{}, false
+	}
+
+	return DeclaredSymbol{
+		Name:       name,
+		Kind:       model.SymbolKindMethod,
+		Parent:     parent,
+		Signature:  line,
+		Visibility: "public",
+		Confidence: model.ConfidenceLow,
+	}, true
+}
+
+func classOrStructKind(keyword string) model.SymbolKind {
+	if keyword == "struct" {
 		return model.SymbolKindStruct
 	}
 
 	return model.SymbolKindClass
+}
+
+func defaultVisibility(kind model.SymbolKind) string {
+	if kind == model.SymbolKindStruct {
+		return "public"
+	}
+
+	return "private"
+}
+
+func parseVisibilityLabel(line string) (string, bool) {
+	switch strings.TrimSpace(line) {
+	case "public:":
+		return "public", true
+	case "protected:":
+		return "protected", true
+	case "private:":
+		return "private", true
+	default:
+		return "", false
+	}
+}
+
+func braceDelta(line string) int {
+	return strings.Count(line, "{") - strings.Count(line, "}")
+}
+
+func braceDeltaWithoutOpeningClassLine(line string) int {
+	if classRE.MatchString(line) {
+		return 0
+	}
+
+	return braceDelta(line)
 }
 
 func normalizeDeclarationLine(line string) string {

@@ -183,8 +183,10 @@ func collectSymbols(absRoot string, project *model.ProjectModel) error {
 				Name:       declaredSymbol.Name,
 				Kind:       declaredSymbol.Kind,
 				File:       file.Path,
+				Parent:     declaredSymbol.Parent,
 				Signature:  declaredSymbol.Signature,
 				Exported:   true,
+				Visibility: declaredSymbol.Visibility,
 				Confidence: declaredSymbol.Confidence,
 			}
 
