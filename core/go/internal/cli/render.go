@@ -73,3 +73,15 @@ func (r *Runner) renderReviewResult(format app.ReviewFormat, result *app.ReviewR
 		return fmt.Errorf("unknown review format: %s", format)
 	}
 }
+
+func (r *Runner) renderExplainResult(format app.ExplainFormat, result *app.ExplainResult) error {
+	switch format {
+	case app.ExplainFormatJSON:
+		return writeJSON(r.stdout, result)
+	case app.ExplainFormatText, "":
+		report.WriteExplainText(r.stdout, result)
+		return nil
+	default:
+		return fmt.Errorf("unknown explain format: %s", format)
+	}
+}

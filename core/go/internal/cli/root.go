@@ -37,8 +37,8 @@ func (r *Runner) newRootCommand(ctx context.Context) *cobra.Command {
 	cmd.AddCommand(r.newInitCommand(ctx, &opts))
 	cmd.AddCommand(r.newScanCommand(ctx, &opts))
 	cmd.AddCommand(r.newGraphCommand(ctx, &opts))
-
 	cmd.AddCommand(r.newReviewCommand(ctx, &opts))
+	cmd.AddCommand(r.newExplainCommand(ctx, &opts))
 
 	return cmd
 }
