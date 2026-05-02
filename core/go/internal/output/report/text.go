@@ -19,6 +19,7 @@ func WriteScanText(w io.Writer, project *model.ProjectModel) {
 	fmt.Fprintf(w, "  C++ sources: %d\n", summary.CPPSources)
 	fmt.Fprintf(w, "  C++ tests:   %d\n", summary.CPPTests)
 	fmt.Fprintf(w, "  Go files:    %d\n", summary.GoFiles)
+	fmt.Fprintf(w, "  symbols:     %d\n", summary.Symbols)
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "File roles:")
 	fmt.Fprintf(w, "  production: %d\n", summary.ProductionFiles)

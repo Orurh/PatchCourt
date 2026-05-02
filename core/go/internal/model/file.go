@@ -29,12 +29,13 @@ const (
 )
 
 type FileModel struct {
-	Path     string   `json:"path"`
-	Language Language `json:"language"`
-	Kind     FileKind `json:"kind"`
-	Role     FileRole `json:"role"`
-	Layer    string   `json:"layer,omitempty"`
-	IsTest   bool     `json:"is_test"`
-	Includes []string `json:"includes,omitempty"`
-	Imports  []string `json:"imports,omitempty"`
+	Path     string        `json:"path"`
+	Language Language      `json:"language"`
+	Kind     FileKind      `json:"kind"`
+	Role     FileRole      `json:"role"`
+	Layer    string        `json:"layer,omitempty"`
+	IsTest   bool          `json:"is_test"`
+	Includes []string      `json:"includes,omitempty"`
+	Imports  []string      `json:"imports,omitempty"`
+	Symbols  []SymbolModel `json:"symbols,omitempty"`
 }

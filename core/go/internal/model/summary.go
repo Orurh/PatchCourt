@@ -5,6 +5,7 @@ type ScanSummary struct {
 	CPPSources int
 	CPPTests   int
 	GoFiles    int
+	Symbols    int
 
 	ProductionFiles int
 	TestFiles       int
@@ -21,6 +22,7 @@ type ScanSummary struct {
 
 func BuildScanSummary(project *ProjectModel) ScanSummary {
 	var summary ScanSummary
+	summary.Symbols = len(project.Symbols)
 
 	for _, file := range project.Files {
 		switch file.Role {

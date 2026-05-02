@@ -37,6 +37,10 @@ func Build(opts Options) (*model.ProjectModel, error) {
 		return nil, err
 	}
 
+	if err := collectSymbols(absRoot, project); err != nil {
+		return nil, err
+	}
+
 	fileIndex := resolver.NewFileIndex(project.Files)
 	cppIncludeResolver := resolver.NewCPPIncludeResolver(absRoot, fileIndex, opts.CPPIncludePaths)
 
@@ -153,4 +157,41 @@ func shouldIgnorePath(path string, patterns []string) bool {
 	}
 
 	return pathmatch.MatchAny(patterns, path)
+}
+
+func collectSymbols(absRoot string, project *model.ProjectModel) error {
+	for i := range project.Files {
+		file := &project.Files[i]
+
+		if file.Language != model.LanguageCPP {
+			continue
+		}
+
+		if file.Role != model.FileRoleProduction {
+			continue
+		}
+
+		absPath := filepath.Join(absRoot, filepath.FromSlash(file.Path))
+
+		declaredSymbols, err := cpp.ExtractDeclaredSymbols(absPath)
+		if err != nil {
+			return fmt.Errorf("extract symbols %s: %w", file.Path, err)
+		}
+
+		for _, declaredSymbol := range declaredSymbols {
+			symbol := model.SymbolModel{
+				Name:       declaredSymbol.Name,
+				Kind:       declaredSymbol.Kind,
+				File:       file.Path,
+				Signature:  declaredSymbol.Signature,
+				Exported:   true,
+				Confidence: declaredSymbol.Confidence,
+			}
+
+			file.Symbols = append(file.Symbols, symbol)
+			project.Symbols = append(project.Symbols, symbol)
+		}
+	}
+
+	return nil
 }
