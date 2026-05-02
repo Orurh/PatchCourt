@@ -8,6 +8,7 @@ import (
 
 	"github.com/orurh/patchcourt/internal/analysis/compilecmds"
 	"github.com/orurh/patchcourt/internal/analysis/project"
+	"github.com/orurh/patchcourt/internal/analysis/resolver"
 	"github.com/orurh/patchcourt/internal/analysis/rules"
 	"github.com/orurh/patchcourt/internal/config"
 	"github.com/orurh/patchcourt/internal/model"
@@ -106,28 +107,37 @@ func (e *Engine) Analyze(ctx context.Context, req AnalyzeRequest) (*AnalyzeResul
 	}, nil
 }
 
-func (e *Engine) resolveCPPIncludePaths(root string, cfg *config.Config) ([]string, error) {
-	includePaths := append([]string{}, cfg.CPP.IncludePaths...)
-
+func (e *Engine) resolveCPPIncludePaths(root string, cfg *config.Config) ([]resolver.IncludePath, error) {
+	includePaths := make([]resolver.IncludePath, 0)
 	compileCommandsPath := resolveCompileCommandsPath(root, cfg)
-	if compileCommandsPath == "" {
-		return uniqueStrings(includePaths), nil
+	if compileCommandsPath != "" {
+		db, err := compilecmds.Load(compileCommandsPath)
+		if err != nil {
+			return nil, err
+		}
+
+		includePaths = appendIncludePaths(
+			includePaths,
+			compilecmds.IncludePaths(db, root),
+			model.ResolutionSourceCompileCommands,
+			model.ResolutionConfidenceHigh,
+		)
+
+		e.logger.Debug(
+			"loaded compile commands include paths",
+			logx.String("compile_commands", compileCommandsPath),
+			logx.Int("include_paths", len(includePaths)),
+		)
 	}
 
-	db, err := compilecmds.Load(compileCommandsPath)
-	if err != nil {
-		return nil, err
-	}
-
-	includePaths = append(includePaths, compilecmds.IncludePaths(db, root)...)
-
-	e.logger.Debug(
-		"loaded compile commands include paths",
-		logx.String("compile_commands", compileCommandsPath),
-		logx.Int("include_paths", len(includePaths)),
+	includePaths = appendIncludePaths(
+		includePaths,
+		cfg.CPP.IncludePaths,
+		model.ResolutionSourceConfig,
+		model.ResolutionConfidenceHigh,
 	)
 
-	return uniqueStrings(includePaths), nil
+	return uniqueIncludePaths(includePaths), nil
 }
 
 func resolveCompileCommandsPath(root string, cfg *config.Config) string {
@@ -163,20 +173,37 @@ func fileExists(path string) bool {
 	return err == nil && !info.IsDir()
 }
 
-func uniqueStrings(values []string) []string {
+func appendIncludePaths(
+	dst []resolver.IncludePath,
+	paths []string,
+	source model.ResolutionSource,
+	confidence model.ResolutionConfidence,
+) []resolver.IncludePath {
+	for _, path := range paths {
+		dst = append(dst, resolver.IncludePath{
+			Path:       path,
+			Source:     source,
+			Confidence: confidence,
+		})
+	}
+
+	return dst
+}
+
+func uniqueIncludePaths(values []resolver.IncludePath) []resolver.IncludePath {
 	seen := make(map[string]struct{}, len(values))
-	result := make([]string, 0, len(values))
+	result := make([]resolver.IncludePath, 0, len(values))
 
 	for _, value := range values {
-		if value == "" {
+		if value.Path == "" {
 			continue
 		}
 
-		if _, ok := seen[value]; ok {
+		if _, ok := seen[value.Path]; ok {
 			continue
 		}
 
-		seen[value] = struct{}{}
+		seen[value.Path] = struct{}{}
 		result = append(result, value)
 	}
 

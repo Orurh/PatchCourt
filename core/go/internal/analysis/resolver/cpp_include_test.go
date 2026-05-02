@@ -160,7 +160,7 @@ func TestCPPIncludeResolver_ResolveUsingConfiguredIncludePath(t *testing.T) {
 		{Path: "src/session/constants.h"},
 	}
 
-	resolver := NewCPPIncludeResolver("", NewFileIndex(files), []string{"src"})
+	resolver := NewCPPIncludeResolver("", NewFileIndex(files), testIncludePaths("src"))
 
 	got := resolver.Resolve(
 		"src/cameras/sony_camera_manager_impl/sony_camera_manager.cc",
@@ -196,7 +196,7 @@ func TestCPPIncludeResolver_MarksPhysicalFileOutsideIndexAsExternal(t *testing.T
 	resolver := NewCPPIncludeResolver(
 		root,
 		NewFileIndex(nil),
-		[]string{"libs/logx/include"},
+		testIncludePaths("libs/logx/include"),
 	)
 
 	got := resolver.Resolve(
@@ -220,6 +220,39 @@ func TestCPPIncludeResolver_MarksPhysicalFileOutsideIndexAsExternal(t *testing.T
 		t.Fatalf("expected high confidence, got %q", got.Confidence)
 	}
 }
+
+func TestCPPIncludeResolver_PreservesIncludePathSource(t *testing.T) {
+	files := []model.FileModel{
+		{Path: "src/application/constants.h"},
+	}
+
+	resolver := NewCPPIncludeResolver("", NewFileIndex(files), []IncludePath{
+		{
+			Path:       "src",
+			Source:     model.ResolutionSourceCompileCommands,
+			Confidence: model.ResolutionConfidenceHigh,
+		},
+	})
+
+	got := resolver.Resolve("src/main.cc", "application/constants.h")
+	if got.Source != model.ResolutionSourceCompileCommands {
+		t.Fatalf("expected compile_commands source, got %q", got.Source)
+	}
+}
+
+func testIncludePaths(paths ...string) []IncludePath {
+	result := make([]IncludePath, 0, len(paths))
+	for _, path := range paths {
+		result = append(result, IncludePath{
+			Path:       path,
+			Source:     model.ResolutionSourceConfig,
+			Confidence: model.ResolutionConfidenceHigh,
+		})
+	}
+
+	return result
+}
+
 
 func writeResolverTestFile(t *testing.T, root string, relPath string) {
 	t.Helper()

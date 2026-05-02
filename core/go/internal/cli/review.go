@@ -7,6 +7,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// reviewOptions хранит CLI-опции команды review.
+//
+// Эти значения заполняются Cobra на основе флагов команды:
+//
+//	--before
+//	--after
+//	--before-root
+//	--after-root
+//	--config
+//	--format
+//
+// Опции используются только CLI-адаптером и не являются частью
+// application-слоя PatchCourt.
 type reviewOptions struct {
 	beforePath string
 	afterPath  string
@@ -18,6 +31,10 @@ type reviewOptions struct {
 	format string
 }
 
+// newReviewCommand создает Cobra-команду review.
+//
+// Команда review сравнивает два project model snapshots или два project roots.
+// Результат выводится в stdout в выбранном формате.
 func (r *Runner) newReviewCommand(ctx context.Context, rootOpts *rootOptions) *cobra.Command {
 	var opts reviewOptions
 

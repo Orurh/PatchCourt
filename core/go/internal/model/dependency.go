@@ -19,9 +19,11 @@ const (
 type ResolutionSource string
 
 const (
-	ResolutionSourceNone      ResolutionSource = "none"
-	ResolutionSourceConfig    ResolutionSource = "config"
-	ResolutionSourceHeuristic ResolutionSource = "heuristic"
+	ResolutionSourceNone            ResolutionSource = "none"
+	ResolutionSourceCompileCommands ResolutionSource = "compile_commands"
+	ResolutionSourceConfig          ResolutionSource = "config"
+	ResolutionSourceCMake           ResolutionSource = "cmake_lightweight"
+	ResolutionSourceHeuristic       ResolutionSource = "heuristic"
 )
 
 type ResolutionConfidence string

@@ -163,6 +163,79 @@ func TestApp_RunScan_EndToEndIgnoresGeneratedAndBuildFiles(t *testing.T) {
 	}
 }
 
+func TestApp_RunScan_UsesCompileCommandsIncludePaths(t *testing.T) {
+	root := t.TempDir()
+
+	writeFile(t, root, "src/application/constants.h", `#pragma once
+`)
+
+	writeFile(t, root, "src/server/api_router.cc", `#include "application/constants.h"
+`)
+
+	writeFile(t, root, "build/compile_commands.json", `[
+  {
+    "directory": "`+filepath.ToSlash(filepath.Join(root, "build"))+`",
+    "arguments": [
+      "clang++",
+      "-I",
+      "../src",
+      "-c",
+      "../src/server/api_router.cc"
+    ],
+    "file": "`+filepath.ToSlash(filepath.Join(root, "src/server/api_router.cc"))+`"
+  }
+]`)
+
+	writeFile(t, root, ".patchcourt.yaml", `
+ignore:
+  paths:
+    - generated/**
+
+cpp:
+  compile_commands:
+    auto_discover: true
+
+layers:
+  api:
+    paths:
+      - src/server/**
+    may_depend_on:
+      - application
+
+  application:
+    paths:
+      - src/application/**
+    may_depend_on: []
+`)
+
+	application := New(logx.Nop())
+
+	result, err := application.RunScan(context.Background(), ScanRequest{
+		Root:       root,
+		ConfigPath: filepath.Join(root, ".patchcourt.yaml"),
+	})
+	if err != nil {
+		t.Fatalf("RunScan failed: %v", err)
+	}
+
+	dep, found := findDependency(
+		result.Project.Dependencies,
+		"src/server/api_router.cc",
+		"src/application/constants.h",
+	)
+	if !found {
+		t.Fatalf("expected dependency resolved through compile_commands include path")
+	}
+
+	if dep.ResolutionSource != model.ResolutionSourceCompileCommands {
+		t.Fatalf("expected compile_commands source, got %q", dep.ResolutionSource)
+	}
+
+	if dep.ResolutionConfidence != model.ResolutionConfidenceHigh {
+		t.Fatalf("expected high confidence, got %q", dep.ResolutionConfidence)
+	}
+}
+
 func writeFile(t *testing.T, root string, relPath string, content string) {
 	t.Helper()
 

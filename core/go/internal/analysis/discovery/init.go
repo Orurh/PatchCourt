@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/orurh/patchcourt/internal/analysis/project"
+	"github.com/orurh/patchcourt/internal/analysis/resolver"
 	"github.com/orurh/patchcourt/internal/model"
 	"github.com/orurh/patchcourt/internal/platform/pathmatch"
 )
@@ -41,7 +42,8 @@ func GenerateInitConfig(opts InitOptions) (*InitResult, error) {
 	}
 
 	ignorePaths := DefaultIgnorePaths()
-	includePaths := discoverCPPIncludePaths(absRoot)
+	includePathStrings := discoverCPPIncludePaths(absRoot)
+	includePaths := configIncludePaths(includePathStrings)
 
 	project, err := project.Build(project.Options{
 		Root:            absRoot,
@@ -54,7 +56,7 @@ func GenerateInitConfig(opts InitOptions) (*InitResult, error) {
 
 	layers := discoverLayers(project, opts.Strict)
 
-	configYAML := renderConfig(ignorePaths, includePaths, layers, opts.Strict)
+	configYAML := renderConfig(ignorePaths, includePathStrings, layers, opts.Strict)
 
 	return &InitResult{
 		ConfigYAML: configYAML,
@@ -94,6 +96,19 @@ func discoverCPPIncludePaths(absRoot string) []string {
 		if dirExists(filepath.Join(absRoot, filepath.FromSlash(candidate))) {
 			result = append(result, candidate)
 		}
+	}
+
+	return result
+}
+
+func configIncludePaths(paths []string) []resolver.IncludePath {
+	result := make([]resolver.IncludePath, 0, len(paths))
+	for _, path := range paths {
+		result = append(result, resolver.IncludePath{
+			Path:       path,
+			Source:     model.ResolutionSourceConfig,
+			Confidence: model.ResolutionConfidenceHigh,
+		})
 	}
 
 	return result

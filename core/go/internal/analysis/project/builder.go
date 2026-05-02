@@ -15,7 +15,7 @@ import (
 type Options struct {
 	Root            string
 	IgnorePaths     []string
-	CPPIncludePaths []string
+	CPPIncludePaths []resolver.IncludePath
 }
 
 func Build(opts Options) (*model.ProjectModel, error) {

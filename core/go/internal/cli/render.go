@@ -9,12 +9,16 @@ import (
 	"github.com/orurh/patchcourt/internal/output/report"
 )
 
+// writeJSON печатает значение в формате JSON.
 func writeJSON(w io.Writer, value any) error {
 	encoder := json.NewEncoder(w)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(value)
 }
 
+// renderScanResult печатает результат сканирования в выбранном формате.
+//
+// При неизвестном формате возвращает ошибку.
 func (r *Runner) renderScanResult(format app.ScanFormat, result *app.ScanResult) error {
 	switch format {
 	case app.ScanFormatJSON:
@@ -30,6 +34,9 @@ func (r *Runner) renderScanResult(format app.ScanFormat, result *app.ScanResult)
 	}
 }
 
+// renderGraphResult печатает результат генерации графа в выбранном формате.
+//
+// При неизвестном формате возвращает ошибку.
 func (r *Runner) renderGraphResult(format app.GraphFormat, result *app.GraphResult) error {
 	switch format {
 	case app.GraphFormatJSON:
@@ -45,6 +52,9 @@ func (r *Runner) renderGraphResult(format app.GraphFormat, result *app.GraphResu
 	}
 }
 
+// renderReviewResult печатает результат сравнения в выбранном формате.
+//
+// При неизвестном формате возвращает ошибку.
 func (r *Runner) renderReviewResult(format app.ReviewFormat, result *app.ReviewResult) error {
 	switch format {
 	case app.ReviewFormatJSON:

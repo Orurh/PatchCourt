@@ -9,6 +9,12 @@ import (
 	"github.com/orurh/patchcourt/internal/platform/pathmatch"
 )
 
+type IncludePath struct {
+	Path       string
+	Source     model.ResolutionSource
+	Confidence model.ResolutionConfidence
+}
+
 type IncludeResolution struct {
 	ToFile     string
 	Resolved   bool
@@ -22,17 +28,30 @@ type IncludeResolution struct {
 type CPPIncludeResolver struct {
 	root         string
 	fileIndex    FileIndex
-	includePaths []string
+	includePaths []IncludePath
 }
 
-func NewCPPIncludeResolver(root string, fileIndex FileIndex, includePaths []string) CPPIncludeResolver {
-	normalizedIncludePaths := make([]string, 0, len(includePaths))
+func NewCPPIncludeResolver(root string, fileIndex FileIndex, includePaths []IncludePath) CPPIncludeResolver {
+	normalizedIncludePaths := make([]IncludePath, 0, len(includePaths))
 	for _, includePath := range includePaths {
-		normalized := pathmatch.Normalize(includePath)
+		normalized := pathmatch.Normalize(includePath.Path)
 		if normalized == "" {
 			continue
 		}
-		normalizedIncludePaths = append(normalizedIncludePaths, normalized)
+		source := includePath.Source
+		if source == "" {
+			source = model.ResolutionSourceConfig
+		}
+
+		confidence := includePath.Confidence
+		if confidence == "" {
+			confidence = model.ResolutionConfidenceHigh
+		}
+
+		includePath.Path = normalized
+		includePath.Source = source
+		includePath.Confidence = confidence
+		normalizedIncludePaths = append(normalizedIncludePaths, includePath)
 	}
 
 	return CPPIncludeResolver{
@@ -55,13 +74,13 @@ func (r CPPIncludeResolver) Resolve(fromFile string, target string) IncludeResol
 	}
 
 	for _, includePath := range r.includePaths {
-		candidate := path.Clean(path.Join(includePath, normalizedTarget))
+		candidate := path.Clean(path.Join(includePath.Path, normalizedTarget))
 		if resolved, ok := r.fileIndex.ResolvePath(candidate); ok {
 			return IncludeResolution{
 				ToFile:     resolved,
 				Resolved:   true,
-				Source:     model.ResolutionSourceConfig,
-				Confidence: model.ResolutionConfidenceHigh,
+				Source:     includePath.Source,
+				Confidence: includePath.Confidence,
 			}
 		}
 
@@ -69,8 +88,8 @@ func (r CPPIncludeResolver) Resolve(fromFile string, target string) IncludeResol
 			return IncludeResolution{
 				Resolved:   false,
 				External:   true,
-				Source:     model.ResolutionSourceConfig,
-				Confidence: model.ResolutionConfidenceHigh,
+				Source:     includePath.Source,
+				Confidence: includePath.Confidence,
 			}
 		}
 	}
