@@ -142,3 +142,28 @@ func IsConfigFile(path string) bool {
 		return false
 	}
 }
+
+func IsIgnoredAnalysisRole(role model.FileRole) bool {
+	switch role {
+	case model.FileRoleTest, model.FileRoleGenerated, model.FileRoleExternal:
+		return true
+	default:
+		return false
+	}
+}
+
+func IgnoredAnalysisFileSet(files []model.FileModel) map[string]bool {
+	ignored := make(map[string]bool)
+
+	for _, file := range files {
+		if IsIgnoredAnalysisRole(file.Role) {
+			ignored[file.Path] = true
+		}
+	}
+
+	return ignored
+}
+
+func IsIgnoredAnalysisPath(path string) bool {
+	return IsTestFile(path) || IsGeneratedFile(path) || IsExternalFile(path)
+}

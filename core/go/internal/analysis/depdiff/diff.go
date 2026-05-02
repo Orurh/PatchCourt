@@ -4,6 +4,7 @@ import (
 	"sort"
 	"strings"
 
+	analysisproject "github.com/orurh/patchcourt/internal/analysis/project"
 	"github.com/orurh/patchcourt/internal/model"
 )
 
@@ -141,7 +142,7 @@ func layerEdgeCounts(deps []model.DependencyEdge) map[string]int {
 	counts := make(map[string]int)
 
 	for _, dep := range deps {
-		if dep.FromFile != "" && isIgnoredDependencyFile(dep.FromFile) {
+		if dep.FromFile != "" && analysisproject.IsIgnoredAnalysisPath(dep.FromFile) {
 			continue
 		}
 
@@ -215,32 +216,4 @@ func mergedSortedIntKeys(left map[string]int, right map[string]int) []string {
 
 	sort.Strings(keys)
 	return keys
-}
-
-func isIgnoredDependencyFile(filePath string) bool {
-	normalized := strings.ToLower(filePath)
-
-	parts := strings.Split(normalized, "/")
-	for _, part := range parts {
-		switch part {
-		case "test", "tests", "unit_test", "unit_tests", "integration_test", "integration_tests", "e2e", "e2e_tests",
-			"generated", "gen", "third_party", "3rdparty", "external", "vendor", "deps", "contrib":
-			return true
-		}
-	}
-
-	base := parts[len(parts)-1]
-	return strings.Contains(base, "_test.") ||
-		strings.Contains(base, "test_") ||
-		strings.Contains(base, "_spec.") ||
-		strings.Contains(base, "spec_") ||
-		strings.Contains(base, ".generated.") ||
-		strings.Contains(base, "_generated.") ||
-		strings.HasSuffix(base, ".pb.go") ||
-		strings.HasSuffix(base, ".pb.cc") ||
-		strings.HasSuffix(base, ".pb.cpp") ||
-		strings.HasSuffix(base, ".pb.h") ||
-		strings.HasSuffix(base, ".grpc.pb.go") ||
-		strings.HasSuffix(base, ".grpc.pb.cc") ||
-		strings.HasSuffix(base, ".grpc.pb.h")
 }

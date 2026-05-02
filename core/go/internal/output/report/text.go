@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 
+	analysisproject "github.com/orurh/patchcourt/internal/analysis/project"
 	"github.com/orurh/patchcourt/internal/model"
 )
 
@@ -214,18 +215,9 @@ func unusedDependencies(project *model.ProjectModel) []model.DependencyEdge {
 }
 
 func ignoredDiagnosticFromFiles(project *model.ProjectModel) map[string]bool {
-	ignored := make(map[string]bool)
-
 	if project == nil {
-		return ignored
+		return map[string]bool{}
 	}
 
-	for _, file := range project.Files {
-		switch file.Role {
-		case model.FileRoleTest, model.FileRoleGenerated, model.FileRoleExternal:
-			ignored[file.Path] = true
-		}
-	}
-
-	return ignored
+	return analysisproject.IgnoredAnalysisFileSet(project.Files)
 }

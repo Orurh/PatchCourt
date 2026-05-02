@@ -298,3 +298,72 @@ func TestIsGeneratedFile(t *testing.T) {
 		})
 	}
 }
+
+func TestIsIgnoredAnalysisRole(t *testing.T) {
+	tests := []struct {
+		role model.FileRole
+		want bool
+	}{
+		{model.FileRoleProduction, false},
+		{model.FileRoleTest, true},
+		{model.FileRoleGenerated, true},
+		{model.FileRoleExternal, true},
+		{model.FileRoleConfig, false},
+		{model.FileRoleUnknown, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.role), func(t *testing.T) {
+			got := IsIgnoredAnalysisRole(tt.role)
+			if got != tt.want {
+				t.Fatalf("IsIgnoredAnalysisRole(%q) = %v, want %v", tt.role, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIgnoredAnalysisFileSet(t *testing.T) {
+	got := IgnoredAnalysisFileSet([]model.FileModel{
+		{Path: "src/server/api_router.cc", Role: model.FileRoleProduction},
+		{Path: "tests/api_router_test.cc", Role: model.FileRoleTest},
+		{Path: "generated/foo.pb.cc", Role: model.FileRoleGenerated},
+		{Path: "third_party/lib.cc", Role: model.FileRoleExternal},
+	})
+
+	if got["src/server/api_router.cc"] {
+		t.Fatalf("production file must not be ignored")
+	}
+
+	for _, path := range []string{
+		"tests/api_router_test.cc",
+		"generated/foo.pb.cc",
+		"third_party/lib.cc",
+	} {
+		if !got[path] {
+			t.Fatalf("expected %s to be ignored in %#v", path, got)
+		}
+	}
+}
+
+func TestIsIgnoredAnalysisPath(t *testing.T) {
+	tests := []struct {
+		path string
+		want bool
+	}{
+		{"src/server/api_router.cc", false},
+		{"tests/api_router_test.cc", true},
+		{"generated/foo.pb.cc", true},
+		{"third_party/lib.cc", true},
+		{"vendor/lib/lib.cc", true},
+		{"src/proto/foo.grpc.pb.h", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			got := IsIgnoredAnalysisPath(tt.path)
+			if got != tt.want {
+				t.Fatalf("IsIgnoredAnalysisPath(%q) = %v, want %v", tt.path, got, tt.want)
+			}
+		})
+	}
+}

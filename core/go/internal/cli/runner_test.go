@@ -3,10 +3,13 @@ package cli
 import (
 	"bytes"
 	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/orurh/patchcourt/internal/analysis/findingdiff"
+	"github.com/orurh/patchcourt/internal/analysis/graph"
 	"github.com/orurh/patchcourt/internal/analysis/risk"
 	"github.com/orurh/patchcourt/internal/app"
 	"github.com/orurh/patchcourt/internal/config"
@@ -21,18 +24,21 @@ type fakeApplication struct {
 	graphReq   app.GraphRequest
 	reviewReq  app.ReviewRequest
 	explainReq app.ExplainRequest
+	checkReq   app.CheckRequest
 
 	initResult    *app.InitResult
 	scanResult    *app.ScanResult
 	graphResult   *app.GraphResult
 	reviewResult  *app.ReviewResult
 	explainResult *app.ExplainResult
+	checkResult   *app.CheckResult
 
 	initErr    error
 	scanErr    error
 	graphErr   error
 	reviewErr  error
 	explainErr error
+	checkErr   error
 }
 
 func (f *fakeApplication) RunInit(ctx context.Context, req app.InitRequest) (*app.InitResult, error) {
@@ -58,6 +64,11 @@ func (f *fakeApplication) RunReview(ctx context.Context, req app.ReviewRequest) 
 func (f *fakeApplication) RunExplain(ctx context.Context, req app.ExplainRequest) (*app.ExplainResult, error) {
 	f.explainReq = req
 	return f.explainResult, f.explainErr
+}
+
+func (f *fakeApplication) RunCheck(ctx context.Context, req app.CheckRequest) (*app.CheckResult, error) {
+	f.checkReq = req
+	return f.checkResult, f.checkErr
 }
 
 func TestRunner_RunInitUsesInjectedApplication(t *testing.T) {
@@ -288,4 +299,93 @@ func TestRunner_RunReviewRendersMarkdown(t *testing.T) {
 	require.Empty(t, stderr.String())
 	require.Equal(t, "/repo/after", fakeApp.reviewReq.AfterRoot)
 	require.Equal(t, "/repo/.patchcourt.yaml", fakeApp.reviewReq.ConfigPath)
+}
+
+func TestRunner_RunCheckUsesInjectedApplication(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	outDir := t.TempDir()
+
+	fakeApp := &fakeApplication{
+		checkResult: &app.CheckResult{
+			Root:   "/repo",
+			OutDir: outDir,
+			Project: &model.ProjectModel{
+				Root: "/repo",
+				Files: []model.FileModel{
+					{Path: "src/server/api_router.cc", Layer: "server", Role: model.FileRoleProduction},
+					{Path: "src/domain/status.h", Layer: "domain", Role: model.FileRoleProduction},
+				},
+				Dependencies: []model.DependencyEdge{
+					{
+						FromFile:  "src/server/api_router.cc",
+						ToFile:    "src/domain/status.h",
+						Target:    "src/domain/status.h",
+						Kind:      model.DependencyKindInclude,
+						Resolved:  true,
+						FromLayer: "server",
+						ToLayer:   "domain",
+					},
+				},
+				Findings: []model.Finding{
+					{
+						ID:       "discovery.cpp.unused_includes",
+						Kind:     model.FindingKindDiscoveryHint,
+						Severity: model.SeverityLow,
+						Title:    "Possibly unused C++ includes",
+					},
+				},
+			},
+			Summary: model.ScanSummary{
+				ProductionFiles: 2,
+				TotalEdges:      1,
+				Resolved:        1,
+			},
+			LayerGraph: graph.LayerGraph{
+				Nodes: []string{"domain", "server"},
+				Edges: []graph.LayerEdge{
+					{From: "server", To: "domain", Count: 1},
+				},
+			},
+		},
+	}
+
+	runner := NewRunner(&stdout, &stderr).WithAppFactory(func(logger logx.Logger) Application {
+		return fakeApp
+	})
+
+	err := runner.Run(context.Background(), []string{
+		"check",
+		"/repo",
+		"--config",
+		"/repo/.patchcourt.yaml",
+		"--out",
+		outDir,
+	})
+	require.NoError(t, err)
+
+	require.Equal(t, "/repo", fakeApp.checkReq.Root)
+	require.Equal(t, "/repo/.patchcourt.yaml", fakeApp.checkReq.ConfigPath)
+	require.Equal(t, outDir, fakeApp.checkReq.OutDir)
+
+	output := stdout.String()
+	require.Contains(t, output, "PatchCourt check")
+	require.Contains(t, output, "Artifacts:")
+	require.Contains(t, output, filepath.Join(outDir, "project-model.json"))
+	require.Contains(t, output, "discovery.cpp.unused_includes")
+	require.Empty(t, stderr.String())
+
+	requireFileExists(t, filepath.Join(outDir, "project-model.json"))
+	requireFileExists(t, filepath.Join(outDir, "scan.md"))
+	requireFileExists(t, filepath.Join(outDir, "layer-graph.json"))
+	requireFileExists(t, filepath.Join(outDir, "layer-graph.dot"))
+	requireFileExists(t, filepath.Join(outDir, "layer-graph.mmd"))
+}
+
+func requireFileExists(t *testing.T, path string) {
+	t.Helper()
+
+	info, err := os.Stat(path)
+	require.NoError(t, err)
+	require.False(t, info.IsDir())
 }
