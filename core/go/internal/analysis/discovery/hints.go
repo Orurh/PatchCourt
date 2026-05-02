@@ -76,37 +76,40 @@ func bidirectionalLayerHints(edges map[layerPair][]model.DependencyEdge) []model
 	findings := make([]model.Finding, 0)
 	seen := make(map[string]struct{})
 
-	for pair, forwardEvidence := range edges {
+	for pair := range edges {
 		reverse := layerPair{
 			from: pair.to,
 			to:   pair.from,
 		}
 
-		reverseEvidence, ok := edges[reverse]
-		if !ok {
+		if _, ok := edges[reverse]; !ok {
 			continue
 		}
 
-		key := canonicalPairKey(pair.from, pair.to)
+		left, right := canonicalLayerPair(pair.from, pair.to)
+		key := canonicalPairKey(left, right)
 		if _, alreadySeen := seen[key]; alreadySeen {
 			continue
 		}
 		seen[key] = struct{}{}
 
+		leftToRight := layerPair{from: left, to: right}
+		rightToLeft := layerPair{from: right, to: left}
+
 		evidence := make([]model.Evidence, 0, maxEvidencePerHint)
-		evidence = append(evidence, dependencyEvidence(pair, forwardEvidence)...)
-		evidence = append(evidence, dependencyEvidence(reverse, reverseEvidence)...)
+		evidence = append(evidence, dependencyEvidence(leftToRight, edges[leftToRight])...)
+		evidence = append(evidence, dependencyEvidence(rightToLeft, edges[rightToLeft])...)
 
 		findings = append(findings, model.Finding{
-			ID:         fmt.Sprintf("discovery.bidirectional.%s.%s", pair.from, pair.to),
+			ID:         fmt.Sprintf("discovery.bidirectional.%s.%s", left, right),
 			Kind:       model.FindingKindDiscoveryHint,
 			Severity:   model.SeverityMedium,
 			Title:      "Bidirectional layer dependency",
 			Confidence: model.ConfidenceMedium,
 			Risk: fmt.Sprintf(
 				"Layers %q and %q depend on each other. This may indicate a cycle, misplaced types, or missing dependency inversion.",
-				pair.from,
-				pair.to,
+				left,
+				right,
 			),
 			Suggestion: "Review whether one side should depend on an interface, shared model, or lower-level package instead.",
 			Evidence:   limitEvidence(evidence, maxEvidencePerHint),
@@ -223,12 +226,17 @@ func limitEvidence(evidence []model.Evidence, limit int) []model.Evidence {
 	return evidence[:limit]
 }
 
-func canonicalPairKey(left string, right string) string {
-	if left < right {
-		return left + "<->" + right
+func canonicalLayerPair(left string, right string) (string, string) {
+	if left <= right {
+		return left, right
 	}
 
-	return right + "<->" + left
+	return right, left
+}
+
+func canonicalPairKey(left string, right string) string {
+	left, right = canonicalLayerPair(left, right)
+	return left + "<->" + right
 }
 
 func minInt(left int, right int) int {

@@ -55,7 +55,13 @@ func (r *Runner) newReviewCommand(ctx context.Context, rootOpts *rootOptions) *c
 				return err
 			}
 
-			return r.renderReviewResult(format, result)
+			return r.renderReviewResult(format, app.ReviewRequest{
+				BeforePath: opts.beforePath,
+				AfterPath:  opts.afterPath,
+				BeforeRoot: opts.beforeRoot,
+				AfterRoot:  opts.afterRoot,
+				ConfigPath: opts.configPath,
+			}, result)
 		},
 	}
 
@@ -64,7 +70,7 @@ func (r *Runner) newReviewCommand(ctx context.Context, rootOpts *rootOptions) *c
 	cmd.Flags().StringVar(&opts.beforeRoot, "before-root", "", "path to before project root")
 	cmd.Flags().StringVar(&opts.afterRoot, "after-root", "", "path to after project root")
 	cmd.Flags().StringVar(&opts.configPath, "config", "", "path to .patchcourt.yaml")
-	cmd.Flags().StringVar(&opts.format, "format", string(app.ReviewFormatText), "output format: text, json")
+	cmd.Flags().StringVar(&opts.format, "format", string(app.ReviewFormatText), "output format: text, json, markdown")
 
 	return cmd
 }

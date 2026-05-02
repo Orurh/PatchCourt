@@ -55,10 +55,22 @@ func (r *Runner) renderGraphResult(format app.GraphFormat, result *app.GraphResu
 // renderReviewResult печатает результат сравнения в выбранном формате.
 //
 // При неизвестном формате возвращает ошибку.
-func (r *Runner) renderReviewResult(format app.ReviewFormat, result *app.ReviewResult) error {
+func (r *Runner) renderReviewResult(format app.ReviewFormat, req app.ReviewRequest, result *app.ReviewResult) error {
 	switch format {
 	case app.ReviewFormatJSON:
 		return writeJSON(r.stdout, result)
+	case app.ReviewFormatMarkdown:
+		report.WriteReviewMarkdown(r.stdout, report.ReviewMarkdownResult{
+			Summary:           result.Summary,
+			Risk:              result.Risk,
+			ContractChanges:   result.ContractChanges,
+			DependencyChanges: result.DependencyChanges,
+			LayerEdgeChanges:  result.LayerEdgeChanges,
+			FindingChanges:    result.FindingChanges,
+			AfterRoot:         req.AfterRoot,
+			ConfigPath:        req.ConfigPath,
+		})
+		return nil
 	case app.ReviewFormatText, "":
 		report.WriteReviewText(r.stdout, report.ReviewTextResult{
 			Summary:           result.Summary,

@@ -16,9 +16,13 @@ func TestAnalyzeHints_DetectsBidirectionalLayerDependency(t *testing.T) {
 
 	findings := AnalyzeHints(project)
 
-	if findFinding(findings, "discovery.bidirectional.domain.session") == nil &&
-		findFinding(findings, "discovery.bidirectional.session.domain") == nil {
-		t.Fatalf("expected bidirectional finding, got %#v", findings)
+	finding := findFinding(findings, "discovery.bidirectional.domain.session")
+	if finding == nil {
+		t.Fatalf("expected canonical bidirectional finding, got %#v", findings)
+	}
+
+	if findFinding(findings, "discovery.bidirectional.session.domain") != nil {
+		t.Fatalf("did not expect non-canonical bidirectional finding, got %#v", findings)
 	}
 }
 
@@ -154,5 +158,29 @@ func TestAnalyzeHints_IgnoresDependenciesFromTestGeneratedAndExternalFiles(t *te
 
 	if len(findings) != 0 {
 		t.Fatalf("expected ignored from-files to produce no findings, got %#v", findings)
+	}
+}
+
+func TestAnalyzeHints_BidirectionalFindingIDIsCanonicalRegardlessOfEdgeOrder(t *testing.T) {
+	project := &model.ProjectModel{
+		Dependencies: []model.DependencyEdge{
+			resolvedLayerDep("src/session/bar.cc", "src/domain/bar.h", "session", "domain"),
+			resolvedLayerDep("src/domain/foo.h", "src/session/foo.h", "domain", "session"),
+		},
+	}
+
+	findings := AnalyzeHints(project)
+
+	requireFindingID(t, findings, "discovery.bidirectional.domain.session")
+	if findFinding(findings, "discovery.bidirectional.session.domain") != nil {
+		t.Fatalf("did not expect non-canonical bidirectional finding, got %#v", findings)
+	}
+}
+
+func requireFindingID(t *testing.T, findings []model.Finding, id string) {
+	t.Helper()
+
+	if findFinding(findings, id) == nil {
+		t.Fatalf("expected finding %q, got %#v", id, findings)
 	}
 }

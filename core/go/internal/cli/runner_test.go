@@ -6,10 +6,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/orurh/patchcourt/internal/analysis/findingdiff"
+	"github.com/orurh/patchcourt/internal/analysis/risk"
 	"github.com/orurh/patchcourt/internal/app"
 	"github.com/orurh/patchcourt/internal/config"
 	"github.com/orurh/patchcourt/internal/model"
 	"github.com/orurh/patchcourt/internal/platform/logx"
+	"github.com/stretchr/testify/require"
 )
 
 type fakeApplication struct {
@@ -221,4 +224,68 @@ func TestRunner_RunExplainUsesInjectedApplication(t *testing.T) {
 	if stderr.Len() != 0 {
 		t.Fatalf("expected empty stderr, got %q", stderr.String())
 	}
+}
+
+func TestRunner_RunReviewRendersMarkdown(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	fakeApp := &fakeApplication{
+		reviewResult: &app.ReviewResult{
+			Summary: app.ReviewSummary{
+				FindingChanges:      1,
+				AddedFindings:       1,
+				AddedHighFindings:   1,
+				AddedPolicyFindings: 1,
+			},
+			Risk: risk.Score{
+				Points: 7,
+				Level:  risk.LevelMedium,
+				Reasons: []risk.Reason{
+					{
+						Points:  7,
+						Message: "added high policy violation: architecture.api.cameras",
+					},
+				},
+			},
+			FindingChanges: []findingdiff.FindingChange{
+				{
+					Kind: findingdiff.FindingChangeKindAdded,
+					ID:   "architecture.api.cameras",
+					After: &model.Finding{
+						ID:         "architecture.api.cameras",
+						Kind:       model.FindingKindPolicyViolation,
+						Severity:   model.SeverityHigh,
+						Title:      "Include-level architecture boundary violation",
+						Confidence: model.ConfidenceHigh,
+					},
+				},
+			},
+		},
+	}
+
+	runner := NewRunner(&stdout, &stderr).WithAppFactory(func(logger logx.Logger) Application {
+		return fakeApp
+	})
+
+	err := runner.Run(context.Background(), []string{
+		"review",
+		"--before-root",
+		"/repo/before",
+		"--after-root",
+		"/repo/after",
+		"--config",
+		"/repo/.patchcourt.yaml",
+		"--format",
+		"markdown",
+	})
+	require.NoError(t, err)
+
+	got := stdout.String()
+
+	require.Contains(t, got, "# PatchCourt Review")
+	require.Contains(t, got, "patchcourt explain architecture.api.cameras --root /repo/after --config /repo/.patchcourt.yaml")
+	require.Empty(t, stderr.String())
+	require.Equal(t, "/repo/after", fakeApp.reviewReq.AfterRoot)
+	require.Equal(t, "/repo/.patchcourt.yaml", fakeApp.reviewReq.ConfigPath)
 }

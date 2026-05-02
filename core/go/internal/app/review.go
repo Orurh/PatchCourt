@@ -14,8 +14,9 @@ import (
 type ReviewFormat string
 
 const (
-	ReviewFormatText ReviewFormat = "text"
-	ReviewFormatJSON ReviewFormat = "json"
+	ReviewFormatText     ReviewFormat = "text"
+	ReviewFormatJSON     ReviewFormat = "json"
+	ReviewFormatMarkdown ReviewFormat = "markdown"
 )
 
 type ReviewRequest struct {
