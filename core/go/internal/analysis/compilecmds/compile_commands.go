@@ -7,12 +7,16 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/google/shlex"
 	"github.com/orurh/patchcourt/internal/platform/pathmatch"
 )
 
 type Entry struct {
-	Directory string   `json:"directory"`
-	File      string   `json:"file"`
+	Directory string `json:"directory"`
+	File      string `json:"file"`
+	// Command — строковая shell-команда из compile_commands.json.
+	// Arguments предпочтительнее, если присутствует: там аргументы уже
+	// разложены по массиву согласно формату JSON Compilation Database.
 	Command   string   `json:"command"`
 	Arguments []string `json:"arguments"`
 }
@@ -46,10 +50,7 @@ func IncludePaths(db *Database, root string) []string {
 	result := make([]string, 0)
 
 	for _, entry := range db.Entries {
-		args := entry.Arguments
-		if len(args) == 0 && entry.Command != "" {
-			args = splitCommand(entry.Command)
-		}
+		args := entryArgs(entry)
 
 		entryDir := entry.Directory
 		if entryDir == "" {
@@ -72,6 +73,23 @@ func IncludePaths(db *Database, root string) []string {
 	}
 
 	return result
+}
+
+func entryArgs(entry Entry) []string {
+	if len(entry.Arguments) > 0 {
+		return entry.Arguments
+	}
+
+	if entry.Command == "" {
+		return nil
+	}
+
+	args, err := shlex.Split(entry.Command)
+	if err == nil {
+		return args
+	}
+
+	return splitCommand(entry.Command)
 }
 
 func extractIncludePaths(args []string) []string {
