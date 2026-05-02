@@ -28,14 +28,23 @@ const (
 	FileRoleConfig     FileRole = "config"
 )
 
+type LayerAssignmentSource string
+
+const (
+	LayerAssignmentSourceUnknown    LayerAssignmentSource = ""
+	LayerAssignmentSourceConfig     LayerAssignmentSource = "config"
+	LayerAssignmentSourceDiscovered LayerAssignmentSource = "discovered"
+)
+
 type FileModel struct {
-	Path     string        `json:"path"`
-	Language Language      `json:"language"`
-	Kind     FileKind      `json:"kind"`
-	Role     FileRole      `json:"role"`
-	Layer    string        `json:"layer,omitempty"`
-	IsTest   bool          `json:"is_test"`
-	Includes []string      `json:"includes,omitempty"`
-	Imports  []string      `json:"imports,omitempty"`
-	Symbols  []SymbolModel `json:"symbols,omitempty"`
+	Path        string                `json:"path"`
+	Language    Language              `json:"language"`
+	Kind        FileKind              `json:"kind"`
+	Role        FileRole              `json:"role"`
+	Layer       string                `json:"layer,omitempty"`
+	LayerSource LayerAssignmentSource `json:"layer_source,omitempty"`
+	IsTest      bool                  `json:"is_test"`
+	Includes    []string              `json:"includes,omitempty"`
+	Imports     []string              `json:"imports,omitempty"`
+	Symbols     []SymbolModel         `json:"symbols,omitempty"`
 }

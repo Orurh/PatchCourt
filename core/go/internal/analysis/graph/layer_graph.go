@@ -1,16 +1,21 @@
 package graph
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/orurh/patchcourt/internal/config"
 	"github.com/orurh/patchcourt/internal/model"
 )
 
+const maxLayerEdgeEvidence = 5
+
 type LayerEdge struct {
-	From      string `json:"from"`
-	To        string `json:"to"`
-	Violation bool   `json:"violation"`
+	From      string           `json:"from"`
+	To        string           `json:"to"`
+	Count     int              `json:"count"`
+	Violation bool             `json:"violation"`
+	Evidence  []model.Evidence `json:"evidence,omitempty"`
 }
 
 type LayerGraph struct {
@@ -21,6 +26,10 @@ type LayerGraph struct {
 func BuildLayerGraph(project *model.ProjectModel, cfg *config.Config) LayerGraph {
 	nodeSet := make(map[string]struct{})
 	edgeSet := make(map[string]LayerEdge)
+
+	if project == nil {
+		return LayerGraph{}
+	}
 
 	for _, file := range project.Files {
 		if file.Layer != "" {
@@ -41,20 +50,24 @@ func BuildLayerGraph(project *model.ProjectModel, cfg *config.Config) LayerGraph
 			continue
 		}
 
-		edge := LayerEdge{
-			From:      dep.FromLayer,
-			To:        dep.ToLayer,
-			Violation: isViolation(dep.FromLayer, dep.ToLayer, cfg),
+		key := dep.FromLayer + "->" + dep.ToLayer
+		edge := edgeSet[key]
+
+		if edge.From == "" {
+			edge = LayerEdge{
+				From: dep.FromLayer,
+				To:   dep.ToLayer,
+			}
 		}
 
-		key := edge.From + "->" + edge.To
+		edge.Count++
+		edge.Violation = edge.Violation || isViolation(dep.FromLayer, dep.ToLayer, cfg)
 
-		if existing, ok := edgeSet[key]; ok {
-			existing.Violation = existing.Violation || edge.Violation
-			edgeSet[key] = existing
-		} else {
-			edgeSet[key] = edge
+		if len(edge.Evidence) < maxLayerEdgeEvidence {
+			edge.Evidence = append(edge.Evidence, layerEdgeEvidence(dep))
 		}
+
+		edgeSet[key] = edge
 
 		nodeSet[dep.FromLayer] = struct{}{}
 		nodeSet[dep.ToLayer] = struct{}{}
@@ -83,8 +96,31 @@ func BuildLayerGraph(project *model.ProjectModel, cfg *config.Config) LayerGraph
 	}
 }
 
+func layerEdgeEvidence(dep model.DependencyEdge) model.Evidence {
+	target := dep.ToFile
+	if target == "" {
+		target = dep.Target
+	}
+
+	message := fmt.Sprintf(
+		"includes %s, creating layer dependency %s -> %s",
+		target,
+		dep.FromLayer,
+		dep.ToLayer,
+	)
+
+	if dep.Usage != "" {
+		message = fmt.Sprintf("%s [usage=%s]", message, dep.Usage)
+	}
+
+	return model.Evidence{
+		File:    dep.FromFile,
+		Message: message,
+	}
+}
+
 func isViolation(fromLayer string, toLayer string, cfg *config.Config) bool {
-	if cfg == nil {
+	if cfg == nil || len(cfg.Layers) == 0 {
 		return false
 	}
 

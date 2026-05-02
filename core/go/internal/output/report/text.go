@@ -34,18 +34,48 @@ func WriteScanText(w io.Writer, project *model.ProjectModel) {
 	fmt.Fprintf(w, "  resolved:    %d\n", summary.Resolved)
 	fmt.Fprintf(w, "  unresolved:  %d\n", summary.Unresolved)
 	fmt.Fprintf(w, "  external:    %d\n", summary.External)
+	fmt.Fprintf(w, "  usage used:    %d\n", summary.UsageUsed)
+	fmt.Fprintf(w, "  usage unused:  %d\n", summary.UsageUnused)
+	fmt.Fprintf(w, "  usage maybe:   %d\n", summary.UsageMaybe)
+	fmt.Fprintf(w, "  usage unknown: %d\n", summary.UsageUnknown)
 
 	writeResolutionDiagnosticsText(w, project)
+	writeUsageDiagnosticsText(w, project)
 
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Findings:")
 	fmt.Fprintf(w, "  total: %d\n", len(project.Findings))
 
 	for _, finding := range project.Findings {
+		writeFindingText(w, finding)
+	}
+}
+
+func writeFindingText(w io.Writer, finding model.Finding) {
+	if finding.Kind != "" {
+		fmt.Fprintf(w, "  [%s/%s] %s\n", finding.Severity, finding.Kind, finding.Title)
+	} else {
 		fmt.Fprintf(w, "  [%s] %s\n", finding.Severity, finding.Title)
-		for _, evidence := range finding.Evidence {
-			fmt.Fprintf(w, "    - %s: %s\n", evidence.File, evidence.Message)
-		}
+	}
+
+	if finding.ID != "" {
+		fmt.Fprintf(w, "    id: %s\n", finding.ID)
+	}
+
+	if finding.Risk != "" {
+		fmt.Fprintf(w, "    risk: %s\n", finding.Risk)
+	}
+
+	if finding.Suggestion != "" {
+		fmt.Fprintf(w, "    suggestion: %s\n", finding.Suggestion)
+	}
+
+	if finding.Confidence != "" {
+		fmt.Fprintf(w, "    confidence: %s\n", finding.Confidence)
+	}
+
+	for _, evidence := range finding.Evidence {
+		fmt.Fprintf(w, "    - %s: %s\n", evidence.File, evidence.Message)
 	}
 }
 
@@ -106,6 +136,59 @@ func ambiguousDependencies(project *model.ProjectModel) []model.DependencyEdge {
 
 	for _, dep := range project.Dependencies {
 		if dep.External || !dep.Ambiguous {
+			continue
+		}
+
+		result = append(result, dep)
+	}
+
+	return result
+}
+
+func writeUsageDiagnosticsText(w io.Writer, project *model.ProjectModel) {
+	unused := unusedDependencies(project)
+	if len(unused) == 0 {
+		return
+	}
+
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Usage diagnostics:")
+	fmt.Fprintf(w, "  possibly unused includes: %d\n", len(unused))
+
+	limit := len(unused)
+	if limit > 20 {
+		limit = 20
+	}
+
+	for i := 0; i < limit; i++ {
+		dep := unused[i]
+		target := dep.ToFile
+		if target == "" {
+			target = dep.Target
+		}
+
+		fmt.Fprintf(w, "    - %s includes %s [%s/%s]\n",
+			dep.FromFile,
+			target,
+			dep.ResolutionSource,
+			dep.ResolutionConfidence,
+		)
+	}
+
+	if len(unused) > limit {
+		fmt.Fprintf(w, "    ... %d more\n", len(unused)-limit)
+	}
+}
+
+func unusedDependencies(project *model.ProjectModel) []model.DependencyEdge {
+	result := make([]model.DependencyEdge, 0)
+
+	for _, dep := range project.Dependencies {
+		if dep.External || !dep.Resolved {
+			continue
+		}
+
+		if dep.Usage != model.DependencyUsageUnused {
 			continue
 		}
 

@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 
 	"github.com/orurh/patchcourt/internal/analysis/compilecmds"
+	"github.com/orurh/patchcourt/internal/analysis/cppusage"
+	"github.com/orurh/patchcourt/internal/analysis/discovery"
 	"github.com/orurh/patchcourt/internal/analysis/project"
 	"github.com/orurh/patchcourt/internal/analysis/resolver"
 	"github.com/orurh/patchcourt/internal/analysis/rules"
@@ -91,6 +93,14 @@ func (e *Engine) Analyze(ctx context.Context, req AnalyzeRequest) (*AnalyzeResul
 		return nil, fmt.Errorf("%s canceled after project indexing: %w", req.Operation, err)
 	}
 
+	logger.Debug("analyzing C++ include usage")
+	cppusage.Analyze(projectModel)
+
+	if len(cfg.Layers) == 0 {
+		logger.Debug("assigning discovered layers")
+		project.AssignDiscoveredLayers(projectModel)
+	}
+
 	logger.Debug(
 		"applying rules",
 		logx.Int("files", len(projectModel.Files)),
@@ -98,6 +108,9 @@ func (e *Engine) Analyze(ctx context.Context, req AnalyzeRequest) (*AnalyzeResul
 	)
 
 	rules.Apply(projectModel, cfg, e.rules)
+
+	discoveryFindings := discovery.AnalyzeHints(projectModel)
+	projectModel.Findings = append(projectModel.Findings, discoveryFindings...)
 
 	logger.Debug("analysis completed", logx.Int("findings", len(projectModel.Findings)))
 
@@ -109,6 +122,7 @@ func (e *Engine) Analyze(ctx context.Context, req AnalyzeRequest) (*AnalyzeResul
 
 func (e *Engine) resolveCPPIncludePaths(root string, cfg *config.Config) ([]resolver.IncludePath, error) {
 	includePaths := make([]resolver.IncludePath, 0)
+
 	compileCommandsPath := resolveCompileCommandsPath(root, cfg)
 	if compileCommandsPath != "" {
 		db, err := compilecmds.Load(compileCommandsPath)

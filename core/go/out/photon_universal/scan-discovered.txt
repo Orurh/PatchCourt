@@ -1,0 +1,331 @@
+PatchCourt scan
+
+Root: /home/orurh/Документы/VSCode/work/photon_universal
+
+Files:
+  C++ headers: 333
+  C++ sources: 84
+  C++ tests:   94
+  Go files:    0
+  symbols:     1668
+
+File roles:
+  production: 262
+  test:       94
+  generated:  0
+  external:   155
+  config:     0
+  unknown:    0
+
+Dependencies:
+  total edges: 2160
+  resolved:    831
+  unresolved:  114
+  external:    1215
+
+Resolution diagnostics:
+  unresolved includes: 21
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/core_c.h: cxcore.h [none/low]
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/core_c.h: cxcore.h [none/low]
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/cuda/filters.hpp: nppdefs.h [none/low]
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/cv_cpu_dispatch.h: cv_cpu_config.h [none/low]
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/hal/msa_macros.h: msa.h [none/low]
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/parallel/backend/parallel_for.tbb.hpp: tbb/tbb.h [none/low]
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/parallel/backend/parallel_for.tbb.hpp: tbb/task_arena.h [none/low]
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/simd_intrinsics.hpp: opencv_simd_config.hpp [none/low]
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/va_intel.hpp: va/va.h [none/low]
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/highgui.hpp: opencv2/videoio.hpp [none/low]
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/opencv.hpp: opencv2/calib3d.hpp [none/low]
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/opencv.hpp: opencv2/features2d.hpp [none/low]
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/opencv.hpp: opencv2/dnn.hpp [none/low]
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/opencv.hpp: opencv2/flann.hpp [none/low]
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/opencv.hpp: opencv2/ml.hpp [none/low]
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/opencv.hpp: opencv2/objdetect.hpp [none/low]
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/opencv.hpp: opencv2/photo.hpp [none/low]
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/opencv.hpp: opencv2/stitching.hpp [none/low]
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/opencv.hpp: opencv2/video.hpp [none/low]
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/opencv.hpp: opencv2/videoio.hpp [none/low]
+    - libs/photon_lib/src/FtpLogger.cpp: functional [none/low]
+  ambiguous includes: 93
+    - libs/insta360library/src/insta_controller.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - libs/libgopro/src/core/client/http_session.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - libs/libgopro/src/core/gopro_camera/gopro_camera.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - libs/libgopro/src/core/gopro_manager/gopro_cameras_manager.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - libs/libgopro/src/utility/file_management/file_manager.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - libs/libhikrobot/libs/LogX/tests/dso_a.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - libs/libhikrobot/libs/LogX/tests/dso_b.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - libs/libhikrobot/libs/LogX/tests/logx_test.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - libs/libhikrobot/src/core/hikrobot_controller.h: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - libs/libhikrobot/src/main.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - libs/lidar_controller/src/controller/LidarController.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - libs/lidar_controller/src/infrastructure/docker/ComposeManager.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - libs/lidar_controller/src/infrastructure/factories/LidarFactory.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - libs/lidar_controller/src/managers/LidarManager.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - libs/lidar_controller/src/managers/LidarMonitoringManager.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - libs/lidar_controller/src/managers/RecordingManager.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - libs/lidar_controller/src/utils/ConfigParser.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - libs/logx/tests/dso_a.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - libs/logx/tests/dso_b.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - libs/logx/tests/logx_test.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/core.hpp: opencv2/core.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/core.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core.hpp
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/core_c.h: opencv2/core/types_c.h [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/types_c.h
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/imgproc/types_c.h
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/core_c.h: opencv2/core/utility.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/cuda/utility.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/utility.hpp
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/cuda/scan.hpp: opencv2/core/cuda/utility.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/cuda/utility.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/utility.hpp
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/cuda.hpp: opencv2/core.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/core.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core.hpp
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/cvdef.h: opencv2/core/hal/interface.h [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/hal/interface.h
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/imgproc/hal/interface.h
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/eigen.hpp: opencv2/core.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/core.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core.hpp
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/hal/hal.hpp: opencv2/core/hal/interface.h [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/hal/interface.h
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/imgproc/hal/interface.h
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/hal/intrin_cpp.hpp: opencv2/core/utility.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/cuda/utility.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/utility.hpp
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/hal/intrin_msa.hpp: opencv2/core/utility.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/cuda/utility.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/utility.hpp
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/hal/intrin_neon.hpp: opencv2/core/utility.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/cuda/utility.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/utility.hpp
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/hal/intrin_rvv071.hpp: opencv2/core/utility.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/cuda/utility.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/utility.hpp
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/hal/intrin_sse.hpp: opencv2/core/utility.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/cuda/utility.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/utility.hpp
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/hal/intrin_vsx.hpp: opencv2/core/utility.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/cuda/utility.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/utility.hpp
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/ocl.hpp: opencv2/core.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/core.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core.hpp
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/opencl/ocl_defs.hpp: opencv2/core/utility.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/cuda/utility.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/utility.hpp
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/opengl.hpp: opencv2/core.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/core.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core.hpp
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/optim.hpp: opencv2/core.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/core.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core.hpp
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/persistence.hpp: opencv2/core.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/core.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core.hpp
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/types_c.h: opencv2/core.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/core.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core.hpp
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/utility.hpp: opencv2/core.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/core.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core.hpp
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/va_intel.hpp: opencv2/core.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/core.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core.hpp
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core.hpp: opencv2/core/utility.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/cuda/utility.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/utility.hpp
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/highgui/highgui.hpp: opencv2/highgui.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/highgui/highgui.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/highgui.hpp
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/highgui.hpp: opencv2/core.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/core.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core.hpp
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/highgui.hpp: opencv2/imgcodecs.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/imgcodecs/imgcodecs.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/imgcodecs.hpp
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/imgcodecs/imgcodecs.hpp: opencv2/imgcodecs.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/imgcodecs/imgcodecs.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/imgcodecs.hpp
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/imgcodecs/ios.h: opencv2/core.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/core.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core.hpp
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/imgcodecs/macosx.h: opencv2/core.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/core.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core.hpp
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/imgcodecs.hpp: opencv2/core.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/core.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core.hpp
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/imgproc/hal/hal.hpp: opencv2/core/hal/interface.h [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/hal/interface.h
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/imgproc/hal/interface.h
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/imgproc/imgproc.hpp: opencv2/imgproc.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/imgproc/imgproc.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/imgproc.hpp
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/imgproc/imgproc_c.h: opencv2/imgproc/types_c.h [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/types_c.h
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/imgproc/types_c.h
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/imgproc/segmentation.hpp: opencv2/imgproc.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/imgproc/imgproc.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/imgproc.hpp
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/imgproc.hpp: opencv2/core.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/core.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core.hpp
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/opencv.hpp: opencv2/core.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core/core.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/core.hpp
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/opencv.hpp: opencv2/highgui.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/highgui/highgui.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/highgui.hpp
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/opencv.hpp: opencv2/imgcodecs.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/imgcodecs/imgcodecs.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/imgcodecs.hpp
+    - libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/opencv.hpp: opencv2/imgproc.hpp [heuristic/low]
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/imgproc/imgproc.hpp
+        candidate: libs/photon_lib/libs/sonysampleapplibrary/external/opencv/include/opencv2/imgproc.hpp
+    - libs/photon_lib/src/Interfaces/ICameraConnectionManager.h: ExtendedCameraDevice.h [heuristic/low]
+        candidate: libs/photon_lib/src/ExtendedCameraDevice.h
+        candidate: libs/photon_lib/tests/fakes/ExtendedCameraDevice.h
+    - libs/photon_lib/src/SonyCamera/CameraConnectionManager.h: ExtendedCameraDevice.h [heuristic/low]
+        candidate: libs/photon_lib/src/ExtendedCameraDevice.h
+        candidate: libs/photon_lib/tests/fakes/ExtendedCameraDevice.h
+    - src/application/application.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - src/cameras/camera_adapter_factory.h: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - src/cameras/camera_manager_adapter.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - src/cameras/camera_manager_controller.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - src/cameras/camera_manager_controller.cc: application/constants.h [heuristic/low]
+        candidate: src/application/constants.h
+        candidate: src/session/constants.h
+    - src/cameras/gopro_camera_manager_impl/gopro_camera_manager.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - src/cameras/gopro_camera_manager_impl/gopro_camera_manager.cc: application/constants.h [heuristic/low]
+        candidate: src/application/constants.h
+        candidate: src/session/constants.h
+    - src/cameras/hikrobot_camera_manager_impl/hikrobot_camera_manager.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - src/cameras/hikrobot_camera_manager_impl/hikrobot_camera_manager.cc: application/constants.h [heuristic/low]
+        candidate: src/application/constants.h
+        candidate: src/session/constants.h
+    - src/cameras/insta_camera_manager_impl/insta_camera_manager.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - src/cameras/insta_camera_manager_impl/insta_camera_manager.cc: application/constants.h [heuristic/low]
+        candidate: src/application/constants.h
+        candidate: src/session/constants.h
+    - src/cameras/osmo_camera_manager_impl/osmo_camera_manager.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - src/cameras/osmo_camera_manager_impl/osmo_camera_manager.cc: application/constants.h [heuristic/low]
+        candidate: src/application/constants.h
+        candidate: src/session/constants.h
+    - src/cameras/sony_camera_manager_impl/sony_camera_manager.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - src/cameras/sony_camera_manager_impl/sony_camera_manager.cc: application/constants.h [heuristic/low]
+        candidate: src/application/constants.h
+        candidate: src/session/constants.h
+    - src/cameras/sony_camera_manager_impl/sony_ftp_coordinator.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - src/cameras/sony_camera_manager_impl/sony_ftp_coordinator.cc: application/constants.h [heuristic/low]
+        candidate: src/application/constants.h
+        candidate: src/session/constants.h
+    - src/configs/camera_config_manager.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - src/configs/session_file_manager.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - src/controllers/cameras_controller/cameras_controller.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - src/controllers/device_orchestrator.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - src/controllers/gps_controller/gps_controller.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - src/controllers/session_controller/session_controller.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - src/controllers/session_controller/session_controller.cc: application/constants.h [heuristic/low]
+        candidate: src/application/constants.h
+        candidate: src/session/constants.h
+    - src/domain/models/camera_object_data.h: application/constants.h [heuristic/low]
+        candidate: src/application/constants.h
+        candidate: src/session/constants.h
+    - src/domain/models/camera_status.h: application/constants.h [heuristic/low]
+        candidate: src/application/constants.h
+        candidate: src/session/constants.h
+    - src/server/api_router.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - src/server/web_server.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - src/session/session_state_manager.cc: LogX.h [heuristic/low]
+        candidate: libs/libhikrobot/libs/LogX/src/LogX.h
+        candidate: libs/logx/src/LogX.h
+    - src/utils/directory_browser.cc: application/constants.h [heuristic/low]
+        candidate: src/application/constants.h
+        candidate: src/session/constants.h
+    - src/utils/json_serializer.cc: application/constants.h [heuristic/low]
+        candidate: src/application/constants.h
+        candidate: src/session/constants.h
+    - src/utils/json_serializer.h: application/constants.h [heuristic/low]
+        candidate: src/application/constants.h
+        candidate: src/session/constants.h
+
+Findings:
+  total: 0

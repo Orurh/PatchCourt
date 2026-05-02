@@ -60,7 +60,14 @@ func (r *Runner) renderReviewResult(format app.ReviewFormat, result *app.ReviewR
 	case app.ReviewFormatJSON:
 		return writeJSON(r.stdout, result)
 	case app.ReviewFormatText, "":
-		report.WriteReviewText(r.stdout, result.ContractChanges)
+		report.WriteReviewText(r.stdout, report.ReviewTextResult{
+			Summary:           result.Summary,
+			Risk:              result.Risk,
+			ContractChanges:   result.ContractChanges,
+			DependencyChanges: result.DependencyChanges,
+			LayerEdgeChanges:  result.LayerEdgeChanges,
+			FindingChanges:    result.FindingChanges,
+		})
 		return nil
 	default:
 		return fmt.Errorf("unknown review format: %s", format)

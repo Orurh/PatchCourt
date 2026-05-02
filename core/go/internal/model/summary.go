@@ -18,6 +18,11 @@ type ScanSummary struct {
 	Resolved   int
 	Unresolved int
 	External   int
+
+	UsageUsed    int
+	UsageUnused  int
+	UsageMaybe   int
+	UsageUnknown int
 }
 
 func BuildScanSummary(project *ProjectModel) ScanSummary {
@@ -60,6 +65,17 @@ func BuildScanSummary(project *ProjectModel) ScanSummary {
 
 	for _, dep := range project.Dependencies {
 		summary.TotalEdges++
+
+		switch dep.Usage {
+		case DependencyUsageUsed:
+			summary.UsageUsed++
+		case DependencyUsageUnused:
+			summary.UsageUnused++
+		case DependencyUsageMaybe:
+			summary.UsageMaybe++
+		default:
+			summary.UsageUnknown++
+		}
 
 		if dep.External {
 			summary.External++

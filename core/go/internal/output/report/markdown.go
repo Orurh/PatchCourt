@@ -37,6 +37,10 @@ func WriteScanMarkdown(w io.Writer, project *model.ProjectModel) {
 	fmt.Fprintf(w, "- Resolved: %d\n", summary.Resolved)
 	fmt.Fprintf(w, "- Unresolved: %d\n", summary.Unresolved)
 	fmt.Fprintf(w, "- External: %d\n", summary.External)
+	fmt.Fprintf(w, "- Usage used: %d\n", summary.UsageUsed)
+	fmt.Fprintf(w, "- Usage unused: %d\n", summary.UsageUnused)
+	fmt.Fprintf(w, "- Usage maybe: %d\n", summary.UsageMaybe)
+	fmt.Fprintf(w, "- Usage unknown: %d\n", summary.UsageUnknown)
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "## Findings")
 	fmt.Fprintln(w)
@@ -52,8 +56,17 @@ func WriteScanMarkdown(w io.Writer, project *model.ProjectModel) {
 }
 
 func writeFindingMarkdown(w io.Writer, finding model.Finding) {
-	fmt.Fprintf(w, "### %s: %s\n", strings.ToUpper(string(finding.Severity)), finding.Title)
+	if finding.Kind != "" {
+		fmt.Fprintf(w, "### %s/%s: %s\n", strings.ToUpper(string(finding.Severity)), finding.Kind, finding.Title)
+	} else {
+		fmt.Fprintf(w, "### %s: %s\n", strings.ToUpper(string(finding.Severity)), finding.Title)
+	}
 	fmt.Fprintln(w)
+
+	if finding.ID != "" {
+		fmt.Fprintf(w, "**ID:** %s\n", finding.ID)
+		fmt.Fprintln(w)
+	}
 
 	if finding.Risk != "" {
 		fmt.Fprintf(w, "**Risk:** %s\n", finding.Risk)

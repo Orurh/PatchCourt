@@ -3,6 +3,7 @@ package report
 import (
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/orurh/patchcourt/internal/analysis/graph"
@@ -36,10 +37,37 @@ func WriteLayerGraphDOT(w io.Writer, layerGraph graph.LayerGraph) {
 func dotEdgeAttrs(edge graph.LayerEdge) string {
 	var attrs []string
 
+	if edge.Count > 0 {
+		attrs = append(attrs, fmt.Sprintf(`label="%d"`, edge.Count))
+
+		penWidth := 1
+		switch {
+		case edge.Count >= 20:
+			penWidth = 5
+		case edge.Count >= 10:
+			penWidth = 4
+		case edge.Count >= 5:
+			penWidth = 3
+		case edge.Count >= 2:
+			penWidth = 2
+		}
+
+		attrs = append(attrs, `penwidth="`+strconv.Itoa(penWidth)+`"`)
+	}
+
 	if edge.Violation {
-		attrs = append(attrs, `label="violation"`)
+		if edge.Count > 0 {
+			attrs[0] = fmt.Sprintf(`label="%d violation"`, edge.Count)
+		} else {
+			attrs = append(attrs, `label="violation"`)
+		}
+
 		attrs = append(attrs, `color="red"`)
-		attrs = append(attrs, `penwidth="2"`)
+		attrs = append(attrs, `fontcolor="red"`)
+
+		if edge.Count <= 1 {
+			attrs = append(attrs, `penwidth="2"`)
+		}
 	}
 
 	return strings.Join(attrs, ", ")

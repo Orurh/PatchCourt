@@ -2,9 +2,12 @@ package app
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/orurh/patchcourt/internal/analysis/engine"
+	graphmodel "github.com/orurh/patchcourt/internal/analysis/graph"
 	"github.com/orurh/patchcourt/internal/config"
 	"github.com/orurh/patchcourt/internal/model"
 	"github.com/orurh/patchcourt/internal/platform/logx"
@@ -95,4 +98,76 @@ func TestApp_RunGraphUsesInjectedAnalysisService(t *testing.T) {
 	if result.LayerGraph.Nodes[0] != "api" {
 		t.Fatalf("expected api node, got %q", result.LayerGraph.Nodes[0])
 	}
+}
+
+func TestApp_RunGraphUsesDiscoveredLayersWithoutConfig(t *testing.T) {
+	root := t.TempDir()
+
+	writeGraphDiscoveryTestFile(t, root, "src/server/api_router.cc", `#include "src/controllers/device_orchestrator.h"
+`)
+	writeGraphDiscoveryTestFile(t, root, "src/controllers/device_orchestrator.h", `#pragma once
+`)
+
+	application := New(logx.Nop())
+
+	result, err := application.RunGraph(context.Background(), GraphRequest{
+		Root: root,
+	})
+	if err != nil {
+		t.Fatalf("RunGraph failed: %v", err)
+	}
+
+	if len(result.LayerGraph.Nodes) != 2 {
+		t.Fatalf("expected 2 graph nodes, got %d: %#v", len(result.LayerGraph.Nodes), result.LayerGraph.Nodes)
+	}
+
+	if !graphHasNode(result.LayerGraph.Nodes, "server") {
+		t.Fatalf("expected server node in %#v", result.LayerGraph.Nodes)
+	}
+
+	if !graphHasNode(result.LayerGraph.Nodes, "controllers") {
+		t.Fatalf("expected controllers node in %#v", result.LayerGraph.Nodes)
+	}
+
+	if !graphHasEdge(result.LayerGraph.Edges, "server", "controllers") {
+		t.Fatalf("expected server -> controllers edge in %#v", result.LayerGraph.Edges)
+	}
+
+	if result.LayerGraph.Edges[0].Violation {
+		t.Fatalf("discovered graph without policy must not mark violations")
+	}
+}
+
+func writeGraphDiscoveryTestFile(t *testing.T, root string, relPath string, content string) {
+	t.Helper()
+
+	path := filepath.Join(root, filepath.FromSlash(relPath))
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("create dir: %v", err)
+	}
+
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+}
+
+func graphHasNode(nodes []string, want string) bool {
+	for _, node := range nodes {
+		if node == want {
+			return true
+		}
+	}
+
+	return false
+}
+
+func graphHasEdge(edges []graphmodel.LayerEdge, from string, to string) bool {
+	for _, edge := range edges {
+		if edge.From == from && edge.To == to {
+			return true
+		}
+	}
+
+	return false
 }

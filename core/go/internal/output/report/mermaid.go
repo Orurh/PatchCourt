@@ -20,7 +20,11 @@ func WriteLayerGraphMermaid(w io.Writer, layerGraph graph.LayerGraph) {
 	}
 
 	for _, edge := range layerGraph.Edges {
-		fmt.Fprintf(w, "  %s --> %s\n", mermaidID(edge.From), mermaidID(edge.To))
+		if edge.Count > 0 {
+			fmt.Fprintf(w, "  %s -->|%d| %s\n", mermaidID(edge.From), edge.Count, mermaidID(edge.To))
+		} else {
+			fmt.Fprintf(w, "  %s --> %s\n", mermaidID(edge.From), mermaidID(edge.To))
+		}
 	}
 }
 

@@ -86,17 +86,22 @@ int main() {
 		t.Fatalf("expected 4 dependencies, got %d", len(result.Project.Dependencies))
 	}
 
-	if len(result.Project.Findings) != 1 {
-		t.Fatalf("expected 1 finding, got %d", len(result.Project.Findings))
+	finding := findFinding(result.Project.Findings, "architecture.api.cameras")
+	if finding == nil {
+		t.Fatalf("expected architecture.api.cameras finding, got %#v", result.Project.Findings)
 	}
 
-	finding := result.Project.Findings[0]
-	if finding.ID != "architecture.api.cameras" {
-		t.Fatalf("unexpected finding id: %q", finding.ID)
+	if finding.Kind != model.FindingKindPolicyViolation {
+		t.Fatalf("expected policy violation kind, got %q", finding.Kind)
 	}
 
 	if finding.Severity != model.SeverityHigh {
 		t.Fatalf("unexpected severity: %q", finding.Severity)
+	}
+
+	unusedIncludeFinding := findFinding(result.Project.Findings, "discovery.cpp.unused_includes")
+	if unusedIncludeFinding == nil {
+		t.Fatalf("expected unused include discovery hint, got %#v", result.Project.Findings)
 	}
 
 	dep, found := findDependency(
@@ -124,8 +129,8 @@ int main() {
 		t.Fatalf("unexpected resolution confidence: %q", dep.ResolutionConfidence)
 	}
 
-	if dep.Usage != model.DependencyUsageUnknown {
-		t.Fatalf("expected unknown dependency usage for C++ include, got %q", dep.Usage)
+	if dep.Usage != model.DependencyUsageUnused {
+		t.Fatalf("expected unused dependency usage for C++ include, got %q", dep.Usage)
 	}
 }
 
@@ -263,6 +268,16 @@ func findDependency(deps []model.DependencyEdge, fromFile string, toFile string)
 	}
 
 	return model.DependencyEdge{}, false
+}
+
+func findFinding(findings []model.Finding, id string) *model.Finding {
+	for i := range findings {
+		if findings[i].ID == id {
+			return &findings[i]
+		}
+	}
+
+	return nil
 }
 
 func testConfig() string {

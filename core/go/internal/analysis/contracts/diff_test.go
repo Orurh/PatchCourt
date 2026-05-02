@@ -162,3 +162,71 @@ func assertStringSliceContains(t *testing.T, values []string, expected string) {
 
 	t.Fatalf("expected %q in %#v", expected, values)
 }
+
+func TestDiffSymbols_IgnoresSymbolsFromImplementationHeaders(t *testing.T) {
+	changes := DiffSymbols(nil, []model.SymbolModel{
+		{
+			File:      "src/cameras/sony.h",
+			Name:      "SonyCamera",
+			Kind:      model.SymbolKindStruct,
+			Signature: "struct SonyCamera {};",
+			Exported:  true,
+		},
+	})
+
+	if len(changes) != 0 {
+		t.Fatalf("expected implementation symbol to be ignored, got %#v", changes)
+	}
+}
+
+func TestDiffSymbols_IncludesSymbolsFromDomainHeaders(t *testing.T) {
+	changes := DiffSymbols(nil, []model.SymbolModel{
+		{
+			File:      "src/domain/i_camera_adapter.h",
+			Name:      "ICameraAdapter",
+			Kind:      model.SymbolKindClass,
+			Signature: "class ICameraAdapter {",
+			Exported:  true,
+		},
+	})
+
+	if len(changes) != 1 {
+		t.Fatalf("expected domain contract symbol change, got %#v", changes)
+	}
+
+	if changes[0].SymbolKey != "class::::ICameraAdapter" {
+		t.Fatalf("unexpected symbol key: %q", changes[0].SymbolKey)
+	}
+}
+
+func TestDiffSymbols_IncludesSymbolsFromInterfacesDirectory(t *testing.T) {
+	changes := DiffSymbols(nil, []model.SymbolModel{
+		{
+			File:      "src/cameras/interfaces/i_camera_adapter.h",
+			Name:      "ICameraAdapter",
+			Kind:      model.SymbolKindClass,
+			Signature: "class ICameraAdapter {",
+			Exported:  true,
+		},
+	})
+
+	if len(changes) != 1 {
+		t.Fatalf("expected interfaces contract symbol change, got %#v", changes)
+	}
+}
+
+func TestDiffSymbols_IncludesSymbolsFromPublicIncludeDirectory(t *testing.T) {
+	changes := DiffSymbols(nil, []model.SymbolModel{
+		{
+			File:      "include/patchcourt/api.h",
+			Name:      "PatchCourtAPI",
+			Kind:      model.SymbolKindClass,
+			Signature: "class PatchCourtAPI {",
+			Exported:  true,
+		},
+	})
+
+	if len(changes) != 1 {
+		t.Fatalf("expected public include contract symbol change, got %#v", changes)
+	}
+}

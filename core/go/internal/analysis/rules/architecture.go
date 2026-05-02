@@ -27,7 +27,11 @@ func ApplyArchitectureRules(project *model.ProjectModel, cfg *config.Config) {
 
 func assignLayers(project *model.ProjectModel, cfg *config.Config) {
 	for i := range project.Files {
-		project.Files[i].Layer = detectLayer(project.Files[i].Path, cfg)
+		layer := detectLayer(project.Files[i].Path, cfg)
+		project.Files[i].Layer = layer
+		if layer != "" {
+			project.Files[i].LayerSource = model.LayerAssignmentSourceConfig
+		}
 	}
 }
 
@@ -81,6 +85,7 @@ func checkLayerDependencies(project *model.ProjectModel, cfg *config.Config) []m
 
 		findings = append(findings, model.Finding{
 			ID:         fmt.Sprintf("architecture.%s.%s", dep.FromLayer, dep.ToLayer),
+			Kind:       model.FindingKindPolicyViolation,
 			Severity:   model.SeverityHigh,
 			Title:      "Include-level architecture boundary violation",
 			Confidence: model.ConfidenceHigh,
@@ -94,8 +99,7 @@ func checkLayerDependencies(project *model.ProjectModel, cfg *config.Config) []m
 				{
 					File: dep.FromFile,
 					Message: fmt.Sprintf(
-						"%s includes %s, creating include dependency %s -> %s",
-						dep.FromFile,
+						"includes %s, creating include dependency %s -> %s",
 						dep.Target,
 						dep.FromLayer,
 						dep.ToLayer,

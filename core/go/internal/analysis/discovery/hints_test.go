@@ -1,0 +1,135 @@
+package discovery
+
+import (
+	"testing"
+
+	"github.com/orurh/patchcourt/internal/model"
+)
+
+func TestAnalyzeHints_DetectsBidirectionalLayerDependency(t *testing.T) {
+	project := &model.ProjectModel{
+		Dependencies: []model.DependencyEdge{
+			resolvedLayerDep("src/domain/foo.h", "src/session/foo.h", "domain", "session"),
+			resolvedLayerDep("src/session/bar.cc", "src/domain/bar.h", "session", "domain"),
+		},
+	}
+
+	findings := AnalyzeHints(project)
+
+	if findFinding(findings, "discovery.bidirectional.domain.session") == nil &&
+		findFinding(findings, "discovery.bidirectional.session.domain") == nil {
+		t.Fatalf("expected bidirectional finding, got %#v", findings)
+	}
+}
+
+func TestAnalyzeHints_DetectsDomainDependencyOnOuterLayer(t *testing.T) {
+	project := &model.ProjectModel{
+		Dependencies: []model.DependencyEdge{
+			resolvedLayerDep("src/domain/session_status.h", "src/session/session_errors.h", "domain", "session"),
+		},
+	}
+
+	findings := AnalyzeHints(project)
+
+	finding := findFinding(findings, "discovery.domain.depends_on.session")
+	if finding == nil {
+		t.Fatalf("expected domain dependency finding, got %#v", findings)
+	}
+
+	if finding.Kind != model.FindingKindDiscoveryHint {
+		t.Fatalf("expected discovery hint kind, got %q", finding.Kind)
+	}
+
+	if finding.Severity != model.SeverityMedium {
+		t.Fatalf("expected medium severity, got %q", finding.Severity)
+	}
+}
+
+func TestAnalyzeHints_IgnoresDomainDependencyOnShared(t *testing.T) {
+	project := &model.ProjectModel{
+		Dependencies: []model.DependencyEdge{
+			resolvedLayerDep("src/domain/foo.h", "src/shared/types.h", "domain", "shared"),
+		},
+	}
+
+	findings := AnalyzeHints(project)
+
+	if findFinding(findings, "discovery.domain.depends_on.shared") != nil {
+		t.Fatalf("did not expect domain -> shared finding, got %#v", findings)
+	}
+}
+
+func TestAnalyzeHints_DetectsControllersDependingOnServer(t *testing.T) {
+	project := &model.ProjectModel{
+		Dependencies: []model.DependencyEdge{
+			resolvedLayerDep("src/controllers/device_orchestrator.cc", "src/server/mappers/foo.h", "controllers", "server"),
+		},
+	}
+
+	findings := AnalyzeHints(project)
+
+	if findFinding(findings, "discovery.controllers.depends_on.server") == nil {
+		t.Fatalf("expected controllers -> server finding, got %#v", findings)
+	}
+}
+
+func TestAnalyzeHints_DetectsSharedDependingOnDomain(t *testing.T) {
+	project := &model.ProjectModel{
+		Dependencies: []model.DependencyEdge{
+			resolvedLayerDep("src/utils/json_serializer.cc", "src/domain/models/status.h", "shared", "domain"),
+		},
+	}
+
+	findings := AnalyzeHints(project)
+
+	if findFinding(findings, "discovery.shared.depends_on.domain") == nil {
+		t.Fatalf("expected shared -> domain finding, got %#v", findings)
+	}
+}
+
+func TestAnalyzeHints_IgnoresExternalUnresolvedAndSameLayerDependencies(t *testing.T) {
+	project := &model.ProjectModel{
+		Dependencies: []model.DependencyEdge{
+			{
+				FromLayer: "domain",
+				ToLayer:   "session",
+				Resolved:  false,
+			},
+			{
+				FromLayer: "domain",
+				ToLayer:   "session",
+				Resolved:  true,
+				External:  true,
+			},
+			resolvedLayerDep("src/domain/a.h", "src/domain/b.h", "domain", "domain"),
+		},
+	}
+
+	findings := AnalyzeHints(project)
+
+	if len(findings) != 0 {
+		t.Fatalf("expected no findings, got %#v", findings)
+	}
+}
+
+func resolvedLayerDep(fromFile string, toFile string, fromLayer string, toLayer string) model.DependencyEdge {
+	return model.DependencyEdge{
+		FromFile:  fromFile,
+		ToFile:    toFile,
+		Target:    toFile,
+		Kind:      model.DependencyKindInclude,
+		Resolved:  true,
+		FromLayer: fromLayer,
+		ToLayer:   toLayer,
+	}
+}
+
+func findFinding(findings []model.Finding, id string) *model.Finding {
+	for i := range findings {
+		if findings[i].ID == id {
+			return &findings[i]
+		}
+	}
+
+	return nil
+}

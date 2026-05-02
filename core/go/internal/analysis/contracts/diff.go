@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/orurh/patchcourt/internal/model"
+	"github.com/orurh/patchcourt/internal/platform/pathmatch"
 )
 
 type ChangeKind string
@@ -26,8 +27,8 @@ type SymbolChange struct {
 }
 
 func DiffSymbols(before []model.SymbolModel, after []model.SymbolModel) []SymbolChange {
-	beforeIndex := indexExportedSymbols(before)
-	afterIndex := indexExportedSymbols(after)
+	beforeIndex := indexContractSymbols(before)
+	afterIndex := indexContractSymbols(after)
 
 	changes := make([]SymbolChange, 0)
 
@@ -84,11 +85,15 @@ func DiffSymbols(before []model.SymbolModel, after []model.SymbolModel) []Symbol
 	return changes
 }
 
-func indexExportedSymbols(symbols []model.SymbolModel) map[string]model.SymbolModel {
+func indexContractSymbols(symbols []model.SymbolModel) map[string]model.SymbolModel {
 	index := make(map[string]model.SymbolModel)
 
 	for _, symbol := range symbols {
 		if !symbol.Exported {
+			continue
+		}
+
+		if !isContractSymbol(symbol) {
 			continue
 		}
 
@@ -101,6 +106,29 @@ func indexExportedSymbols(symbols []model.SymbolModel) map[string]model.SymbolMo
 	}
 
 	return index
+}
+
+func isContractSymbol(symbol model.SymbolModel) bool {
+	file := pathmatch.Normalize(strings.ToLower(symbol.File))
+	if file == "" {
+		// Snapshot/unit tests may construct symbols directly without file paths.
+		// Keep those symbols reviewable for backward compatibility.
+		return true
+	}
+
+	if strings.HasPrefix(file, "include/") {
+		return true
+	}
+
+	parts := strings.Split(file, "/")
+	for _, part := range parts {
+		switch part {
+		case "domain", "interfaces", "interface", "api", "contracts", "contract":
+			return true
+		}
+	}
+
+	return false
 }
 
 func SymbolKey(symbol model.SymbolModel) string {
