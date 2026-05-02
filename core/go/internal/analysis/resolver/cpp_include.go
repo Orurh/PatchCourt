@@ -13,6 +13,7 @@ type IncludePath struct {
 	Path       string
 	Source     model.ResolutionSource
 	Confidence model.ResolutionConfidence
+	System     bool
 }
 
 type IncludeResolution struct {
@@ -75,6 +76,16 @@ func (r CPPIncludeResolver) Resolve(fromFile string, target string) IncludeResol
 
 	for _, includePath := range r.includePaths {
 		candidate := path.Clean(path.Join(includePath.Path, normalizedTarget))
+
+		if includePath.System && r.fileExists(candidate) {
+			return IncludeResolution{
+				Resolved:   false,
+				External:   true,
+				Source:     includePath.Source,
+				Confidence: includePath.Confidence,
+			}
+		}
+
 		if resolved, ok := r.fileIndex.ResolvePath(candidate); ok {
 			return IncludeResolution{
 				ToFile:     resolved,

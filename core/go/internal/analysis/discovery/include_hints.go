@@ -15,9 +15,14 @@ func unusedIncludeHints(project *model.ProjectModel) []model.Finding {
 
 	evidence := make([]model.Evidence, 0, maxUnusedIncludeEvidence)
 	total := 0
+	ignoredFiles := ignoredFromFiles(project)
 
 	for _, dep := range project.Dependencies {
 		if dep.Kind != model.DependencyKindInclude {
+			continue
+		}
+
+		if ignoredFiles[dep.FromFile] {
 			continue
 		}
 

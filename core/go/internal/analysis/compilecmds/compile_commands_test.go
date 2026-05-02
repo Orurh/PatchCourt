@@ -121,3 +121,88 @@ func assertStringSliceContains(t *testing.T, values []string, expected string) {
 
 	t.Fatalf("expected %q in %#v", expected, values)
 }
+
+func TestIncludePathEntries_PreservesIncludePathKinds(t *testing.T) {
+	root := t.TempDir()
+
+	db := &Database{
+		Entries: []Entry{
+			{
+				Directory: root,
+				Arguments: []string{
+					"clang++",
+					"-I",
+					"include",
+					"-isystem",
+					"third_party/include",
+					"-iquote",
+					"quoted",
+					"--include-directory=generated",
+					"-c",
+					"src/main.cc",
+				},
+			},
+		},
+	}
+
+	got := IncludePathEntries(db, root)
+
+	assertIncludePathEntry(t, got, "include", IncludePathKindNormal)
+	assertIncludePathEntry(t, got, "third_party/include", IncludePathKindSystem)
+	assertIncludePathEntry(t, got, "quoted", IncludePathKindQuote)
+	assertIncludePathEntry(t, got, "generated", IncludePathKindNormal)
+}
+
+func TestIncludePathEntries_DeduplicatesByKindAndPath(t *testing.T) {
+	root := t.TempDir()
+
+	db := &Database{
+		Entries: []Entry{
+			{
+				Directory: root,
+				Arguments: []string{
+					"clang++",
+					"-I",
+					"include",
+					"-Iinclude",
+					"-isystem",
+					"include",
+					"-c",
+					"src/main.cc",
+				},
+			},
+		},
+	}
+
+	got := IncludePathEntries(db, root)
+
+	assertIncludePathEntryCount(t, got, "include", IncludePathKindNormal, 1)
+	assertIncludePathEntryCount(t, got, "include", IncludePathKindSystem, 1)
+}
+
+func assertIncludePathEntry(t *testing.T, values []IncludePathEntry, expectedPath string, expectedKind IncludePathKind) {
+	t.Helper()
+
+	for _, value := range values {
+		if value.Path == expectedPath && value.Kind == expectedKind {
+			return
+		}
+	}
+
+	t.Fatalf("expected include path entry %s/%s in %#v", expectedPath, expectedKind, values)
+}
+
+func assertIncludePathEntryCount(t *testing.T, values []IncludePathEntry, expectedPath string, expectedKind IncludePathKind, expectedCount int) {
+	t.Helper()
+
+	count := 0
+	for _, value := range values {
+		if value.Path == expectedPath && value.Kind == expectedKind {
+			count++
+		}
+	}
+
+	if count != expectedCount {
+		t.Fatalf("expected include path entry %s/%s count %d, got %d in %#v", expectedPath, expectedKind, expectedCount, count, values)
+	}
+}

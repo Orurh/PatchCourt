@@ -10,6 +10,7 @@ import (
 
 	"github.com/orurh/patchcourt/internal/analysis/project"
 	"github.com/orurh/patchcourt/internal/analysis/resolver"
+	"github.com/orurh/patchcourt/internal/config"
 	"github.com/orurh/patchcourt/internal/model"
 	"github.com/orurh/patchcourt/internal/platform/pathmatch"
 )
@@ -41,7 +42,7 @@ func GenerateInitConfig(opts InitOptions) (*InitResult, error) {
 		return nil, fmt.Errorf("resolve root: %w", err)
 	}
 
-	ignorePaths := DefaultIgnorePaths()
+	ignorePaths := config.DefaultIgnorePaths()
 	includePathStrings := discoverCPPIncludePaths(absRoot)
 	includePaths := configIncludePaths(includePathStrings)
 
@@ -61,28 +62,6 @@ func GenerateInitConfig(opts InitOptions) (*InitResult, error) {
 	return &InitResult{
 		ConfigYAML: configYAML,
 	}, nil
-}
-
-func DefaultIgnorePaths() []string {
-	return []string{
-		".git/**",
-		"build/**",
-		"cmake-build-debug/**",
-		"cmake-build-release/**",
-		"node_modules/**",
-		"vendor/**",
-		"libs/**",
-		"third_party/**",
-		"external/**",
-		"generated/**",
-		"**/*.pb.h",
-		"**/*.pb.cc",
-		"**/*.pb.cpp",
-		"**/*.pb.go",
-		"**/*.grpc.pb.h",
-		"**/*.grpc.pb.cc",
-		"**/*.grpc.pb.go",
-	}
 }
 
 func discoverCPPIncludePaths(absRoot string) []string {

@@ -80,3 +80,42 @@ func TestAnalyzeHints_IgnoresUsedMaybeUnknownExternalAndUnresolvedIncludes(t *te
 		t.Fatalf("did not expect unused include finding, got %#v", findings)
 	}
 }
+
+func TestAnalyzeHints_IgnoresUnusedIncludesFromTestGeneratedAndExternalFiles(t *testing.T) {
+	project := &model.ProjectModel{
+		Files: []model.FileModel{
+			{Path: "tests/controller_test.cc", Role: model.FileRoleTest},
+			{Path: "generated/foo.pb.cc", Role: model.FileRoleGenerated},
+			{Path: "third_party/lib/lib.cc", Role: model.FileRoleExternal},
+		},
+		Dependencies: []model.DependencyEdge{
+			{
+				FromFile: "tests/controller_test.cc",
+				ToFile:   "src/domain/unused.h",
+				Kind:     model.DependencyKindInclude,
+				Resolved: true,
+				Usage:    model.DependencyUsageUnused,
+			},
+			{
+				FromFile: "generated/foo.pb.cc",
+				ToFile:   "src/domain/unused.h",
+				Kind:     model.DependencyKindInclude,
+				Resolved: true,
+				Usage:    model.DependencyUsageUnused,
+			},
+			{
+				FromFile: "third_party/lib/lib.cc",
+				ToFile:   "src/domain/unused.h",
+				Kind:     model.DependencyKindInclude,
+				Resolved: true,
+				Usage:    model.DependencyUsageUnused,
+			},
+		},
+	}
+
+	findings := AnalyzeHints(project)
+
+	if findFinding(findings, "discovery.cpp.unused_includes") != nil {
+		t.Fatalf("did not expect unused include finding from ignored files, got %#v", findings)
+	}
+}

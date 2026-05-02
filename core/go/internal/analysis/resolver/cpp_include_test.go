@@ -253,7 +253,6 @@ func testIncludePaths(paths ...string) []IncludePath {
 	return result
 }
 
-
 func writeResolverTestFile(t *testing.T, root string, relPath string) {
 	t.Helper()
 
@@ -265,5 +264,45 @@ func writeResolverTestFile(t *testing.T, root string, relPath string) {
 
 	if err := os.WriteFile(absPath, []byte("#pragma once\n"), 0o644); err != nil {
 		t.Fatalf("write test file: %v", err)
+	}
+}
+
+func TestCPPIncludeResolver_MarksSystemIncludePathFileAsExternal(t *testing.T) {
+	root := t.TempDir()
+
+	writeResolverTestFile(t, root, "sysroot/include/vendor.h")
+
+	resolver := NewCPPIncludeResolver(
+		root,
+		NewFileIndex(nil),
+		[]IncludePath{
+			{
+				Path:       "sysroot/include",
+				Source:     model.ResolutionSourceConfig,
+				Confidence: model.ResolutionConfidenceMedium,
+				System:     true,
+			},
+		},
+	)
+
+	got := resolver.Resolve(
+		"src/server/api_router.cc",
+		"vendor.h",
+	)
+
+	if !got.External {
+		t.Fatalf("expected system include path file to be marked external")
+	}
+
+	if got.Resolved {
+		t.Fatalf("external system file outside project index must not be resolved")
+	}
+
+	if got.Source != model.ResolutionSourceConfig {
+		t.Fatalf("expected config source, got %q", got.Source)
+	}
+
+	if got.Confidence != model.ResolutionConfidenceMedium {
+		t.Fatalf("expected medium confidence, got %q", got.Confidence)
 	}
 }

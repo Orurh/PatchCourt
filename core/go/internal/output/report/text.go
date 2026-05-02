@@ -119,8 +119,13 @@ func writeResolutionDiagnosticsText(w io.Writer, project *model.ProjectModel) {
 
 func unresolvedDependencies(project *model.ProjectModel) []model.DependencyEdge {
 	result := make([]model.DependencyEdge, 0)
+	ignoredFiles := ignoredDiagnosticFromFiles(project)
 
 	for _, dep := range project.Dependencies {
+		if ignoredFiles[dep.FromFile] {
+			continue
+		}
+
 		if dep.External || dep.Resolved || dep.Ambiguous {
 			continue
 		}
@@ -133,8 +138,13 @@ func unresolvedDependencies(project *model.ProjectModel) []model.DependencyEdge 
 
 func ambiguousDependencies(project *model.ProjectModel) []model.DependencyEdge {
 	result := make([]model.DependencyEdge, 0)
+	ignoredFiles := ignoredDiagnosticFromFiles(project)
 
 	for _, dep := range project.Dependencies {
+		if ignoredFiles[dep.FromFile] {
+			continue
+		}
+
 		if dep.External || !dep.Ambiguous {
 			continue
 		}
@@ -182,8 +192,13 @@ func writeUsageDiagnosticsText(w io.Writer, project *model.ProjectModel) {
 
 func unusedDependencies(project *model.ProjectModel) []model.DependencyEdge {
 	result := make([]model.DependencyEdge, 0)
+	ignoredFiles := ignoredDiagnosticFromFiles(project)
 
 	for _, dep := range project.Dependencies {
+		if ignoredFiles[dep.FromFile] {
+			continue
+		}
+
 		if dep.External || !dep.Resolved {
 			continue
 		}
@@ -196,4 +211,21 @@ func unusedDependencies(project *model.ProjectModel) []model.DependencyEdge {
 	}
 
 	return result
+}
+
+func ignoredDiagnosticFromFiles(project *model.ProjectModel) map[string]bool {
+	ignored := make(map[string]bool)
+
+	if project == nil {
+		return ignored
+	}
+
+	for _, file := range project.Files {
+		switch file.Role {
+		case model.FileRoleTest, model.FileRoleGenerated, model.FileRoleExternal:
+			ignored[file.Path] = true
+		}
+	}
+
+	return ignored
 }

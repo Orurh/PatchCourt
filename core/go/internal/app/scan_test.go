@@ -315,3 +315,195 @@ layers:
       - domain
 `
 }
+
+func TestApp_RunScan_SuppressesFindingWithPatchCourtIgnoreComment(t *testing.T) {
+	root := t.TempDir()
+
+	writeFile(t, root, "src/cameras/sony/sony_camera_manager.h", `#pragma once
+struct SonyCameraManager {};
+`)
+
+	writeFile(t, root, "src/server/api_router.cc", `// patchcourt:ignore architecture.api.cameras reason: legacy adapter
+#include "src/cameras/sony/sony_camera_manager.h"
+
+SonyCameraManager MakeSony() {
+    return SonyCameraManager{};
+}
+`)
+
+	writeConfig(t, root, testConfig())
+
+	application := New(logx.Nop())
+
+	result, err := application.RunScan(context.Background(), ScanRequest{
+		Root:       root,
+		ConfigPath: filepath.Join(root, ".patchcourt.yaml"),
+	})
+	if err != nil {
+		t.Fatalf("RunScan failed: %v", err)
+	}
+
+	if result == nil || result.Project == nil {
+		t.Fatalf("expected scan result with project")
+	}
+
+	for _, finding := range result.Project.Findings {
+		if finding.ID == "architecture.api.cameras" {
+			t.Fatalf("expected architecture.api.cameras to be suppressed, got finding: %#v", finding)
+		}
+	}
+}
+
+func TestApp_RunScan_SuppressesOneEvidenceItemFromGroupedFinding(t *testing.T) {
+	root := t.TempDir()
+
+	writeFile(t, root, "src/domain/unused_a.h", `#pragma once
+struct UnusedA {};
+`)
+
+	writeFile(t, root, "src/domain/unused_b.h", `#pragma once
+struct UnusedB {};
+`)
+
+	writeFile(t, root, "src/server/api_router.cc", `// patchcourt:ignore discovery.cpp.unused_includes reason: temporary include
+#include "src/domain/unused_a.h"
+
+int Health() {
+    return 200;
+}
+`)
+
+	writeFile(t, root, "src/controllers/device_orchestrator.cc", `#include "src/domain/unused_b.h"
+
+int Run() {
+    return 1;
+}
+`)
+
+	writeConfig(t, root, testConfig())
+
+	application := New(logx.Nop())
+
+	result, err := application.RunScan(context.Background(), ScanRequest{
+		Root:       root,
+		ConfigPath: filepath.Join(root, ".patchcourt.yaml"),
+	})
+	if err != nil {
+		t.Fatalf("RunScan failed: %v", err)
+	}
+
+	var unusedFinding *model.Finding
+	for i := range result.Project.Findings {
+		if result.Project.Findings[i].ID == "discovery.cpp.unused_includes" {
+			unusedFinding = &result.Project.Findings[i]
+			break
+		}
+	}
+
+	if unusedFinding == nil {
+		t.Fatalf("expected grouped unused include finding to remain")
+	}
+
+	if len(unusedFinding.Evidence) != 1 {
+		t.Fatalf("expected only unsuppressed evidence to remain, got %#v", unusedFinding.Evidence)
+	}
+
+	if unusedFinding.Evidence[0].File != "src/controllers/device_orchestrator.cc" {
+		t.Fatalf("unexpected remaining evidence file: %q", unusedFinding.Evidence[0].File)
+	}
+}
+
+func TestApp_RunScan_UsesConfiguredSystemIncludePaths(t *testing.T) {
+	root := t.TempDir()
+
+	writeFile(t, root, "sysroot/include/vendor.h", `#pragma once
+struct VendorType {};
+`)
+
+	writeFile(t, root, "src/server/api_router.cc", `#include "vendor.h"
+
+int Health() {
+    return 200;
+}
+`)
+
+	writeFile(t, root, ".patchcourt.yaml", `
+cpp:
+  system_include_paths:
+    - sysroot/include
+
+layers:
+  api:
+    paths:
+      - src/server/**
+    may_depend_on: []
+`)
+
+	application := New(logx.Nop())
+
+	result, err := application.RunScan(context.Background(), ScanRequest{
+		Root:       root,
+		ConfigPath: filepath.Join(root, ".patchcourt.yaml"),
+	})
+	if err != nil {
+		t.Fatalf("RunScan failed: %v", err)
+	}
+
+	dep, found := findDependencyByTarget(result.Project.Dependencies, "src/server/api_router.cc", "vendor.h")
+	if !found {
+		t.Fatalf("expected vendor.h dependency in %#v", result.Project.Dependencies)
+	}
+
+	if !dep.External {
+		t.Fatalf("expected vendor.h to be external")
+	}
+
+	if dep.Resolved {
+		t.Fatalf("expected vendor.h to stay unresolved as external")
+	}
+
+	if dep.ResolutionSource != model.ResolutionSourceConfig {
+		t.Fatalf("expected config resolution source, got %q", dep.ResolutionSource)
+	}
+
+	if dep.ResolutionConfidence != model.ResolutionConfidenceMedium {
+		t.Fatalf("expected medium confidence, got %q", dep.ResolutionConfidence)
+	}
+}
+
+func findDependencyByTarget(deps []model.DependencyEdge, fromFile string, target string) (model.DependencyEdge, bool) {
+	for _, dep := range deps {
+		if dep.FromFile == fromFile && dep.Target == target {
+			return dep, true
+		}
+	}
+
+	return model.DependencyEdge{}, false
+}
+
+func TestApp_RunScan_UsesDefaultIgnoresWithoutConfig(t *testing.T) {
+	root := t.TempDir()
+
+	writeFile(t, root, "src/server/api_router.cc", `int Health() { return 200; }
+`)
+	writeFile(t, root, "libs/vendor/noise.h", `#pragma once
+struct VendorNoise {};
+`)
+	writeFile(t, root, "libs/vendor/noise.cc", `#include "noise.h"
+`)
+
+	application := New(logx.Nop())
+
+	result, err := application.RunScan(context.Background(), ScanRequest{
+		Root: root,
+	})
+	if err != nil {
+		t.Fatalf("RunScan failed: %v", err)
+	}
+
+	for _, file := range result.Project.Files {
+		if file.Path == "libs/vendor/noise.h" || file.Path == "libs/vendor/noise.cc" {
+			t.Fatalf("expected libs/** file to be ignored by default, got %#v", file)
+		}
+	}
+}

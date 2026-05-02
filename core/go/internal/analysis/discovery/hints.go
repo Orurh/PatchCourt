@@ -24,7 +24,8 @@ func AnalyzeHints(project *model.ProjectModel) []model.Finding {
 		return nil
 	}
 
-	edges := collectLayerEdges(project)
+	ignoredFiles := ignoredFromFiles(project)
+	edges := collectLayerEdges(project, ignoredFiles)
 	findings := make([]model.Finding, 0)
 
 	findings = append(findings, bidirectionalLayerHints(edges)...)
@@ -40,11 +41,15 @@ func AnalyzeHints(project *model.ProjectModel) []model.Finding {
 	return findings
 }
 
-func collectLayerEdges(project *model.ProjectModel) map[layerPair][]model.DependencyEdge {
+func collectLayerEdges(project *model.ProjectModel, ignoredFiles map[string]bool) map[layerPair][]model.DependencyEdge {
 	edges := make(map[layerPair][]model.DependencyEdge)
 
 	for _, dep := range project.Dependencies {
 		if dep.External || !dep.Resolved {
+			continue
+		}
+
+		if ignoredFiles[dep.FromFile] {
 			continue
 		}
 
@@ -199,8 +204,7 @@ func dependencyEvidence(pair layerPair, deps []model.DependencyEdge) []model.Evi
 		evidence = append(evidence, model.Evidence{
 			File: dep.FromFile,
 			Message: fmt.Sprintf(
-				"%s includes %s, creating discovered layer dependency %s -> %s",
-				dep.FromFile,
+				"includes %s, creating discovered layer dependency %s -> %s",
 				target,
 				pair.from,
 				pair.to,

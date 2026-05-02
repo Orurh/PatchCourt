@@ -12,6 +12,7 @@ import (
 	"github.com/orurh/patchcourt/internal/analysis/project"
 	"github.com/orurh/patchcourt/internal/analysis/resolver"
 	"github.com/orurh/patchcourt/internal/analysis/rules"
+	"github.com/orurh/patchcourt/internal/analysis/suppressions"
 	"github.com/orurh/patchcourt/internal/config"
 	"github.com/orurh/patchcourt/internal/model"
 	"github.com/orurh/patchcourt/internal/platform/logx"
@@ -73,6 +74,8 @@ func (e *Engine) Analyze(ctx context.Context, req AnalyzeRequest) (*AnalyzeResul
 		return nil, fmt.Errorf("load config: %w", err)
 	}
 
+	config.ApplyDefaults(cfg)
+
 	logger.Debug("building project model")
 
 	includePaths, err := e.resolveCPPIncludePaths(req.Root, cfg)
@@ -112,7 +115,19 @@ func (e *Engine) Analyze(ctx context.Context, req AnalyzeRequest) (*AnalyzeResul
 	discoveryFindings := discovery.AnalyzeHints(projectModel)
 	projectModel.Findings = append(projectModel.Findings, discoveryFindings...)
 
-	logger.Debug("analysis completed", logx.Int("findings", len(projectModel.Findings)))
+	suppressionDirectives, err := suppressions.Collect(projectModel.Root, projectModel.Files)
+	if err != nil {
+		return nil, fmt.Errorf("collect suppressions: %w", err)
+	}
+
+	suppressedFindings := suppressions.Apply(projectModel, suppressionDirectives)
+
+	logger.Debug(
+		"analysis completed",
+		logx.Int("findings", len(projectModel.Findings)),
+		logx.Int("suppressions", len(suppressionDirectives)),
+		logx.Int("suppressed_findings", suppressedFindings),
+	)
 
 	return &AnalyzeResult{
 		Project: projectModel,
@@ -130,11 +145,9 @@ func (e *Engine) resolveCPPIncludePaths(root string, cfg *config.Config) ([]reso
 			return nil, err
 		}
 
-		includePaths = appendIncludePaths(
+		includePaths = appendCompileCommandIncludePaths(
 			includePaths,
-			compilecmds.IncludePaths(db, root),
-			model.ResolutionSourceCompileCommands,
-			model.ResolutionConfidenceHigh,
+			compilecmds.IncludePathEntries(db, root),
 		)
 
 		e.logger.Debug(
@@ -149,6 +162,15 @@ func (e *Engine) resolveCPPIncludePaths(root string, cfg *config.Config) ([]reso
 		cfg.CPP.IncludePaths,
 		model.ResolutionSourceConfig,
 		model.ResolutionConfidenceHigh,
+		false,
+	)
+
+	includePaths = appendIncludePaths(
+		includePaths,
+		cfg.CPP.SystemIncludePaths,
+		model.ResolutionSourceConfig,
+		model.ResolutionConfidenceMedium,
+		true,
 	)
 
 	return uniqueIncludePaths(includePaths), nil
@@ -187,17 +209,37 @@ func fileExists(path string) bool {
 	return err == nil && !info.IsDir()
 }
 
+func appendCompileCommandIncludePaths(
+	dst []resolver.IncludePath,
+	entries []compilecmds.IncludePathEntry,
+) []resolver.IncludePath {
+	for _, entry := range entries {
+		system := entry.Kind == compilecmds.IncludePathKindSystem
+
+		dst = append(dst, resolver.IncludePath{
+			Path:       entry.Path,
+			Source:     model.ResolutionSourceCompileCommands,
+			Confidence: model.ResolutionConfidenceHigh,
+			System:     system,
+		})
+	}
+
+	return dst
+}
+
 func appendIncludePaths(
 	dst []resolver.IncludePath,
 	paths []string,
 	source model.ResolutionSource,
 	confidence model.ResolutionConfidence,
+	system bool,
 ) []resolver.IncludePath {
 	for _, path := range paths {
 		dst = append(dst, resolver.IncludePath{
 			Path:       path,
 			Source:     source,
 			Confidence: confidence,
+			System:     system,
 		})
 	}
 
@@ -213,13 +255,23 @@ func uniqueIncludePaths(values []resolver.IncludePath) []resolver.IncludePath {
 			continue
 		}
 
-		if _, ok := seen[value.Path]; ok {
+		key := includePathKey(value)
+		if _, ok := seen[key]; ok {
 			continue
 		}
 
-		seen[value.Path] = struct{}{}
+		seen[key] = struct{}{}
 		result = append(result, value)
 	}
 
 	return result
+}
+
+func includePathKey(value resolver.IncludePath) string {
+	system := "normal"
+	if value.System {
+		system = "system"
+	}
+
+	return string(value.Source) + "|" + system + "|" + value.Path
 }

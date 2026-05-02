@@ -133,3 +133,26 @@ func findFinding(findings []model.Finding, id string) *model.Finding {
 
 	return nil
 }
+
+func TestAnalyzeHints_IgnoresDependenciesFromTestGeneratedAndExternalFiles(t *testing.T) {
+	project := &model.ProjectModel{
+		Files: []model.FileModel{
+			{Path: "tests/controller_test.cc", Role: model.FileRoleTest},
+			{Path: "generated/foo.pb.cc", Role: model.FileRoleGenerated},
+			{Path: "third_party/lib/lib.cc", Role: model.FileRoleExternal},
+			{Path: "src/domain/status.h", Role: model.FileRoleProduction},
+			{Path: "src/session/session_errors.h", Role: model.FileRoleProduction},
+		},
+		Dependencies: []model.DependencyEdge{
+			resolvedLayerDep("tests/controller_test.cc", "src/session/session_errors.h", "domain", "session"),
+			resolvedLayerDep("generated/foo.pb.cc", "src/session/session_errors.h", "domain", "session"),
+			resolvedLayerDep("third_party/lib/lib.cc", "src/session/session_errors.h", "domain", "session"),
+		},
+	}
+
+	findings := AnalyzeHints(project)
+
+	if len(findings) != 0 {
+		t.Fatalf("expected ignored from-files to produce no findings, got %#v", findings)
+	}
+}

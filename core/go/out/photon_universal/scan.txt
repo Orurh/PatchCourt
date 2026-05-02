@@ -22,6 +22,10 @@ Dependencies:
   resolved:    831
   unresolved:  114
   external:    1215
+  usage used:    562
+  usage unused:  26
+  usage maybe:   243
+  usage unknown: 1329
 
 Resolution diagnostics:
   unresolved includes: 21
@@ -327,5 +331,97 @@ Resolution diagnostics:
         candidate: src/application/constants.h
         candidate: src/session/constants.h
 
+Usage diagnostics:
+  possibly unused includes: 26
+    - libs/lidar_controller/tests/unit/controller/test_lidar_controller.cc includes libs/lidar_controller/include/controller/LidarController.h [heuristic/low]
+    - libs/lidar_controller/tests/unit/infrastructure/docker/test_compose_manager.cc includes libs/lidar_controller/include/infrastructure/docker/ComposeManager.h [heuristic/low]
+    - libs/lidar_controller/tests/unit/infrastructure/docker/test_docker_command_executor.cc includes libs/lidar_controller/include/infrastructure/docker/DockerCommandExecutor.h [heuristic/low]
+    - libs/photon_lib/libs/sonysampleapplibrary/app/CRSDK/CrDefines.h includes libs/photon_lib/libs/sonysampleapplibrary/app/CRSDK/CrError.h [heuristic/medium]
+    - libs/photon_lib/libs/sonysampleapplibrary/app/CRSDK/CrImageDataBlock.h includes libs/photon_lib/libs/sonysampleapplibrary/app/CRSDK/CrDefines.h [heuristic/medium]
+    - libs/photon_lib/libs/sonysampleapplibrary/app/ConnectionInfo.cpp includes libs/photon_lib/libs/sonysampleapplibrary/app/CRSDK/CameraRemote_SDK.h [heuristic/medium]
+    - libs/photon_lib/libs/sonysampleapplibrary/app/ConnectionInfo.cpp includes libs/photon_lib/libs/sonysampleapplibrary/app/CameraDevice.h [heuristic/medium]
+    - libs/photon_lib/libs/sonysampleapplibrary/app/MessageDefine.h includes libs/photon_lib/libs/sonysampleapplibrary/app/CRSDK/CrError.h [heuristic/medium]
+    - libs/photon_lib/libs/sonysampleapplibrary/app/OpenCVWrapper.h includes libs/photon_lib/libs/sonysampleapplibrary/app/CRSDK/CrImageDataBlock.h [heuristic/low]
+    - libs/photon_lib/libs/sonysampleapplibrary/app/PropertyValueTable.cpp includes libs/photon_lib/libs/sonysampleapplibrary/app/CameraDevice.h [heuristic/medium]
+    - libs/photon_lib/libs/sonysampleapplibrary/app/PropertyValueTable.h includes libs/photon_lib/libs/sonysampleapplibrary/app/CRSDK/CameraRemote_SDK.h [heuristic/low]
+    - libs/photon_lib/src/CamerasManager.cpp includes libs/photon_lib/src/pch.h [heuristic/medium]
+    - libs/photon_lib/src/ExtendedCameraDevice.cpp includes libs/photon_lib/src/pch.h [heuristic/medium]
+    - libs/photon_lib/src/FtpLogger.cpp includes libs/photon_lib/src/pch.h [heuristic/medium]
+    - libs/photon_lib/src/Interfaces/ICameraSettingsManager.h includes libs/photon_lib/src/Domain/CameraButton.h [heuristic/low]
+    - libs/photon_lib/src/TCPSession.h includes libs/photon_lib/src/DanyaLogger.h [heuristic/medium]
+    - libs/photon_lib/src/pch.cpp includes libs/photon_lib/src/pch.h [heuristic/medium]
+    - libs/photon_lib/tests/test_camera_session_manager.cpp includes libs/photon_lib/src/Interfaces/ICameraSessionManager.h [heuristic/medium]
+    - libs/photon_lib/tests/test_camera_settings_manager.cpp includes libs/photon_lib/src/Interfaces/ICameraSettingsManager.h [heuristic/medium]
+    - libs/photon_lib/tests/test_live_view_manager.cpp includes libs/photon_lib/src/Interfaces/ILiveViewManager.h [heuristic/medium]
+    ... 6 more
+
 Findings:
-  total: 0
+  total: 6
+  [medium/discovery_hint] Bidirectional layer dependency
+    id: discovery.bidirectional.domain.shared
+    risk: Layers "domain" and "shared" depend on each other. This may indicate a cycle, misplaced types, or missing dependency inversion.
+    suggestion: Review whether one side should depend on an interface, shared model, or lower-level package instead.
+    confidence: medium
+    - src/domain/models/cameras_settings.h: src/domain/models/cameras_settings.h includes src/utils/enum_traits.h, creating discovered layer dependency domain -> shared
+    - src/utils/directory_browser.h: src/utils/directory_browser.h includes src/domain/models/directory_list_result.h, creating discovered layer dependency shared -> domain
+    - src/utils/json_serializer.cc: src/utils/json_serializer.cc includes src/domain/models/camera_object_data.h, creating discovered layer dependency shared -> domain
+    - src/utils/json_serializer.cc: src/utils/json_serializer.cc includes src/domain/models/camera_status.h, creating discovered layer dependency shared -> domain
+    - src/utils/json_serializer.cc: src/utils/json_serializer.cc includes src/domain/models/directory_list_result.h, creating discovered layer dependency shared -> domain
+  [medium/discovery_hint] Bidirectional layer dependency
+    id: discovery.bidirectional.session.domain
+    risk: Layers "session" and "domain" depend on each other. This may indicate a cycle, misplaced types, or missing dependency inversion.
+    suggestion: Review whether one side should depend on an interface, shared model, or lower-level package instead.
+    confidence: medium
+    - src/session/session_state_journal.cc: src/session/session_state_journal.cc includes src/domain/models/session_settings.h, creating discovered layer dependency session -> domain
+    - src/session/session_state_journal.h: src/session/session_state_journal.h includes src/domain/models/session_state_journal_record.h, creating discovered layer dependency session -> domain
+    - src/session/session_state_manager.cc: src/session/session_state_manager.cc includes src/domain/models/session_settings.h, creating discovered layer dependency session -> domain
+    - src/session/session_state_manager.cc: src/session/session_state_manager.cc includes src/domain/models/session_status.h, creating discovered layer dependency session -> domain
+    - src/session/session_state_manager.h: src/session/session_state_manager.h includes src/domain/models/session_settings.h, creating discovered layer dependency session -> domain
+  [medium/discovery_hint] Controller layer depends on server layer
+    id: discovery.controllers.depends_on.server
+    risk: Controllers include server-layer files. Usually server/API adapters should call controllers, not the other way around.
+    suggestion: Move shared mapper/DTO code out of server, or keep server-specific mapping behind the server adapter.
+    confidence: medium
+    - src/controllers/device_orchestrator.cc: src/controllers/device_orchestrator.cc includes src/server/mappers/lidar_status_mapper.h, creating discovered layer dependency controllers -> server
+  [low/discovery_hint] Possibly unused C++ includes
+    id: discovery.cpp.unused_includes
+    risk: These include dependencies were resolved, but lightweight syntactic analysis did not find references to top-level symbols declared in the included headers. This may indicate avoidable compile-time coupling.
+    suggestion: Review whether these includes can be removed or replaced with forward declarations. Verify manually, especially for macro-heavy, template-heavy, or transitive include cases.
+    confidence: medium
+    - libs/lidar_controller/tests/unit/controller/test_lidar_controller.cc: includes libs/lidar_controller/include/controller/LidarController.h, but no declared top-level symbols from that header were referenced by the includer [heuristic/low]
+    - libs/lidar_controller/tests/unit/infrastructure/docker/test_compose_manager.cc: includes libs/lidar_controller/include/infrastructure/docker/ComposeManager.h, but no declared top-level symbols from that header were referenced by the includer [heuristic/low]
+    - libs/lidar_controller/tests/unit/infrastructure/docker/test_docker_command_executor.cc: includes libs/lidar_controller/include/infrastructure/docker/DockerCommandExecutor.h, but no declared top-level symbols from that header were referenced by the includer [heuristic/low]
+    - libs/photon_lib/libs/sonysampleapplibrary/app/CRSDK/CrDefines.h: includes libs/photon_lib/libs/sonysampleapplibrary/app/CRSDK/CrError.h, but no declared top-level symbols from that header were referenced by the includer [heuristic/medium]
+    - libs/photon_lib/libs/sonysampleapplibrary/app/CRSDK/CrImageDataBlock.h: includes libs/photon_lib/libs/sonysampleapplibrary/app/CRSDK/CrDefines.h, but no declared top-level symbols from that header were referenced by the includer [heuristic/medium]
+    - libs/photon_lib/libs/sonysampleapplibrary/app/ConnectionInfo.cpp: includes libs/photon_lib/libs/sonysampleapplibrary/app/CRSDK/CameraRemote_SDK.h, but no declared top-level symbols from that header were referenced by the includer [heuristic/medium]
+    - libs/photon_lib/libs/sonysampleapplibrary/app/ConnectionInfo.cpp: includes libs/photon_lib/libs/sonysampleapplibrary/app/CameraDevice.h, but no declared top-level symbols from that header were referenced by the includer [heuristic/medium]
+    - libs/photon_lib/libs/sonysampleapplibrary/app/MessageDefine.h: includes libs/photon_lib/libs/sonysampleapplibrary/app/CRSDK/CrError.h, but no declared top-level symbols from that header were referenced by the includer [heuristic/medium]
+    - libs/photon_lib/libs/sonysampleapplibrary/app/OpenCVWrapper.h: includes libs/photon_lib/libs/sonysampleapplibrary/app/CRSDK/CrImageDataBlock.h, but no declared top-level symbols from that header were referenced by the includer [heuristic/low]
+    - libs/photon_lib/libs/sonysampleapplibrary/app/PropertyValueTable.cpp: includes libs/photon_lib/libs/sonysampleapplibrary/app/CameraDevice.h, but no declared top-level symbols from that header were referenced by the includer [heuristic/medium]
+    - libs/photon_lib/libs/sonysampleapplibrary/app/PropertyValueTable.h: includes libs/photon_lib/libs/sonysampleapplibrary/app/CRSDK/CameraRemote_SDK.h, but no declared top-level symbols from that header were referenced by the includer [heuristic/low]
+    - libs/photon_lib/src/CamerasManager.cpp: includes libs/photon_lib/src/pch.h, but no declared top-level symbols from that header were referenced by the includer [heuristic/medium]
+    - libs/photon_lib/src/ExtendedCameraDevice.cpp: includes libs/photon_lib/src/pch.h, but no declared top-level symbols from that header were referenced by the includer [heuristic/medium]
+    - libs/photon_lib/src/FtpLogger.cpp: includes libs/photon_lib/src/pch.h, but no declared top-level symbols from that header were referenced by the includer [heuristic/medium]
+    - libs/photon_lib/src/Interfaces/ICameraSettingsManager.h: includes libs/photon_lib/src/Domain/CameraButton.h, but no declared top-level symbols from that header were referenced by the includer [heuristic/low]
+    - libs/photon_lib/src/TCPSession.h: includes libs/photon_lib/src/DanyaLogger.h, but no declared top-level symbols from that header were referenced by the includer [heuristic/medium]
+    - libs/photon_lib/src/pch.cpp: includes libs/photon_lib/src/pch.h, but no declared top-level symbols from that header were referenced by the includer [heuristic/medium]
+    - libs/photon_lib/tests/test_camera_session_manager.cpp: includes libs/photon_lib/src/Interfaces/ICameraSessionManager.h, but no declared top-level symbols from that header were referenced by the includer [heuristic/medium]
+    - libs/photon_lib/tests/test_camera_settings_manager.cpp: includes libs/photon_lib/src/Interfaces/ICameraSettingsManager.h, but no declared top-level symbols from that header were referenced by the includer [heuristic/medium]
+    - libs/photon_lib/tests/test_live_view_manager.cpp: includes libs/photon_lib/src/Interfaces/ILiveViewManager.h, but no declared top-level symbols from that header were referenced by the includer [heuristic/medium]
+  [medium/discovery_hint] Domain layer depends on an outer layer
+    id: discovery.domain.depends_on.session
+    risk: Domain layer includes files from "session". Domain code is usually expected to stay independent from outer implementation or orchestration layers.
+    suggestion: Consider moving the referenced type into domain/shared, introducing a domain interface, or reversing the dependency.
+    confidence: medium
+    - src/domain/interfaces/i_session_controller.h: src/domain/interfaces/i_session_controller.h includes src/session/session_errors.h, creating discovered layer dependency domain -> session
+    - src/domain/models/session_status.h: src/domain/models/session_status.h includes src/session/session_errors.h, creating discovered layer dependency domain -> session
+  [low/discovery_hint] Shared layer depends on domain models
+    id: discovery.shared.depends_on.domain
+    risk: Files classified as shared include domain models. This may mean the shared layer contains domain-aware serializers, mappers, or utilities rather than generic shared code.
+    suggestion: Consider splitting generic shared utilities from domain-aware adapters such as serialization or mapping code.
+    confidence: medium
+    - src/utils/directory_browser.h: src/utils/directory_browser.h includes src/domain/models/directory_list_result.h, creating discovered layer dependency shared -> domain
+    - src/utils/json_serializer.cc: src/utils/json_serializer.cc includes src/domain/models/camera_object_data.h, creating discovered layer dependency shared -> domain
+    - src/utils/json_serializer.cc: src/utils/json_serializer.cc includes src/domain/models/camera_status.h, creating discovered layer dependency shared -> domain
+    - src/utils/json_serializer.cc: src/utils/json_serializer.cc includes src/domain/models/directory_list_result.h, creating discovered layer dependency shared -> domain
+    - src/utils/json_serializer.cc: src/utils/json_serializer.cc includes src/domain/models/gps_data.h, creating discovered layer dependency shared -> domain

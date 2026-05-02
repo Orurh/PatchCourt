@@ -25,6 +25,19 @@ type Database struct {
 	Entries []Entry
 }
 
+type IncludePathKind string
+
+const (
+	IncludePathKindNormal IncludePathKind = "normal"
+	IncludePathKindSystem IncludePathKind = "system"
+	IncludePathKindQuote  IncludePathKind = "quote"
+)
+
+type IncludePathEntry struct {
+	Path string          `json:"path"`
+	Kind IncludePathKind `json:"kind"`
+}
+
 func Load(path string) (*Database, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -41,13 +54,26 @@ func Load(path string) (*Database, error) {
 	}, nil
 }
 
+// IncludePaths returns normalized include path strings for backward compatibility.
+// Prefer IncludePathEntries when caller needs to distinguish -I from -isystem/-iquote.
 func IncludePaths(db *Database, root string) []string {
+	entries := IncludePathEntries(db, root)
+
+	result := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		result = append(result, entry.Path)
+	}
+
+	return result
+}
+
+func IncludePathEntries(db *Database, root string) []IncludePathEntry {
 	if db == nil {
 		return nil
 	}
 
 	seen := make(map[string]struct{})
-	result := make([]string, 0)
+	result := make([]IncludePathEntry, 0)
 
 	for _, entry := range db.Entries {
 		args := entryArgs(entry)
@@ -57,18 +83,22 @@ func IncludePaths(db *Database, root string) []string {
 			entryDir = root
 		}
 
-		for _, includePath := range extractIncludePaths(args) {
-			normalized := normalizeIncludePath(root, entryDir, includePath)
+		for _, includePath := range extractIncludePathEntries(args) {
+			normalized := normalizeIncludePath(root, entryDir, includePath.Path)
 			if normalized == "" {
 				continue
 			}
 
-			if _, ok := seen[normalized]; ok {
+			key := string(includePath.Kind) + "|" + normalized
+			if _, ok := seen[key]; ok {
 				continue
 			}
 
-			seen[normalized] = struct{}{}
-			result = append(result, normalized)
+			seen[key] = struct{}{}
+			result = append(result, IncludePathEntry{
+				Path: normalized,
+				Kind: includePath.Kind,
+			})
 		}
 	}
 
@@ -92,30 +122,63 @@ func entryArgs(entry Entry) []string {
 	return splitCommand(entry.Command)
 }
 
-func extractIncludePaths(args []string) []string {
-	result := make([]string, 0)
+func extractIncludePathEntries(args []string) []IncludePathEntry {
+	result := make([]IncludePathEntry, 0)
 
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 
 		switch {
-		case arg == "-I" || arg == "-isystem" || arg == "-iquote" || arg == "--include-directory":
+		case arg == "-I" || arg == "--include-directory":
 			if i+1 < len(args) {
-				result = append(result, args[i+1])
+				result = append(result, IncludePathEntry{
+					Path: args[i+1],
+					Kind: IncludePathKindNormal,
+				})
+				i++
+			}
+
+		case arg == "-isystem":
+			if i+1 < len(args) {
+				result = append(result, IncludePathEntry{
+					Path: args[i+1],
+					Kind: IncludePathKindSystem,
+				})
+				i++
+			}
+
+		case arg == "-iquote":
+			if i+1 < len(args) {
+				result = append(result, IncludePathEntry{
+					Path: args[i+1],
+					Kind: IncludePathKindQuote,
+				})
 				i++
 			}
 
 		case strings.HasPrefix(arg, "-I") && arg != "-I":
-			result = append(result, strings.TrimPrefix(arg, "-I"))
+			result = append(result, IncludePathEntry{
+				Path: strings.TrimPrefix(arg, "-I"),
+				Kind: IncludePathKindNormal,
+			})
 
 		case strings.HasPrefix(arg, "-isystem="):
-			result = append(result, strings.TrimPrefix(arg, "-isystem="))
+			result = append(result, IncludePathEntry{
+				Path: strings.TrimPrefix(arg, "-isystem="),
+				Kind: IncludePathKindSystem,
+			})
 
 		case strings.HasPrefix(arg, "-iquote="):
-			result = append(result, strings.TrimPrefix(arg, "-iquote="))
+			result = append(result, IncludePathEntry{
+				Path: strings.TrimPrefix(arg, "-iquote="),
+				Kind: IncludePathKindQuote,
+			})
 
 		case strings.HasPrefix(arg, "--include-directory="):
-			result = append(result, strings.TrimPrefix(arg, "--include-directory="))
+			result = append(result, IncludePathEntry{
+				Path: strings.TrimPrefix(arg, "--include-directory="),
+				Kind: IncludePathKindNormal,
+			})
 		}
 	}
 
