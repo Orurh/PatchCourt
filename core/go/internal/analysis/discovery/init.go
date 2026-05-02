@@ -1,0 +1,297 @@
+package discovery
+
+import (
+	"bytes"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+
+	"github.com/orurh/patchcourt/internal/analysis/project"
+	"github.com/orurh/patchcourt/internal/model"
+	"github.com/orurh/patchcourt/internal/platform/pathmatch"
+)
+
+type InitOptions struct {
+	Root   string
+	Strict bool
+}
+
+type InitResult struct {
+	ConfigYAML string
+}
+
+type discoveredLayer struct {
+	Name       string
+	Paths      map[string]struct{}
+	DependOn   map[string]struct{}
+	SourceDirs map[string]struct{}
+}
+
+func GenerateInitConfig(opts InitOptions) (*InitResult, error) {
+	root := opts.Root
+	if root == "" {
+		root = "."
+	}
+
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return nil, fmt.Errorf("resolve root: %w", err)
+	}
+
+	ignorePaths := DefaultIgnorePaths()
+	includePaths := discoverCPPIncludePaths(absRoot)
+
+	project, err := project.Build(project.Options{
+		Root:            absRoot,
+		IgnorePaths:     ignorePaths,
+		CPPIncludePaths: includePaths,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("scan project for init: %w", err)
+	}
+
+	layers := discoverLayers(project, opts.Strict)
+
+	configYAML := renderConfig(ignorePaths, includePaths, layers, opts.Strict)
+
+	return &InitResult{
+		ConfigYAML: configYAML,
+	}, nil
+}
+
+func DefaultIgnorePaths() []string {
+	return []string{
+		".git/**",
+		"build/**",
+		"cmake-build-debug/**",
+		"cmake-build-release/**",
+		"node_modules/**",
+		"vendor/**",
+		"libs/**",
+		"third_party/**",
+		"external/**",
+		"generated/**",
+		"**/*.pb.h",
+		"**/*.pb.cc",
+		"**/*.pb.cpp",
+		"**/*.pb.go",
+		"**/*.grpc.pb.h",
+		"**/*.grpc.pb.cc",
+		"**/*.grpc.pb.go",
+	}
+}
+
+func discoverCPPIncludePaths(absRoot string) []string {
+	candidates := []string{
+		"src",
+		"include",
+	}
+
+	var result []string
+	for _, candidate := range candidates {
+		if dirExists(filepath.Join(absRoot, filepath.FromSlash(candidate))) {
+			result = append(result, candidate)
+		}
+	}
+
+	return result
+}
+
+func dirExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
+}
+
+func discoverLayers(project *model.ProjectModel, strict bool) []discoveredLayer {
+	layersByName := make(map[string]*discoveredLayer)
+	fileToLayer := make(map[string]string)
+
+	for _, file := range project.Files {
+		if file.Role != model.FileRoleProduction {
+			continue
+		}
+
+		layerName, pattern, ok := inferLayerFromPath(file.Path)
+		if !ok {
+			continue
+		}
+
+		layer := ensureLayer(layersByName, layerName)
+		layer.Paths[pattern] = struct{}{}
+		layer.SourceDirs[sourceDirFromPattern(pattern)] = struct{}{}
+		fileToLayer[file.Path] = layerName
+	}
+
+	if !strict {
+		for _, dep := range project.Dependencies {
+			if dep.External || !dep.Resolved {
+				continue
+			}
+
+			fromLayer := fileToLayer[dep.FromFile]
+			toLayer := fileToLayer[dep.ToFile]
+
+			if fromLayer == "" || toLayer == "" || fromLayer == toLayer {
+				continue
+			}
+
+			layer := ensureLayer(layersByName, fromLayer)
+			layer.DependOn[toLayer] = struct{}{}
+		}
+	}
+
+	layers := make([]discoveredLayer, 0, len(layersByName))
+	for _, layer := range layersByName {
+		layers = append(layers, *layer)
+	}
+
+	sort.Slice(layers, func(i, j int) bool {
+		return layers[i].Name < layers[j].Name
+	})
+
+	return layers
+}
+
+func ensureLayer(layers map[string]*discoveredLayer, name string) *discoveredLayer {
+	if layer, ok := layers[name]; ok {
+		return layer
+	}
+
+	layer := &discoveredLayer{
+		Name:       name,
+		Paths:      make(map[string]struct{}),
+		DependOn:   make(map[string]struct{}),
+		SourceDirs: make(map[string]struct{}),
+	}
+
+	layers[name] = layer
+	return layer
+}
+
+func inferLayerFromPath(filePath string) (layerName string, pattern string, ok bool) {
+	normalized := pathmatch.Normalize(filePath)
+	parts := strings.Split(normalized, "/")
+
+	if len(parts) < 2 {
+		return "", "", false
+	}
+
+	switch parts[0] {
+	case "src":
+		return sanitizeLayerName(parts[1]), "src/" + parts[1] + "/**", true
+	case "internal":
+		return sanitizeLayerName("internal_" + parts[1]), "internal/" + parts[1] + "/**", true
+	case "pkg":
+		return sanitizeLayerName("pkg_" + parts[1]), "pkg/" + parts[1] + "/**", true
+	case "include":
+		return sanitizeLayerName(parts[1]), "include/" + parts[1] + "/**", true
+	default:
+		return "", "", false
+	}
+}
+
+func sanitizeLayerName(value string) string {
+	value = strings.ToLower(value)
+
+	var b strings.Builder
+	lastUnderscore := false
+
+	for _, r := range value {
+		switch {
+		case r >= 'a' && r <= 'z':
+			b.WriteRune(r)
+			lastUnderscore = false
+		case r >= '0' && r <= '9':
+			b.WriteRune(r)
+			lastUnderscore = false
+		default:
+			if !lastUnderscore {
+				b.WriteRune('_')
+				lastUnderscore = true
+			}
+		}
+	}
+
+	result := strings.Trim(b.String(), "_")
+	if result == "" {
+		return "unknown"
+	}
+
+	return result
+}
+
+func sourceDirFromPattern(pattern string) string {
+	return strings.TrimSuffix(pattern, "/**")
+}
+
+func renderConfig(ignorePaths []string, includePaths []string, layers []discoveredLayer, strict bool) string {
+	var b bytes.Buffer
+
+	b.WriteString("# Generated by PatchCourt.\n")
+	b.WriteString("# Review this file before using it in CI.\n")
+	b.WriteString("# The initial architecture is inferred from the current project structure and dependency graph.\n")
+	if strict {
+		b.WriteString("# Strict mode: may_depend_on is intentionally empty for discovered layers.\n")
+	} else {
+		b.WriteString("# Baseline mode: may_depend_on is inferred from current dependencies.\n")
+	}
+	b.WriteString("\n")
+
+	b.WriteString("ignore:\n")
+	b.WriteString("  paths:\n")
+	for _, path := range ignorePaths {
+		fmt.Fprintf(&b, "    - %q\n", path)
+	}
+
+	if len(includePaths) > 0 {
+		b.WriteString("\n")
+		b.WriteString("cpp:\n")
+		b.WriteString("  include_paths:\n")
+		for _, path := range includePaths {
+			fmt.Fprintf(&b, "    - %q\n", path)
+		}
+	}
+
+	b.WriteString("\n")
+	b.WriteString("layers:\n")
+
+	if len(layers) == 0 {
+		b.WriteString("  # No layers were discovered. Add paths manually.\n")
+		return b.String()
+	}
+
+	for _, layer := range layers {
+		fmt.Fprintf(&b, "  %s:\n", layer.Name)
+
+		b.WriteString("    paths:\n")
+		for _, path := range sortedKeys(layer.Paths) {
+			fmt.Fprintf(&b, "      - %q\n", path)
+		}
+
+		deps := sortedKeys(layer.DependOn)
+		if len(deps) == 0 {
+			b.WriteString("    may_depend_on: []\n")
+		} else {
+			b.WriteString("    may_depend_on:\n")
+			for _, dep := range deps {
+				fmt.Fprintf(&b, "      - %s\n", dep)
+			}
+		}
+
+		b.WriteString("\n")
+	}
+
+	return b.String()
+}
+
+func sortedKeys(values map[string]struct{}) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+
+	sort.Strings(keys)
+	return keys
+}

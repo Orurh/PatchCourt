@@ -1,0 +1,36 @@
+package model
+
+type Severity string
+
+const (
+	SeverityLow      Severity = "low"
+	SeverityMedium   Severity = "medium"
+	SeverityHigh     Severity = "high"
+	SeverityCritical Severity = "critical"
+)
+
+type Confidence string
+
+const (
+	ConfidenceLow    Confidence = "low"
+	ConfidenceMedium Confidence = "medium"
+	ConfidenceHigh   Confidence = "high"
+)
+
+type Finding struct {
+	ID         string     `json:"id"`
+	Severity   Severity   `json:"severity"`
+	Title      string     `json:"title"`
+	Evidence   []Evidence `json:"evidence,omitempty"`
+	Risk       string     `json:"risk,omitempty"`
+	Suggestion string     `json:"suggestion,omitempty"`
+	Confidence Confidence `json:"confidence"`
+}
+
+type Evidence struct {
+	File      string `json:"file"`
+	LineStart int    `json:"line_start,omitempty"`
+	LineEnd   int    `json:"line_end,omitempty"`
+	Snippet   string `json:"snippet,omitempty"`
+	Message   string `json:"message,omitempty"`
+}

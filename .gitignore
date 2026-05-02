@@ -1,0 +1,60 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs / temp
+*.log
+tmp/
+temp/
+.cache/
+.patchcourt/out/
+
+# Go
+core/go/bin/
+core/go/coverage.out
+core/go/*.test
+core/go/*.prof
+core/go/dist/
+core/go/build/
+
+# C/C++ / CMake
+build/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+*.out
+
+# Analyzer build outputs
+analyzers/cpp-clang/build/
+analyzers/cpp-clang/cmake-build-*/
+
+# Web / Node
+web/node_modules/
+web/dist/
+web/build/
+web/.next/
+web/.vite/
+
+# Generated files in examples
+examples/**/build/
+examples/**/generated/
+examples/**/third_party/
+
+# Local helper artifacts
+tools/helpers.txt
+
+Tz.md

@@ -1,0 +1,9 @@
+package cli
+
+func optionalRootArg(args []string) string {
+	if len(args) == 1 {
+		return args[0]
+	}
+
+	return "."
+}

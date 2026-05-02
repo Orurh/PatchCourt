@@ -1,0 +1,36 @@
+ignore:
+  paths:
+    - build/**
+    - cmake-build-*/**
+    - third_party/**
+    - external/**
+    - vendor/**
+    - generated/**
+    - "**/*.pb.cc"
+    - "**/*.pb.h"
+    - "**/*.generated.*"
+
+layers:
+  api:
+    paths:
+      - src/server/**
+    may_depend_on:
+      - controllers
+      - domain
+
+  controllers:
+    paths:
+      - src/controllers/**
+    may_depend_on:
+      - domain
+
+  domain:
+    paths:
+      - src/domain/**
+    may_depend_on: []
+
+  cameras:
+    paths:
+      - src/cameras/**
+    may_depend_on:
+      - domain
