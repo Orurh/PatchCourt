@@ -38,7 +38,7 @@ func Build(opts Options) (*model.ProjectModel, error) {
 	}
 
 	fileIndex := resolver.NewFileIndex(project.Files)
-	cppIncludeResolver := resolver.NewCPPIncludeResolver(fileIndex, opts.CPPIncludePaths)
+	cppIncludeResolver := resolver.NewCPPIncludeResolver(absRoot, fileIndex, opts.CPPIncludePaths)
 
 	if err := collectDependencies(absRoot, project, cppIncludeResolver); err != nil {
 		return nil, err
@@ -124,6 +124,7 @@ func collectDependencies(absRoot string, project *model.ProjectModel, cppInclude
 				resolution := cppIncludeResolver.Resolve(file.Path, include.Target)
 				edge.ToFile = resolution.ToFile
 				edge.Resolved = resolution.Resolved
+				edge.External = resolution.External
 				edge.ResolutionSource = resolution.Source
 				edge.ResolutionConfidence = resolution.Confidence
 				edge.Ambiguous = resolution.Ambiguous

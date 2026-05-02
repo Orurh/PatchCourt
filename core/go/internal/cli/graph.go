@@ -27,7 +27,7 @@ type graphOptions struct {
 // Если путь не передан, используется текущая директория.
 //
 // Команда не строит граф напрямую. Она преобразует CLI-аргументы
-// в app.GraphRequest, вызывает application-слой через app.App,
+// в app.GraphRequest, вызывает application-слой через Application interface,
 // а затем выводит готовый граф в выбранном формате.
 func (r *Runner) newGraphCommand(ctx context.Context, rootOpts *rootOptions) *cobra.Command {
 	var opts graphOptions

@@ -13,8 +13,9 @@ import (
 // Runner не содержит бизнес-логики анализа проекта. Его задача — связать
 // CLI-вызов с application-слоем и вывести результат команды в нужный поток.
 type Runner struct {
-	stdout io.Writer
-	stderr io.Writer
+	stdout     io.Writer
+	stderr     io.Writer
+	appFactory AppFactory
 }
 
 // NewRunner создает новый CLI runner.
@@ -26,9 +27,22 @@ type Runner struct {
 // и служебных сообщений.
 func NewRunner(stdout io.Writer, stderr io.Writer) *Runner {
 	return &Runner{
-		stdout: stdout,
-		stderr: stderr,
+		stdout:     stdout,
+		stderr:     stderr,
+		appFactory: defaultAppFactory,
 	}
+}
+
+// WithAppFactory подменяет factory application-слоя.
+//
+// Метод нужен для тестов CLI и для будущих сценариев, где CLI должен работать
+// с другой реализацией usecase-слоя.
+func (r *Runner) WithAppFactory(factory AppFactory) *Runner {
+	if factory != nil {
+		r.appFactory = factory
+	}
+
+	return r
 }
 
 // Run выполняет CLI-команду PatchCourt.
@@ -37,7 +51,7 @@ func NewRunner(stdout io.Writer, stderr io.Writer) *Runner {
 // Метод создает корневую Cobra-команду, подключает stdout/stderr,
 // передает аргументы и запускает выполнение команды.
 //
-// Конкретные команды внутри Cobra вызывают application-слой через app.App.
+// Конкретные команды внутри Cobra вызывают application-слой через Application interface.
 func (r *Runner) Run(ctx context.Context, args []string) error {
 	rootCmd := r.newRootCommand(ctx)
 	rootCmd.SetArgs(args)

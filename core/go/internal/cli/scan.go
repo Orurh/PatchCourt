@@ -29,7 +29,7 @@ type scanOptions struct {
 // Если путь не передан, используется текущая директория.
 //
 // Команда не выполняет анализ напрямую. Она преобразует CLI-аргументы
-// в app.ScanRequest, вызывает application-слой через app.App,
+// в app.ScanRequest, вызывает application-слой через Application interface,
 // а затем выводит результат в выбранном формате.
 func (r *Runner) newScanCommand(ctx context.Context, rootOpts *rootOptions) *cobra.Command {
 	var opts scanOptions

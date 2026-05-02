@@ -1,6 +1,8 @@
 package resolver
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/orurh/patchcourt/internal/model"
@@ -11,7 +13,7 @@ func TestCPPIncludeResolver_ResolveExactProjectPath(t *testing.T) {
 		{Path: "src/domain/interfaces/i_camera_adapter.h"},
 	}
 
-	resolver := NewCPPIncludeResolver(NewFileIndex(files), nil)
+	resolver := NewCPPIncludeResolver("", NewFileIndex(files), nil)
 
 	got := resolver.Resolve(
 		"src/controllers/device_orchestrator.h",
@@ -44,7 +46,7 @@ func TestCPPIncludeResolver_ResolveRelativeToCurrentFile(t *testing.T) {
 		{Path: "src/controllers/detail/helper.h"},
 	}
 
-	resolver := NewCPPIncludeResolver(NewFileIndex(files), nil)
+	resolver := NewCPPIncludeResolver("", NewFileIndex(files), nil)
 
 	got := resolver.Resolve(
 		"src/controllers/device_orchestrator.h",
@@ -69,7 +71,7 @@ func TestCPPIncludeResolver_ResolveUniqueBasenameFallback(t *testing.T) {
 		{Path: "src/domain/interfaces/i_camera_adapter.h"},
 	}
 
-	resolver := NewCPPIncludeResolver(NewFileIndex(files), nil)
+	resolver := NewCPPIncludeResolver("", NewFileIndex(files), nil)
 
 	got := resolver.Resolve(
 		"src/controllers/device_orchestrator.h",
@@ -99,7 +101,7 @@ func TestCPPIncludeResolver_AmbiguousBasenameFallback(t *testing.T) {
 		{Path: "src/infrastructure/config.h"},
 	}
 
-	resolver := NewCPPIncludeResolver(NewFileIndex(files), nil)
+	resolver := NewCPPIncludeResolver("", NewFileIndex(files), nil)
 
 	got := resolver.Resolve(
 		"src/controllers/device_orchestrator.h",
@@ -128,7 +130,7 @@ func TestCPPIncludeResolver_UnresolvedInclude(t *testing.T) {
 		{Path: "src/domain/interfaces/i_camera_adapter.h"},
 	}
 
-	resolver := NewCPPIncludeResolver(NewFileIndex(files), nil)
+	resolver := NewCPPIncludeResolver("", NewFileIndex(files), nil)
 
 	got := resolver.Resolve(
 		"src/controllers/device_orchestrator.h",
@@ -158,7 +160,7 @@ func TestCPPIncludeResolver_ResolveUsingConfiguredIncludePath(t *testing.T) {
 		{Path: "src/session/constants.h"},
 	}
 
-	resolver := NewCPPIncludeResolver(NewFileIndex(files), []string{"src"})
+	resolver := NewCPPIncludeResolver("", NewFileIndex(files), []string{"src"})
 
 	got := resolver.Resolve(
 		"src/cameras/sony_camera_manager_impl/sony_camera_manager.cc",
@@ -183,5 +185,52 @@ func TestCPPIncludeResolver_ResolveUsingConfiguredIncludePath(t *testing.T) {
 
 	if got.Ambiguous {
 		t.Fatalf("config include path should avoid ambiguity")
+	}
+}
+
+func TestCPPIncludeResolver_MarksPhysicalFileOutsideIndexAsExternal(t *testing.T) {
+	root := t.TempDir()
+
+	writeResolverTestFile(t, root, "libs/logx/include/LogX.h")
+
+	resolver := NewCPPIncludeResolver(
+		root,
+		NewFileIndex(nil),
+		[]string{"libs/logx/include"},
+	)
+
+	got := resolver.Resolve(
+		"src/server/api_router.cc",
+		"LogX.h",
+	)
+
+	if !got.External {
+		t.Fatalf("expected include to be marked external")
+	}
+
+	if got.Resolved {
+		t.Fatalf("external file outside project index must not be resolved to project file")
+	}
+
+	if got.Source != model.ResolutionSourceConfig {
+		t.Fatalf("expected config source, got %q", got.Source)
+	}
+
+	if got.Confidence != model.ResolutionConfidenceHigh {
+		t.Fatalf("expected high confidence, got %q", got.Confidence)
+	}
+}
+
+func writeResolverTestFile(t *testing.T, root string, relPath string) {
+	t.Helper()
+
+	absPath := filepath.Join(root, filepath.FromSlash(relPath))
+
+	if err := os.MkdirAll(filepath.Dir(absPath), 0o755); err != nil {
+		t.Fatalf("create test dir: %v", err)
+	}
+
+	if err := os.WriteFile(absPath, []byte("#pragma once\n"), 0o644); err != nil {
+		t.Fatalf("write test file: %v", err)
 	}
 }

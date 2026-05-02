@@ -245,9 +245,12 @@ func renderConfig(ignorePaths []string, includePaths []string, layers []discover
 		fmt.Fprintf(&b, "    - %q\n", path)
 	}
 
+	b.WriteString("\n")
+	b.WriteString("cpp:\n")
+	b.WriteString("  compile_commands:\n")
+	b.WriteString("    auto_discover: true\n")
+
 	if len(includePaths) > 0 {
-		b.WriteString("\n")
-		b.WriteString("cpp:\n")
 		b.WriteString("  include_paths:\n")
 		for _, path := range includePaths {
 			fmt.Fprintf(&b, "    - %q\n", path)

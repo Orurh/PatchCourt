@@ -99,36 +99,33 @@ int main() {
 		t.Fatalf("unexpected severity: %q", finding.Severity)
 	}
 
-	apiToCamerasFound := false
-	for _, dep := range result.Project.Dependencies {
-		if dep.FromFile == "src/server/api_router.cc" &&
-			dep.ToFile == "src/cameras/sony/sony_camera_manager.h" {
-			apiToCamerasFound = true
-
-			if dep.FromLayer != "api" {
-				t.Fatalf("expected from layer api, got %q", dep.FromLayer)
-			}
-
-			if dep.ToLayer != "cameras" {
-				t.Fatalf("expected to layer cameras, got %q", dep.ToLayer)
-			}
-
-			if dep.ResolutionSource != model.ResolutionSourceHeuristic {
-				t.Fatalf("unexpected resolution source: %q", dep.ResolutionSource)
-			}
-
-			if dep.ResolutionConfidence != model.ResolutionConfidenceMedium {
-				t.Fatalf("unexpected resolution confidence: %q", dep.ResolutionConfidence)
-			}
-
-			if dep.Usage != model.DependencyUsageUnknown {
-				t.Fatalf("expected unknown dependency usage for C++ include, got %q", dep.Usage)
-			}
-		}
+	dep, found := findDependency(
+		result.Project.Dependencies,
+		"src/server/api_router.cc",
+		"src/cameras/sony/sony_camera_manager.h",
+	)
+	if !found {
+		t.Fatalf("expected api -> cameras dependency")
 	}
 
-	if !apiToCamerasFound {
-		t.Fatalf("expected api -> cameras dependency")
+	if dep.FromLayer != "api" {
+		t.Fatalf("expected from layer api, got %q", dep.FromLayer)
+	}
+
+	if dep.ToLayer != "cameras" {
+		t.Fatalf("expected to layer cameras, got %q", dep.ToLayer)
+	}
+
+	if dep.ResolutionSource != model.ResolutionSourceHeuristic {
+		t.Fatalf("unexpected resolution source: %q", dep.ResolutionSource)
+	}
+
+	if dep.ResolutionConfidence != model.ResolutionConfidenceMedium {
+		t.Fatalf("unexpected resolution confidence: %q", dep.ResolutionConfidence)
+	}
+
+	if dep.Usage != model.DependencyUsageUnknown {
+		t.Fatalf("expected unknown dependency usage for C++ include, got %q", dep.Usage)
 	}
 }
 
@@ -183,6 +180,16 @@ func writeFile(t *testing.T, root string, relPath string, content string) {
 func writeConfig(t *testing.T, root string, content string) {
 	t.Helper()
 	writeFile(t, root, ".patchcourt.yaml", content)
+}
+
+func findDependency(deps []model.DependencyEdge, fromFile string, toFile string) (model.DependencyEdge, bool) {
+	for _, dep := range deps {
+		if dep.FromFile == fromFile && dep.ToFile == toFile {
+			return dep, true
+		}
+	}
+
+	return model.DependencyEdge{}, false
 }
 
 func testConfig() string {

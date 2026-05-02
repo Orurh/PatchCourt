@@ -1,7 +1,9 @@
 package resolver
 
 import (
+	"os"
 	"path"
+	"path/filepath"
 
 	"github.com/orurh/patchcourt/internal/model"
 	"github.com/orurh/patchcourt/internal/platform/pathmatch"
@@ -10,6 +12,7 @@ import (
 type IncludeResolution struct {
 	ToFile     string
 	Resolved   bool
+	External   bool
 	Source     model.ResolutionSource
 	Confidence model.ResolutionConfidence
 	Ambiguous  bool
@@ -17,11 +20,12 @@ type IncludeResolution struct {
 }
 
 type CPPIncludeResolver struct {
+	root         string
 	fileIndex    FileIndex
 	includePaths []string
 }
 
-func NewCPPIncludeResolver(fileIndex FileIndex, includePaths []string) CPPIncludeResolver {
+func NewCPPIncludeResolver(root string, fileIndex FileIndex, includePaths []string) CPPIncludeResolver {
 	normalizedIncludePaths := make([]string, 0, len(includePaths))
 	for _, includePath := range includePaths {
 		normalized := pathmatch.Normalize(includePath)
@@ -32,6 +36,7 @@ func NewCPPIncludeResolver(fileIndex FileIndex, includePaths []string) CPPInclud
 	}
 
 	return CPPIncludeResolver{
+		root:         root,
 		fileIndex:    fileIndex,
 		includePaths: normalizedIncludePaths,
 	}
@@ -55,6 +60,15 @@ func (r CPPIncludeResolver) Resolve(fromFile string, target string) IncludeResol
 			return IncludeResolution{
 				ToFile:     resolved,
 				Resolved:   true,
+				Source:     model.ResolutionSourceConfig,
+				Confidence: model.ResolutionConfidenceHigh,
+			}
+		}
+
+		if r.fileExists(candidate) {
+			return IncludeResolution{
+				Resolved:   false,
+				External:   true,
 				Source:     model.ResolutionSourceConfig,
 				Confidence: model.ResolutionConfidenceHigh,
 			}
@@ -99,4 +113,14 @@ func (r CPPIncludeResolver) Resolve(fromFile string, target string) IncludeResol
 		Source:     model.ResolutionSourceNone,
 		Confidence: model.ResolutionConfidenceLow,
 	}
+}
+
+func (r CPPIncludeResolver) fileExists(projectRelativePath string) bool {
+	if r.root == "" {
+		return false
+	}
+
+	absPath := filepath.Join(r.root, filepath.FromSlash(projectRelativePath))
+	info, err := os.Stat(absPath)
+	return err == nil && !info.IsDir()
 }

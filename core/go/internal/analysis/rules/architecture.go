@@ -9,14 +9,20 @@ import (
 	"github.com/orurh/patchcourt/internal/platform/pathmatch"
 )
 
-func ApplyArchitectureRules(project *model.ProjectModel, cfg *config.Config) {
+type ArchitectureRule struct{}
+
+func (ArchitectureRule) Apply(project *model.ProjectModel, cfg *config.Config) []model.Finding {
 	if cfg == nil || len(cfg.Layers) == 0 {
-		return
+		return nil
 	}
 
 	assignLayers(project, cfg)
 	enrichDependencyLayers(project)
-	checkLayerDependencies(project, cfg)
+	return checkLayerDependencies(project, cfg)
+}
+
+func ApplyArchitectureRules(project *model.ProjectModel, cfg *config.Config) {
+	project.Findings = append(project.Findings, ArchitectureRule{}.Apply(project, cfg)...)
 }
 
 func assignLayers(project *model.ProjectModel, cfg *config.Config) {
@@ -41,7 +47,9 @@ func enrichDependencyLayers(project *model.ProjectModel) {
 	}
 }
 
-func checkLayerDependencies(project *model.ProjectModel, cfg *config.Config) {
+func checkLayerDependencies(project *model.ProjectModel, cfg *config.Config) []model.Finding {
+	findings := make([]model.Finding, 0)
+
 	ignoredFromFiles := make(map[string]bool, len(project.Files))
 	for _, file := range project.Files {
 		switch file.Role {
@@ -71,7 +79,7 @@ func checkLayerDependencies(project *model.ProjectModel, cfg *config.Config) {
 			continue
 		}
 
-		project.Findings = append(project.Findings, model.Finding{
+		findings = append(findings, model.Finding{
 			ID:         fmt.Sprintf("architecture.%s.%s", dep.FromLayer, dep.ToLayer),
 			Severity:   model.SeverityHigh,
 			Title:      "Include-level architecture boundary violation",
@@ -96,6 +104,8 @@ func checkLayerDependencies(project *model.ProjectModel, cfg *config.Config) {
 			},
 		})
 	}
+
+	return findings
 }
 
 func detectLayer(filePath string, cfg *config.Config) string {

@@ -32,6 +32,8 @@ func TestGenerateInitConfig_DiscoversLayersAndBaselineDependencies(t *testing.T)
 	yaml := result.ConfigYAML
 
 	assertContains(t, yaml, `cpp:`)
+	assertContains(t, yaml, `compile_commands:`)
+	assertContains(t, yaml, `auto_discover: true`)
 	assertContains(t, yaml, `- "src"`)
 	assertContains(t, yaml, `server:`)
 	assertContains(t, yaml, `controllers:`)
