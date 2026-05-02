@@ -93,3 +93,73 @@ func findContractChange(changes []contracts.SymbolChange, kind contracts.ChangeK
 
 	return nil
 }
+
+func TestApp_RunReviewDiffsProjectRoots(t *testing.T) {
+	root := t.TempDir()
+
+	beforeRoot := filepath.Join(root, "before")
+	afterRoot := filepath.Join(root, "after")
+	configPath := filepath.Join(root, ".patchcourt.yaml")
+
+	writeReviewTestFile(t, beforeRoot, "src/domain/i_camera_adapter.h", `#pragma once
+
+class ICameraAdapter {
+public:
+	virtual bool RunPreflight() const = 0;
+};
+`)
+
+	writeReviewTestFile(t, afterRoot, "src/domain/i_camera_adapter.h", `#pragma once
+
+class ICameraAdapter {
+public:
+	bool RunPreflight();
+};
+`)
+
+	writeReviewTestFile(t, root, ".patchcourt.yaml", `
+ignore:
+  paths:
+    - build/**
+layers:
+  domain:
+    paths:
+      - src/domain/**
+    may_depend_on: []
+`)
+
+	result, err := New(nil).RunReview(context.Background(), ReviewRequest{
+		BeforeRoot: beforeRoot,
+		AfterRoot:  afterRoot,
+		ConfigPath: configPath,
+	})
+	if err != nil {
+		t.Fatalf("RunReview failed: %v", err)
+	}
+
+	if len(result.ContractChanges) != 2 {
+		t.Fatalf("expected signature and modifier changes, got %d: %#v", len(result.ContractChanges), result.ContractChanges)
+	}
+
+	if findContractChange(result.ContractChanges, contracts.ChangeKindSignatureChanged) == nil {
+		t.Fatalf("expected signature change in %#v", result.ContractChanges)
+	}
+
+	if findContractChange(result.ContractChanges, contracts.ChangeKindModifiersChanged) == nil {
+		t.Fatalf("expected modifiers change in %#v", result.ContractChanges)
+	}
+}
+
+func writeReviewTestFile(t *testing.T, root string, relPath string, content string) {
+	t.Helper()
+
+	path := filepath.Join(root, filepath.FromSlash(relPath))
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("create dir: %v", err)
+	}
+
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+}
