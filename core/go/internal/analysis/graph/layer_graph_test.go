@@ -92,3 +92,24 @@ func resolvedGraphDep(fromFile string, toFile string, fromLayer string, toLayer 
 		Usage:     model.DependencyUsageUsed,
 	}
 }
+
+func TestBuildLayerGraph_IgnoresEdgesFromTestGeneratedAndExternalFiles(t *testing.T) {
+	project := &model.ProjectModel{
+		Files: []model.FileModel{
+			{Path: "tests/api_router_test.cc", Layer: "server", Role: model.FileRoleTest},
+			{Path: "generated/foo.pb.cc", Layer: "server", Role: model.FileRoleGenerated},
+			{Path: "third_party/lib.cc", Layer: "server", Role: model.FileRoleExternal},
+			{Path: "src/domain/status.h", Layer: "domain", Role: model.FileRoleProduction},
+		},
+		Dependencies: []model.DependencyEdge{
+			resolvedGraphDep("tests/api_router_test.cc", "src/domain/status.h", "server", "domain"),
+			resolvedGraphDep("generated/foo.pb.cc", "src/domain/status.h", "server", "domain"),
+			resolvedGraphDep("third_party/lib.cc", "src/domain/status.h", "server", "domain"),
+		},
+	}
+
+	layerGraph := BuildLayerGraph(project, nil)
+
+	require.Empty(t, layerGraph.Edges)
+	require.Equal(t, []string{"domain"}, layerGraph.Nodes)
+}

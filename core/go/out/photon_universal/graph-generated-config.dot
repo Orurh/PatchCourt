@@ -1,0 +1,40 @@
+digraph PatchCourtLayers {
+  rankdir=LR;
+
+  "application";
+  "cameras";
+  "configs";
+  "controllers";
+  "coroutines";
+  "domain";
+  "main_cc";
+  "server";
+  "session";
+  "utils";
+
+  "application" -> "cameras" [label="6", penwidth="3"];
+  "application" -> "configs" [label="2", penwidth="2"];
+  "application" -> "controllers" [label="1", penwidth="1"];
+  "application" -> "server" [label="1", penwidth="1"];
+  "cameras" -> "application" [label="7", penwidth="3"];
+  "cameras" -> "configs" [label="3", penwidth="2"];
+  "cameras" -> "domain" [label="63", penwidth="5"];
+  "cameras" -> "utils" [label="3", penwidth="2"];
+  "controllers" -> "application" [label="1", penwidth="1"];
+  "controllers" -> "cameras" [label="2", penwidth="2"];
+  "controllers" -> "configs" [label="3", penwidth="2"];
+  "controllers" -> "domain" [label="15", penwidth="4"];
+  "controllers" -> "server" [label="1", penwidth="1"];
+  "controllers" -> "session" [label="1", penwidth="1"];
+  "controllers" -> "utils" [label="2", penwidth="2"];
+  "domain" -> "application" [label="2", penwidth="2"];
+  "domain" -> "session" [label="2", penwidth="2"];
+  "domain" -> "utils" [label="1", penwidth="1"];
+  "main_cc" -> "application" [label="2", penwidth="2"];
+  "server" -> "domain" [label="3", penwidth="2"];
+  "server" -> "utils" [label="1", penwidth="1"];
+  "session" -> "domain" [label="6", penwidth="3"];
+  "session" -> "utils" [label="3", penwidth="2"];
+  "utils" -> "application" [label="3", penwidth="2"];
+  "utils" -> "domain" [label="13", penwidth="4"];
+}

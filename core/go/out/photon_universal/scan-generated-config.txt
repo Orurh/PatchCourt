@@ -28,58 +28,57 @@ Dependencies:
   usage unknown: 385
 
 Usage diagnostics:
-  possibly unused includes: 5
+  possibly unused includes: 4
     - src/cameras/gopro_camera_manager_impl/gopro_camera_manager.cc includes src/utils/enum_traits.h [compile_commands/high]
     - src/server/api_router.cc includes src/domain/models/session_settings.h [compile_commands/high]
     - src/utils/directory_browser.cc includes src/application/constants.h [compile_commands/high]
     - src/utils/json_serializer.cc includes src/utils/enum_traits.h [compile_commands/high]
-    - test/unit/controllers/test_utility_controller.cc includes src/utils/json_serializer.h [compile_commands/high]
 
 Findings:
   total: 9
   [medium/discovery_hint] Bidirectional layer dependency
-    id: discovery.bidirectional.application.cameras
-    risk: Layers "application" and "cameras" depend on each other. This may indicate a cycle, misplaced types, or missing dependency inversion.
+    id: discovery.bidirectional.application.controllers
+    risk: Layers "application" and "controllers" depend on each other. This may indicate a cycle, misplaced types, or missing dependency inversion.
     suggestion: Review whether one side should depend on an interface, shared model, or lower-level package instead.
     confidence: medium
-    - src/application/bootstrapper.cc: src/application/bootstrapper.cc includes src/cameras/camera_adapter_factory.h, creating discovered layer dependency application -> cameras
-    - src/application/bootstrapper.cc: src/application/bootstrapper.cc includes src/cameras/gopro_camera_manager_impl/gopro_camera_manager.h, creating discovered layer dependency application -> cameras
-    - src/application/bootstrapper.cc: src/application/bootstrapper.cc includes src/cameras/hikrobot_camera_manager_impl/hikrobot_camera_manager.h, creating discovered layer dependency application -> cameras
-    - src/application/bootstrapper.cc: src/application/bootstrapper.cc includes src/cameras/insta_camera_manager_impl/insta_camera_manager.h, creating discovered layer dependency application -> cameras
-    - src/application/bootstrapper.cc: src/application/bootstrapper.cc includes src/cameras/osmo_camera_manager_impl/osmo_camera_manager.h, creating discovered layer dependency application -> cameras
+    - src/application/application.h: includes src/controllers/device_orchestrator.h, creating discovered layer dependency application -> controllers
+    - src/controllers/session_controller/session_controller.cc: includes src/application/constants.h, creating discovered layer dependency controllers -> application
   [medium/discovery_hint] Bidirectional layer dependency
-    id: discovery.bidirectional.controllers.application
-    risk: Layers "controllers" and "application" depend on each other. This may indicate a cycle, misplaced types, or missing dependency inversion.
+    id: discovery.bidirectional.cameras.application
+    risk: Layers "cameras" and "application" depend on each other. This may indicate a cycle, misplaced types, or missing dependency inversion.
     suggestion: Review whether one side should depend on an interface, shared model, or lower-level package instead.
     confidence: medium
-    - src/controllers/session_controller/session_controller.cc: src/controllers/session_controller/session_controller.cc includes src/application/constants.h, creating discovered layer dependency controllers -> application
-    - src/application/application.h: src/application/application.h includes src/controllers/device_orchestrator.h, creating discovered layer dependency application -> controllers
+    - src/cameras/camera_manager_controller.cc: includes src/application/constants.h, creating discovered layer dependency cameras -> application
+    - src/cameras/gopro_camera_manager_impl/gopro_camera_manager.cc: includes src/application/constants.h, creating discovered layer dependency cameras -> application
+    - src/cameras/hikrobot_camera_manager_impl/hikrobot_camera_manager.cc: includes src/application/constants.h, creating discovered layer dependency cameras -> application
+    - src/cameras/insta_camera_manager_impl/insta_camera_manager.cc: includes src/application/constants.h, creating discovered layer dependency cameras -> application
+    - src/cameras/osmo_camera_manager_impl/osmo_camera_manager.cc: includes src/application/constants.h, creating discovered layer dependency cameras -> application
   [medium/discovery_hint] Bidirectional layer dependency
     id: discovery.bidirectional.domain.session
     risk: Layers "domain" and "session" depend on each other. This may indicate a cycle, misplaced types, or missing dependency inversion.
     suggestion: Review whether one side should depend on an interface, shared model, or lower-level package instead.
     confidence: medium
-    - src/domain/interfaces/i_session_controller.h: src/domain/interfaces/i_session_controller.h includes src/session/session_errors.h, creating discovered layer dependency domain -> session
-    - src/domain/models/session_status.h: src/domain/models/session_status.h includes src/session/session_errors.h, creating discovered layer dependency domain -> session
-    - src/session/session_state_journal.cc: src/session/session_state_journal.cc includes src/domain/models/session_settings.h, creating discovered layer dependency session -> domain
-    - src/session/session_state_journal.h: src/session/session_state_journal.h includes src/domain/models/session_state_journal_record.h, creating discovered layer dependency session -> domain
-    - src/session/session_state_manager.cc: src/session/session_state_manager.cc includes src/domain/models/session_settings.h, creating discovered layer dependency session -> domain
+    - src/domain/interfaces/i_session_controller.h: includes src/session/session_errors.h, creating discovered layer dependency domain -> session
+    - src/domain/models/session_status.h: includes src/session/session_errors.h, creating discovered layer dependency domain -> session
+    - src/session/session_state_journal.cc: includes src/domain/models/session_settings.h, creating discovered layer dependency session -> domain
+    - src/session/session_state_journal.h: includes src/domain/models/session_state_journal_record.h, creating discovered layer dependency session -> domain
+    - src/session/session_state_manager.cc: includes src/domain/models/session_settings.h, creating discovered layer dependency session -> domain
   [medium/discovery_hint] Bidirectional layer dependency
     id: discovery.bidirectional.domain.utils
     risk: Layers "domain" and "utils" depend on each other. This may indicate a cycle, misplaced types, or missing dependency inversion.
     suggestion: Review whether one side should depend on an interface, shared model, or lower-level package instead.
     confidence: medium
-    - src/domain/models/cameras_settings.h: src/domain/models/cameras_settings.h includes src/utils/enum_traits.h, creating discovered layer dependency domain -> utils
-    - src/utils/directory_browser.h: src/utils/directory_browser.h includes src/domain/models/directory_list_result.h, creating discovered layer dependency utils -> domain
-    - src/utils/json_serializer.cc: src/utils/json_serializer.cc includes src/domain/models/camera_object_data.h, creating discovered layer dependency utils -> domain
-    - src/utils/json_serializer.cc: src/utils/json_serializer.cc includes src/domain/models/camera_status.h, creating discovered layer dependency utils -> domain
-    - src/utils/json_serializer.cc: src/utils/json_serializer.cc includes src/domain/models/directory_list_result.h, creating discovered layer dependency utils -> domain
+    - src/domain/models/cameras_settings.h: includes src/utils/enum_traits.h, creating discovered layer dependency domain -> utils
+    - src/utils/directory_browser.h: includes src/domain/models/directory_list_result.h, creating discovered layer dependency utils -> domain
+    - src/utils/json_serializer.cc: includes src/domain/models/camera_object_data.h, creating discovered layer dependency utils -> domain
+    - src/utils/json_serializer.cc: includes src/domain/models/camera_status.h, creating discovered layer dependency utils -> domain
+    - src/utils/json_serializer.cc: includes src/domain/models/directory_list_result.h, creating discovered layer dependency utils -> domain
   [medium/discovery_hint] Controller layer depends on server layer
     id: discovery.controllers.depends_on.server
     risk: Controllers include server-layer files. Usually server/API adapters should call controllers, not the other way around.
     suggestion: Move shared mapper/DTO code out of server, or keep server-specific mapping behind the server adapter.
     confidence: medium
-    - src/controllers/device_orchestrator.cc: src/controllers/device_orchestrator.cc includes src/server/mappers/lidar_status_mapper.h, creating discovered layer dependency controllers -> server
+    - src/controllers/device_orchestrator.cc: includes src/server/mappers/lidar_status_mapper.h, creating discovered layer dependency controllers -> server
   [low/discovery_hint] Possibly unused C++ includes
     id: discovery.cpp.unused_includes
     risk: These include dependencies were resolved, but lightweight syntactic analysis did not find references to top-level symbols declared in the included headers. This may indicate avoidable compile-time coupling.
@@ -89,24 +88,23 @@ Findings:
     - src/server/api_router.cc: includes src/domain/models/session_settings.h, but no declared top-level symbols from that header were referenced by the includer [compile_commands/high]
     - src/utils/directory_browser.cc: includes src/application/constants.h, but no declared top-level symbols from that header were referenced by the includer [compile_commands/high]
     - src/utils/json_serializer.cc: includes src/utils/enum_traits.h, but no declared top-level symbols from that header were referenced by the includer [compile_commands/high]
-    - test/unit/controllers/test_utility_controller.cc: includes src/utils/json_serializer.h, but no declared top-level symbols from that header were referenced by the includer [compile_commands/high]
   [medium/discovery_hint] Domain layer depends on an outer layer
     id: discovery.domain.depends_on.application
     risk: Domain layer includes files from "application". Domain code is usually expected to stay independent from outer implementation or orchestration layers.
     suggestion: Consider moving the referenced type into domain/shared, introducing a domain interface, or reversing the dependency.
     confidence: medium
-    - src/domain/models/camera_object_data.h: src/domain/models/camera_object_data.h includes src/application/constants.h, creating discovered layer dependency domain -> application
-    - src/domain/models/camera_status.h: src/domain/models/camera_status.h includes src/application/constants.h, creating discovered layer dependency domain -> application
+    - src/domain/models/camera_object_data.h: includes src/application/constants.h, creating discovered layer dependency domain -> application
+    - src/domain/models/camera_status.h: includes src/application/constants.h, creating discovered layer dependency domain -> application
   [medium/discovery_hint] Domain layer depends on an outer layer
     id: discovery.domain.depends_on.session
     risk: Domain layer includes files from "session". Domain code is usually expected to stay independent from outer implementation or orchestration layers.
     suggestion: Consider moving the referenced type into domain/shared, introducing a domain interface, or reversing the dependency.
     confidence: medium
-    - src/domain/interfaces/i_session_controller.h: src/domain/interfaces/i_session_controller.h includes src/session/session_errors.h, creating discovered layer dependency domain -> session
-    - src/domain/models/session_status.h: src/domain/models/session_status.h includes src/session/session_errors.h, creating discovered layer dependency domain -> session
+    - src/domain/interfaces/i_session_controller.h: includes src/session/session_errors.h, creating discovered layer dependency domain -> session
+    - src/domain/models/session_status.h: includes src/session/session_errors.h, creating discovered layer dependency domain -> session
   [medium/discovery_hint] Domain layer depends on an outer layer
     id: discovery.domain.depends_on.utils
     risk: Domain layer includes files from "utils". Domain code is usually expected to stay independent from outer implementation or orchestration layers.
     suggestion: Consider moving the referenced type into domain/shared, introducing a domain interface, or reversing the dependency.
     confidence: medium
-    - src/domain/models/cameras_settings.h: src/domain/models/cameras_settings.h includes src/utils/enum_traits.h, creating discovered layer dependency domain -> utils
+    - src/domain/models/cameras_settings.h: includes src/utils/enum_traits.h, creating discovered layer dependency domain -> utils

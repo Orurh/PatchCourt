@@ -31,13 +31,19 @@ func BuildLayerGraph(project *model.ProjectModel, cfg *config.Config) LayerGraph
 		return LayerGraph{}
 	}
 
+	ignoredFiles := ignoredFromFiles(project)
+
 	for _, file := range project.Files {
-		if file.Layer != "" {
+		if file.Layer != "" && !ignoredFiles[file.Path] {
 			nodeSet[file.Layer] = struct{}{}
 		}
 	}
 
 	for _, dep := range project.Dependencies {
+		if ignoredFiles[dep.FromFile] {
+			continue
+		}
+
 		if dep.External || !dep.Resolved {
 			continue
 		}
@@ -136,4 +142,21 @@ func isViolation(fromLayer string, toLayer string, cfg *config.Config) bool {
 	}
 
 	return true
+}
+
+func ignoredFromFiles(project *model.ProjectModel) map[string]bool {
+	ignored := make(map[string]bool)
+
+	if project == nil {
+		return ignored
+	}
+
+	for _, file := range project.Files {
+		switch file.Role {
+		case model.FileRoleTest, model.FileRoleGenerated, model.FileRoleExternal:
+			ignored[file.Path] = true
+		}
+	}
+
+	return ignored
 }

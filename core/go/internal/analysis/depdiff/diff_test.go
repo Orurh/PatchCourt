@@ -135,3 +135,16 @@ func dep(fromFile string, toFile string, fromLayer string, toLayer string) model
 		ToLayer:   toLayer,
 	}
 }
+
+func TestDiffLayerEdges_IgnoresEdgesFromTestGeneratedAndExternalFiles(t *testing.T) {
+	before := []model.DependencyEdge{}
+	after := []model.DependencyEdge{
+		dep("tests/api_router_test.cc", "src/domain/status.h", "server", "domain"),
+		dep("generated/foo.pb.cc", "src/domain/status.h", "server", "domain"),
+		dep("third_party/lib.cc", "src/domain/status.h", "server", "domain"),
+	}
+
+	changes := DiffLayerEdges(before, after)
+
+	require.Empty(t, changes)
+}
