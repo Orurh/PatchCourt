@@ -21,6 +21,29 @@ func defaultVisibility(kind model.SymbolKind) string {
 	return "private"
 }
 
+func classContextFromSymbolLine(symbol DeclaredSymbol, line string) *classContext {
+	if symbol.Kind != model.SymbolKindClass && symbol.Kind != model.SymbolKindStruct {
+		return nil
+	}
+
+	if !strings.Contains(line, "{") {
+		return nil
+	}
+
+	ctx := &classContext{
+		name:       symbol.Name,
+		kind:       symbol.Kind,
+		visibility: defaultVisibility(symbol.Kind),
+		braceDepth: braceDelta(line),
+	}
+
+	if ctx.braceDepth <= 0 {
+		return nil
+	}
+
+	return ctx
+}
+
 func parseVisibilityLabel(line string) (string, bool) {
 	switch strings.TrimSpace(line) {
 	case "public:":

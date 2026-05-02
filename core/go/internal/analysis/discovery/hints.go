@@ -26,7 +26,7 @@ func AnalyzeHints(project *model.ProjectModel) []model.Finding {
 
 	ignoredFiles := ignoredFromFiles(project)
 	edges := collectLayerEdges(project, ignoredFiles)
-	findings := make([]model.Finding, 0)
+	findings := make([]model.Finding, 0, len(edges)/2)
 
 	findings = append(findings, bidirectionalLayerHints(edges)...)
 	findings = append(findings, domainDependencyHints(edges)...)

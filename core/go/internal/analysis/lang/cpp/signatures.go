@@ -3,9 +3,6 @@ package cpp
 import (
 	"bufio"
 	"os"
-	"strings"
-
-	"github.com/orurh/patchcourt/internal/model"
 )
 
 func ExtractDeclaredSymbols(path string) ([]DeclaredSymbol, error) {
@@ -26,43 +23,27 @@ func ExtractDeclaredSymbols(path string) ([]DeclaredSymbol, error) {
 		}
 
 		if currentClass != nil {
-			if visibility, ok := parseVisibilityLabel(line); ok {
-				currentClass.visibility = visibility
-				currentClass.braceDepth += braceDelta(line)
-				if currentClass.braceDepth <= 0 {
-					currentClass = nil
-				}
+			classSymbols, shouldContinue := processClassLine(line, currentClass)
+			symbols = append(symbols, classSymbols...)
+
+			if currentClass.braceDepth <= 0 {
+				currentClass = nil
+			}
+
+			if shouldContinue {
 				continue
-			}
-
-			if symbol, ok := extractFriendFromLine(line, currentClass.name, currentClass.visibility); ok {
-				symbols = append(symbols, symbol)
-			}
-
-			if currentClass.visibility == "public" {
-				if symbol, ok := extractMethodFromLine(line, currentClass.name); ok {
-					symbols = append(symbols, symbol)
-				}
 			}
 		}
 
-		if symbol, ok := extractDeclaredSymbolFromLine(line); ok {
-			symbols = append(symbols, symbol)
+		symbol, ok := extractDeclaredSymbolFromLine(line)
+		if !ok {
+			continue
+		}
 
-			if symbol.Kind == model.SymbolKindClass || symbol.Kind == model.SymbolKindStruct {
-				if strings.Contains(line, "{") {
-					currentClass = &classContext{
-						name:       symbol.Name,
-						kind:       symbol.Kind,
-						visibility: defaultVisibility(symbol.Kind),
-						braceDepth: braceDelta(line),
-					}
+		symbols = append(symbols, symbol)
 
-					if currentClass.braceDepth <= 0 {
-						currentClass = nil
-					}
-				}
-			}
+		if classCtx := classContextFromSymbolLine(symbol, line); classCtx != nil {
+			currentClass = classCtx
 		}
 
 		if currentClass != nil {
@@ -78,4 +59,28 @@ func ExtractDeclaredSymbols(path string) ([]DeclaredSymbol, error) {
 	}
 
 	return symbols, nil
+}
+
+func processClassLine(line string, currentClass *classContext) ([]DeclaredSymbol, bool) {
+	if visibility, ok := parseVisibilityLabel(line); ok {
+		currentClass.visibility = visibility
+		currentClass.braceDepth += braceDelta(line)
+		return nil, true
+	}
+
+	symbols := make([]DeclaredSymbol, 0, 2)
+
+	if symbol, ok := extractFriendFromLine(line, currentClass.name, currentClass.visibility); ok {
+		symbols = append(symbols, symbol)
+	}
+
+	if currentClass.visibility != "public" {
+		return symbols, false
+	}
+
+	if symbol, ok := extractMethodFromLine(line, currentClass.name); ok {
+		symbols = append(symbols, symbol)
+	}
+
+	return symbols, false
 }

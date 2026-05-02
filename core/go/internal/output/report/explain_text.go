@@ -50,29 +50,35 @@ func writeExplainFindingText(w io.Writer, finding model.Finding) {
 		fmt.Fprintln(w, "Suggestion:")
 		fmt.Fprintf(w, "  %s\n", finding.Suggestion)
 	}
+	writeExplainEvidence(w, finding.Evidence)
+}
 
-	if len(finding.Evidence) > 0 {
-		fmt.Fprintln(w)
-		fmt.Fprintln(w, "Evidence:")
+func writeExplainEvidence(w io.Writer, evidence []model.Evidence) {
+	if len(evidence) == 0 {
+		return
+	}
 
-		for _, evidence := range finding.Evidence {
-			if evidence.File != "" {
-				fmt.Fprintf(w, "  - %s: %s\n", evidence.File, evidence.Message)
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Evidence:")
+
+	for _, item := range evidence {
+		if item.File != "" {
+			fmt.Fprintf(w, "  - %s: %s\n", item.File, item.Message)
+		} else {
+			fmt.Fprintf(w, "  - %s\n", item.Message)
+		}
+
+		if item.LineStart > 0 {
+			if item.LineEnd > item.LineStart {
+				fmt.Fprintf(w, "    lines: %d-%d\n", item.LineStart, item.LineEnd)
 			} else {
-				fmt.Fprintf(w, "  - %s\n", evidence.Message)
+				fmt.Fprintf(w, "    line: %d\n", item.LineStart)
 			}
+		}
 
-			if evidence.LineStart > 0 {
-				if evidence.LineEnd > evidence.LineStart {
-					fmt.Fprintf(w, "    lines: %d-%d\n", evidence.LineStart, evidence.LineEnd)
-				} else {
-					fmt.Fprintf(w, "    line: %d\n", evidence.LineStart)
-				}
-			}
-
-			if evidence.Snippet != "" {
-				fmt.Fprintf(w, "    snippet: %s\n", evidence.Snippet)
-			}
+		if item.Snippet != "" {
+			fmt.Fprintln(w, "    snippet:")
+			fmt.Fprintf(w, "      %s\n", item.Snippet)
 		}
 	}
 }
