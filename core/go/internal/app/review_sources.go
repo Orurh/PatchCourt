@@ -9,6 +9,24 @@ import (
 )
 
 func (a *App) loadReviewProjects(ctx context.Context, req ReviewRequest) (*model.ProjectModel, *model.ProjectModel, error) {
+	if req.BaseRef != "" || req.HeadRef != "" {
+		gitPair, err := changes.NewGitReviewSourcePair(ctx, changes.GitReviewSourcePairOptions{
+			Root:       req.GitRoot,
+			BaseRef:    req.BaseRef,
+			HeadRef:    req.HeadRef,
+			ConfigPath: req.ConfigPath,
+			Analyzer:   a.analysis,
+		})
+		if err != nil {
+			return nil, nil, err
+		}
+		defer func() {
+			_ = gitPair.Cleanup(context.Background())
+		}()
+
+		return changes.LoadPair(ctx, gitPair.Pair)
+	}
+
 	pair, err := a.reviewSourcePair(req)
 	if err != nil {
 		return nil, nil, err

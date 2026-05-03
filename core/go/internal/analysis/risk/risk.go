@@ -65,12 +65,18 @@ func Calculate(input Input) Score {
 		case contracts.ChangeKindRemoved:
 			addReason(&score, 3, fmt.Sprintf("public contract symbol removed: %s", change.SymbolKey))
 		case contracts.ChangeKindAdded:
-			addReason(&score, 1, fmt.Sprintf("public contract symbol added: %s", change.SymbolKey))
+			// Adding a public symbol is not inherently risky. Risk is driven by
+			// removals, signature/modifier changes, new findings, and dependency
+			// direction changes.
 		}
 	}
 
 	for _, change := range input.DependencyChanges {
-		if change.Kind != depdiff.DependencyChangeKindAdded {
+		if change.Kind != depdiff.DependencyChangeKindAdded || change.After == nil {
+			continue
+		}
+
+		if !isRiskyAddedDependency(*change.After) {
 			continue
 		}
 
@@ -140,4 +146,20 @@ func levelForPoints(points int) Level {
 	default:
 		return LevelLow
 	}
+}
+
+func isRiskyAddedDependency(dep model.DependencyEdge) bool {
+	if dep.External {
+		return false
+	}
+
+	if dep.FromLayer == "" || dep.ToLayer == "" {
+		return false
+	}
+
+	if dep.FromLayer == dep.ToLayer {
+		return false
+	}
+
+	return true
 }

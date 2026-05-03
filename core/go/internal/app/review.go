@@ -30,6 +30,10 @@ type ReviewRequest struct {
 
 	SinceLastRoot string
 	UpdateState   bool
+
+	GitRoot string
+	BaseRef string
+	HeadRef string
 }
 
 type ReviewSummary struct {

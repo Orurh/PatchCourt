@@ -156,6 +156,10 @@ func worseDependencyChanges(changes []depdiff.DependencyChange) []ReviewImpactIt
 		}
 
 		dep := change.After
+		if !isReviewRelevantDependency(*dep) {
+			continue
+		}
+
 		items = append(items, ReviewImpactItem{
 			Kind:   "dependency_added",
 			Title:  "Added dependency",
@@ -176,6 +180,10 @@ func betterDependencyChanges(changes []depdiff.DependencyChange) []ReviewImpactI
 		}
 
 		dep := change.Before
+		if !isReviewRelevantDependency(*dep) {
+			continue
+		}
+
 		items = append(items, ReviewImpactItem{
 			Kind:   "dependency_removed",
 			Title:  "Removed dependency",
@@ -214,6 +222,22 @@ func worseContractChanges(changes []contracts.SymbolChange) []ReviewImpactItem {
 	}
 
 	return items
+}
+
+func isReviewRelevantDependency(dep model.DependencyEdge) bool {
+	if dep.External {
+		return false
+	}
+
+	if dep.FromLayer == "" || dep.ToLayer == "" {
+		return false
+	}
+
+	if dep.FromLayer == dep.ToLayer {
+		return false
+	}
+
+	return true
 }
 
 func dependencyImpactDetail(dep model.DependencyEdge) string {

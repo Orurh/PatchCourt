@@ -139,10 +139,18 @@ func writeFindingEvidenceText(w io.Writer, evidence []model.Evidence) {
 }
 
 func writeDependencyChangesText(w io.Writer, changes []depdiff.DependencyChange) {
-	fmt.Fprintln(w, "Dependency changes:")
-	fmt.Fprintf(w, "  total: %d\n", len(changes))
+	relevant := reviewRelevantDependencyChanges(changes)
+	hidden := len(changes) - len(relevant)
 
-	for _, change := range changes {
+	fmt.Fprintln(w, "Dependency changes:")
+	fmt.Fprintf(w, "  review-relevant: %d\n", len(relevant))
+	fmt.Fprintf(w, "  raw total:       %d\n", len(changes))
+
+	if hidden > 0 {
+		fmt.Fprintf(w, "  hidden low-level: %d\n", hidden)
+	}
+
+	for _, change := range relevant {
 		dep := change.After
 		if dep == nil {
 			dep = change.Before
@@ -170,6 +178,45 @@ func writeDependencyChangesText(w io.Writer, changes []depdiff.DependencyChange)
 			fmt.Fprintf(w, "    usage: %s\n", dep.Usage)
 		}
 	}
+}
+
+func reviewRelevantDependencyChanges(changes []depdiff.DependencyChange) []depdiff.DependencyChange {
+	relevant := make([]depdiff.DependencyChange, 0, len(changes))
+
+	for _, change := range changes {
+		dep := change.After
+		if dep == nil {
+			dep = change.Before
+		}
+
+		if dep == nil {
+			continue
+		}
+
+		if !isReviewRelevantDependency(*dep) {
+			continue
+		}
+
+		relevant = append(relevant, change)
+	}
+
+	return relevant
+}
+
+func isReviewRelevantDependency(dep model.DependencyEdge) bool {
+	if dep.External {
+		return false
+	}
+
+	if dep.FromLayer == "" || dep.ToLayer == "" {
+		return false
+	}
+
+	if dep.FromLayer == dep.ToLayer {
+		return false
+	}
+
+	return true
 }
 
 func writeLayerEdgeChangesText(w io.Writer, changes []depdiff.LayerEdgeChange) {

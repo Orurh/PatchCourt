@@ -47,6 +47,11 @@ func TestCalculate_ScoresContractAndDependencyChanges(t *testing.T) {
 			{
 				Kind: depdiff.DependencyChangeKindAdded,
 				Key:  "include|src/server/api_router.cc|src/cameras/sony.h",
+				After: &model.DependencyEdge{
+					FromLayer: "api",
+					ToLayer:   "cameras",
+					Resolved:  true,
+				},
 			},
 		},
 		LayerEdgeChanges: []depdiff.LayerEdgeChange{
@@ -102,4 +107,55 @@ func TestCalculate_ScoresIncreasedLayerEdgeCount(t *testing.T) {
 	require.Equal(t, LevelLow, score.Level)
 	require.Len(t, score.Reasons, 1)
 	require.Equal(t, "layer edge count increased: domain -> application (2 -> 3)", score.Reasons[0].Message)
+}
+
+func TestCalculate_DoesNotScoreAddedPublicContractSymbolByDefault(t *testing.T) {
+	score := Calculate(Input{
+		ContractChanges: []contracts.SymbolChange{
+			{
+				Kind:      contracts.ChangeKindAdded,
+				SymbolKey: "class::::ICameraAdapter",
+			},
+		},
+	})
+
+	require.Equal(t, 0, score.Points)
+	require.Equal(t, LevelLow, score.Level)
+	require.Empty(t, score.Reasons)
+}
+
+func TestCalculate_DoesNotScoreNoisyAddedDependencies(t *testing.T) {
+	score := Calculate(Input{
+		DependencyChanges: []depdiff.DependencyChange{
+			{
+				Kind: depdiff.DependencyChangeKindAdded,
+				Key:  "include|src/domain/a.h|string",
+				After: &model.DependencyEdge{
+					FromLayer: "domain",
+					Resolved:  true,
+				},
+			},
+			{
+				Kind: depdiff.DependencyChangeKindAdded,
+				Key:  "include|src/domain/a.h|src/domain/b.h",
+				After: &model.DependencyEdge{
+					FromLayer: "domain",
+					ToLayer:   "domain",
+					Resolved:  true,
+				},
+			},
+			{
+				Kind: depdiff.DependencyChangeKindAdded,
+				Key:  "include|src/domain/a.h|vendor.h",
+				After: &model.DependencyEdge{
+					FromLayer: "domain",
+					External:  true,
+				},
+			},
+		},
+	})
+
+	require.Equal(t, 0, score.Points)
+	require.Equal(t, LevelLow, score.Level)
+	require.Empty(t, score.Reasons)
 }
