@@ -83,6 +83,13 @@ func checkLayerDependencies(project *model.ProjectModel, cfg *config.Config) []m
 			continue
 		}
 
+		message := fmt.Sprintf(
+			"includes %s, creating include dependency %s -> %s",
+			dep.Target,
+			dep.FromLayer,
+			dep.ToLayer,
+		)
+
 		findings = append(findings, model.Finding{
 			ID:         fmt.Sprintf("architecture.%s.%s", dep.FromLayer, dep.ToLayer),
 			Kind:       model.FindingKindPolicyViolation,
@@ -96,15 +103,7 @@ func checkLayerDependencies(project *model.ProjectModel, cfg *config.Config) []m
 			),
 			Suggestion: "Move the dependency behind an allowed interface, remove the include if it is unused, replace it with a forward declaration if possible, or update the architecture rules if this dependency is intentional.",
 			Evidence: []model.Evidence{
-				{
-					File: dep.FromFile,
-					Message: fmt.Sprintf(
-						"includes %s, creating include dependency %s -> %s",
-						dep.Target,
-						dep.FromLayer,
-						dep.ToLayer,
-					),
-				},
+				model.DependencyEvidence(dep, message),
 			},
 		})
 	}

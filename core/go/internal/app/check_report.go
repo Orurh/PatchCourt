@@ -3,7 +3,6 @@ package app
 import (
 	"fmt"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -79,7 +78,7 @@ func BuildCheckReport(result *CheckResult) CheckReport {
 
 	report.TopFindings = topFindingSummaries(findings, defaultCheckTopFindings)
 	report.MostCoupledEdges = mostCoupledEdges(result.LayerGraph, defaultCheckCoupledEdges)
-	report.SuspiciousEdges = suspiciousEdges(result.LayerGraph, findings, defaultCheckSuspiciousEdge)
+	report.SuspiciousEdges = suspiciousEdges(result.Project, result.LayerGraph, findings, defaultCheckSuspiciousEdge)
 	report.NextSteps = checkNextSteps(result, report)
 
 	return report
@@ -131,7 +130,7 @@ func mostCoupledEdges(layerGraph graphmodel.LayerGraph, limit int) []EdgeSummary
 	return limitEdgeSummaries(edges, limit)
 }
 
-func suspiciousEdges(layerGraph graphmodel.LayerGraph, findings []model.Finding, limit int) []EdgeSummary {
+func suspiciousEdges(project *model.ProjectModel, layerGraph graphmodel.LayerGraph, findings []model.Finding, limit int) []EdgeSummary {
 	findingByEdge := indexFindingsByEdge(findings)
 	result := make([]EdgeSummary, 0)
 
@@ -142,10 +141,16 @@ func suspiciousEdges(layerGraph graphmodel.LayerGraph, findings []model.Finding,
 			continue
 		}
 
+		edgeReport := BuildEdgeReport(project, EdgeReportOptions{
+			FromLayer: edge.From,
+			ToLayer:   edge.To,
+			Limit:     1,
+		})
+
 		result = append(result, EdgeSummary{
 			From:      edge.From,
 			To:        edge.To,
-			Count:     edge.Count,
+			Count:     edgeReport.Count,
 			FindingID: finding.ID,
 			Priority:  finding.Priority,
 		})
@@ -166,6 +171,22 @@ func suspiciousEdges(layerGraph graphmodel.LayerGraph, findings []model.Finding,
 	})
 
 	return limitEdgeSummaries(result, limit)
+}
+
+func firstSuggestedFindingID(report CheckReport) string {
+	for _, edge := range report.SuspiciousEdges {
+		if edge.FindingID != "" {
+			return edge.FindingID
+		}
+	}
+
+	for _, finding := range report.TopFindings {
+		if finding.ID != "" {
+			return finding.ID
+		}
+	}
+
+	return ""
 }
 
 func limitEdgeSummaries(edges []EdgeSummary, limit int) []EdgeSummary {
@@ -205,7 +226,7 @@ func checkNextSteps(result *CheckResult, report CheckReport) []NextStep {
 				Label:   fmt.Sprintf("Explain finding %s", findingID),
 				Command: fmt.Sprintf("patchcourt explain %s --model %s", findingID, modelPath),
 			})
-		} else {
+		} else if result.Root != "" {
 			steps = append(steps, NextStep{
 				Label:   fmt.Sprintf("Explain finding %s", findingID),
 				Command: fmt.Sprintf("patchcourt explain %s --root %s", findingID, result.Root),
@@ -213,20 +234,19 @@ func checkNextSteps(result *CheckResult, report CheckReport) []NextStep {
 		}
 	}
 
-	htmlPath := result.ArtifactPathByName("html report")
-	if htmlPath != "" {
+	if result.OutDir != "" {
 		steps = append(steps, NextStep{
 			Label:   "Open HTML report",
-			Command: fmt.Sprintf("xdg-open %s", htmlPath),
+			Command: fmt.Sprintf("xdg-open %s", filepath.Join(result.OutDir, "report.html")),
 		})
-	}
 
-	dotPath := result.ArtifactPathByName("layer graph dot")
-	if dotPath != "" {
-		svgPath := filepath.Join(filepath.Dir(dotPath), "layer-graph.svg")
 		steps = append(steps, NextStep{
-			Label:   "Render layer graph SVG",
-			Command: fmt.Sprintf("dot -Tsvg %s -o %s", dotPath, svgPath),
+			Label: "Render layer graph SVG",
+			Command: fmt.Sprintf(
+				"dot -Tsvg %s -o %s",
+				filepath.Join(result.OutDir, "layer-graph.dot"),
+				filepath.Join(result.OutDir, "layer-graph.svg"),
+			),
 		})
 	}
 
@@ -239,60 +259,79 @@ type findingForEdge struct {
 }
 
 func indexFindingsByEdge(findings []model.Finding) map[string]findingForEdge {
-	result := make(map[string]findingForEdge)
+	index := make(map[string]findingForEdge)
 
 	for _, finding := range findings {
 		priority := findingPriority(finding)
 
 		for _, key := range findingEdgeKeys(finding) {
-			current, exists := result[key]
-			if exists && current.Priority >= priority {
+			existing, ok := index[key]
+			if ok && existing.Priority >= priority {
 				continue
 			}
 
-			result[key] = findingForEdge{
+			index[key] = findingForEdge{
 				ID:       finding.ID,
 				Priority: priority,
 			}
 		}
 	}
 
-	return result
+	return index
 }
 
-var evidenceEdgeRE = regexp.MustCompile(`dependency\s+([A-Za-z0-9_.:-]+)\s+->\s+([A-Za-z0-9_.:-]+)`)
-
 func findingEdgeKeys(finding model.Finding) []string {
-	seen := make(map[string]struct{})
-	result := make([]string, 0)
-
-	add := func(from string, to string) {
-		key := edgeKey(from, to)
-		if _, ok := seen[key]; ok {
-			return
-		}
-
-		seen[key] = struct{}{}
-		result = append(result, key)
-	}
+	keys := make([]string, 0, 4)
 
 	for _, evidence := range finding.Evidence {
-		match := evidenceEdgeRE.FindStringSubmatch(evidence.Message)
-		if len(match) != 3 {
+		if evidence.FromLayer == "" || evidence.ToLayer == "" {
 			continue
 		}
 
-		add(match[1], match[2])
+		keys = append(keys, edgeKey(evidence.FromLayer, evidence.ToLayer))
 	}
 
-	if strings.HasPrefix(finding.ID, "architecture.") {
-		parts := strings.Split(finding.ID, ".")
-		if len(parts) == 3 {
-			add(parts[1], parts[2])
-		}
+	if from, to, ok := architectureFindingEdge(finding.ID); ok {
+		keys = append(keys, edgeKey(from, to))
 	}
 
-	return result
+	if left, right, ok := bidirectionalFindingLayers(finding.ID); ok {
+		keys = append(keys, edgeKey(left, right), edgeKey(right, left))
+	}
+
+	return uniqueStrings(keys)
+}
+
+func architectureFindingEdge(id string) (string, string, bool) {
+	const prefix = "architecture."
+
+	if !strings.HasPrefix(id, prefix) {
+		return "", "", false
+	}
+
+	rest := strings.TrimPrefix(id, prefix)
+	parts := strings.Split(rest, ".")
+	if len(parts) != 2 {
+		return "", "", false
+	}
+
+	return parts[0], parts[1], true
+}
+
+func bidirectionalFindingLayers(id string) (string, string, bool) {
+	const prefix = "discovery.bidirectional."
+
+	if !strings.HasPrefix(id, prefix) {
+		return "", "", false
+	}
+
+	rest := strings.TrimPrefix(id, prefix)
+	parts := strings.Split(rest, ".")
+	if len(parts) != 2 {
+		return "", "", false
+	}
+
+	return parts[0], parts[1], true
 }
 
 func edgeKey(from string, to string) string {
@@ -300,51 +339,44 @@ func edgeKey(from string, to string) string {
 }
 
 func findingPriority(finding model.Finding) int {
+	priority := model.SeverityRank(finding.Severity)
+
 	if finding.Kind == model.FindingKindPolicyViolation {
-		return 100 + severityRank(finding.Severity)
+		priority += 20
 	}
 
 	switch {
+	case strings.HasPrefix(finding.ID, "architecture."):
+		priority += 40
 	case strings.HasPrefix(finding.ID, "discovery.domain.depends_on."):
-		return 80 + severityRank(finding.Severity)
+		priority += 32
 	case finding.ID == "discovery.controllers.depends_on.server":
-		return 70 + severityRank(finding.Severity)
+		priority += 22
 	case finding.ID == "discovery.shared.depends_on.domain":
-		return 60 + severityRank(finding.Severity)
+		priority += 51
 	case strings.HasPrefix(finding.ID, "discovery.bidirectional."):
-		return 50 + severityRank(finding.Severity)
-	default:
-		return severityRank(finding.Severity)
+		priority += 2
 	}
+
+	return priority
 }
 
-func severityRank(severity model.Severity) int {
-	switch severity {
-	case model.SeverityCritical:
-		return 4
-	case model.SeverityHigh:
-		return 3
-	case model.SeverityMedium:
-		return 2
-	case model.SeverityLow:
-		return 1
-	default:
-		return 0
-	}
-}
+func uniqueStrings(values []string) []string {
+	seen := make(map[string]struct{}, len(values))
+	result := make([]string, 0, len(values))
 
-func firstSuggestedFindingID(report CheckReport) string {
-	for _, edge := range report.SuspiciousEdges {
-		if edge.FindingID != "" {
-			return edge.FindingID
+	for _, value := range values {
+		if value == "" {
+			continue
 		}
-	}
 
-	for _, finding := range report.TopFindings {
-		if finding.ID != "" {
-			return finding.ID
+		if _, ok := seen[value]; ok {
+			continue
 		}
+
+		seen[value] = struct{}{}
+		result = append(result, value)
 	}
 
-	return ""
+	return result
 }

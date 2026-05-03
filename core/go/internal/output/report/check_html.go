@@ -6,10 +6,18 @@ import (
 	"io"
 	"strings"
 
+	"github.com/orurh/patchcourt/internal/app"
 	"github.com/orurh/patchcourt/internal/model"
 )
 
+type CheckHTMLInput struct {
+	Report     app.CheckReport
+	Project    *model.ProjectModel
+	LayerGraph any
+}
+
 type checkHTMLPayload struct {
+	Report       app.CheckReport        `json:"report"`
 	Root         string                 `json:"root"`
 	ConfigPath   string                 `json:"config_path,omitempty"`
 	OutDir       string                 `json:"out_dir"`
@@ -19,18 +27,19 @@ type checkHTMLPayload struct {
 	Dependencies []model.DependencyEdge `json:"dependencies"`
 }
 
-func WriteCheckHTML(w io.Writer, result CheckTextResult) error {
+func WriteCheckHTML(w io.Writer, input CheckHTMLInput) error {
 	payload := checkHTMLPayload{
-		Root:       result.Root,
-		ConfigPath: result.ConfigPath,
-		OutDir:     result.OutDir,
-		Summary:    result.Summary,
-		LayerGraph: result.LayerGraph,
+		Report:     input.Report,
+		Root:       input.Report.Root,
+		ConfigPath: input.Report.ConfigPath,
+		OutDir:     input.Report.OutDir,
+		Summary:    input.Report.Summary,
+		LayerGraph: input.LayerGraph,
 	}
 
-	if result.Project != nil {
-		payload.Findings = result.Project.Findings
-		payload.Dependencies = result.Project.Dependencies
+	if input.Project != nil {
+		payload.Findings = input.Project.Findings
+		payload.Dependencies = input.Project.Dependencies
 	}
 
 	data, err := json.Marshal(payload)

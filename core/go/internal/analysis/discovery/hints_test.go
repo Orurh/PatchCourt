@@ -184,3 +184,26 @@ func requireFindingID(t *testing.T, findings []model.Finding, id string) {
 		t.Fatalf("expected finding %q, got %#v", id, findings)
 	}
 }
+
+func TestAnalyzeHints_AttachesStructuredEdgeEvidence(t *testing.T) {
+	project := &model.ProjectModel{
+		Dependencies: []model.DependencyEdge{
+			resolvedLayerDep("src/domain/session_status.h", "src/session/session_errors.h", "domain", "session"),
+		},
+	}
+
+	findings := AnalyzeHints(project)
+	finding := findFinding(findings, "discovery.domain.depends_on.session")
+	if finding == nil {
+		t.Fatalf("expected domain dependency finding, got %#v", findings)
+	}
+
+	if len(finding.Evidence) != 1 {
+		t.Fatalf("expected evidence, got %#v", finding.Evidence)
+	}
+
+	evidence := finding.Evidence[0]
+	if evidence.FromLayer != "domain" || evidence.ToLayer != "session" {
+		t.Fatalf("expected structured edge domain -> session, got %q -> %q", evidence.FromLayer, evidence.ToLayer)
+	}
+}

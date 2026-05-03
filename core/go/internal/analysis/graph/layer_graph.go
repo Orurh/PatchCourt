@@ -120,10 +120,7 @@ func layerEdgeEvidence(dep model.DependencyEdge) model.Evidence {
 		message = fmt.Sprintf("%s [usage=%s]", message, dep.Usage)
 	}
 
-	return model.Evidence{
-		File:    dep.FromFile,
-		Message: message,
-	}
+	return model.DependencyEvidence(dep, message)
 }
 
 func isViolation(fromLayer string, toLayer string, cfg *config.Config) bool {

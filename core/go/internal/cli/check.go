@@ -139,12 +139,11 @@ func (r *Runner) writeCheckArtifacts(result *app.CheckResult) ([]app.CheckArtifa
 	}
 
 	if err := writeArtifact("html report", "report.html", func(file *os.File) error {
-		return report.WriteCheckHTML(file, report.CheckTextResult{
-			Root:       result.Root,
-			ConfigPath: result.ConfigPath,
-			OutDir:     result.OutDir,
+		checkReport := app.BuildCheckReport(result)
+
+		return report.WriteCheckHTML(file, report.CheckHTMLInput{
+			Report:     checkReport,
 			Project:    result.Project,
-			Summary:    result.Summary,
 			LayerGraph: result.LayerGraph,
 		})
 	}); err != nil {
@@ -152,17 +151,4 @@ func (r *Runner) writeCheckArtifacts(result *app.CheckResult) ([]app.CheckArtifa
 	}
 
 	return artifacts, nil
-}
-
-func checkTextArtifacts(artifacts []app.CheckArtifact) []report.CheckTextArtifact {
-	result := make([]report.CheckTextArtifact, 0, len(artifacts))
-
-	for _, artifact := range artifacts {
-		result = append(result, report.CheckTextArtifact{
-			Name: artifact.Name,
-			Path: artifact.Path,
-		})
-	}
-
-	return result
 }

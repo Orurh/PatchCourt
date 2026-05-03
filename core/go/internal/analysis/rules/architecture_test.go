@@ -310,3 +310,36 @@ func TestApplyArchitectureRules_RespectsLayerExcludePaths(t *testing.T) {
 		t.Fatalf("expected shared layer, got %q", project.Files[0].Layer)
 	}
 }
+
+func TestApplyArchitectureRules_AttachesStructuredEdgeEvidence(t *testing.T) {
+	project := &model.ProjectModel{
+		Files: []model.FileModel{
+			{Path: "src/server/api_router.cc", Language: model.LanguageCPP, Kind: model.FileKindSource, Role: model.FileRoleProduction},
+			{Path: "src/cameras/sony.h", Language: model.LanguageCPP, Kind: model.FileKindHeader, Role: model.FileRoleProduction},
+		},
+		Dependencies: []model.DependencyEdge{
+			{
+				FromFile: "src/server/api_router.cc",
+				ToFile:   "src/cameras/sony.h",
+				Target:   "src/cameras/sony.h",
+				Kind:     model.DependencyKindInclude,
+				Resolved: true,
+			},
+		},
+	}
+
+	ApplyArchitectureRules(project, testArchitectureConfig())
+
+	if len(project.Findings) != 1 {
+		t.Fatalf("expected 1 finding, got %d", len(project.Findings))
+	}
+
+	evidence := project.Findings[0].Evidence[0]
+	if evidence.FromLayer != "api" || evidence.ToLayer != "cameras" {
+		t.Fatalf("expected structured edge api -> cameras, got %q -> %q", evidence.FromLayer, evidence.ToLayer)
+	}
+
+	if evidence.FromFile != "src/server/api_router.cc" || evidence.ToFile != "src/cameras/sony.h" {
+		t.Fatalf("unexpected evidence files: %q -> %q", evidence.FromFile, evidence.ToFile)
+	}
+}

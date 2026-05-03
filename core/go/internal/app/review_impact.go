@@ -57,7 +57,7 @@ func worseFindingChanges(changes []findingdiff.FindingChange) []ReviewImpactItem
 		items = append(items, ReviewImpactItem{
 			Kind:     "finding_added",
 			Severity: string(finding.Severity),
-			Title:    fmt.Sprintf("Added %s finding", humanFindingKind(finding.Kind)),
+			Title:    fmt.Sprintf("Added %s finding", model.HumanFindingKind(finding.Kind)),
 			Detail:   finding.Title,
 			ID:       change.ID,
 		})
@@ -78,7 +78,7 @@ func betterFindingChanges(changes []findingdiff.FindingChange) []ReviewImpactIte
 		items = append(items, ReviewImpactItem{
 			Kind:     "finding_removed",
 			Severity: string(finding.Severity),
-			Title:    fmt.Sprintf("Removed %s finding", humanFindingKind(finding.Kind)),
+			Title:    fmt.Sprintf("Removed %s finding", model.HumanFindingKind(finding.Kind)),
 			Detail:   finding.Title,
 			ID:       change.ID,
 		})
@@ -258,22 +258,5 @@ func severityImpactRank(severity string) int {
 		return 1
 	default:
 		return 0
-	}
-}
-
-func humanFindingKind(kind model.FindingKind) string {
-	switch kind {
-	case model.FindingKindPolicyViolation:
-		return "policy violation"
-	case model.FindingKindDiscoveryHint:
-		return "discovery hint"
-	case model.FindingKindRefactorHint:
-		return "refactor hint"
-	case model.FindingKindReviewChange:
-		return "review change"
-	case model.FindingKindFactDiagnostic:
-		return "fact diagnostic"
-	default:
-		return "finding"
 	}
 }

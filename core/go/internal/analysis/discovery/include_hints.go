@@ -59,10 +59,7 @@ func unusedIncludeHints(project *model.ProjectModel) []model.Finding {
 			)
 		}
 
-		evidence = append(evidence, model.Evidence{
-			File:    dep.FromFile,
-			Message: message,
-		})
+		evidence = append(evidence, model.DependencyEvidence(dep, message))
 	}
 
 	if total == 0 {

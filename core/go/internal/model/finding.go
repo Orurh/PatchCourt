@@ -45,4 +45,8 @@ type Evidence struct {
 	LineEnd   int    `json:"line_end,omitempty"`
 	Snippet   string `json:"snippet,omitempty"`
 	Message   string `json:"message,omitempty"`
+	FromLayer string `json:"from_layer,omitempty"`
+	ToLayer   string `json:"to_layer,omitempty"`
+	FromFile  string `json:"from_file,omitempty"`
+	ToFile    string `json:"to_file,omitempty"`
 }

@@ -3,8 +3,6 @@ package app
 import (
 	"context"
 	"fmt"
-	"sort"
-	"strings"
 
 	"github.com/orurh/patchcourt/internal/model"
 )
@@ -69,34 +67,13 @@ func (a *App) RunEdge(ctx context.Context, req EdgeRequest) (*EdgeResult, error)
 		return nil, err
 	}
 
-	limit := req.Limit
-	if limit <= 0 {
-		limit = 50
-	}
-
-	deps := filterEdgeDependencies(project, req.FromLayer, req.ToLayer)
-	sortEdgeDependencies(deps)
-
-	result := &EdgeResult{
-		Root:         project.Root,
-		Source:       source,
-		FromLayer:    req.FromLayer,
-		ToLayer:      req.ToLayer,
-		Count:        len(deps),
-		Usage:        summarizeEdgeUsage(deps),
-		Findings:     findEdgeFindings(project.Findings, req.FromLayer, req.ToLayer),
-		TopFromFiles: topEdgeFiles(deps, true),
-		TopToFiles:   topEdgeFiles(deps, false),
-	}
-
-	if len(deps) > limit {
-		result.Dependencies = deps[:limit]
-		result.TruncatedDeps = len(deps) - limit
-	} else {
-		result.Dependencies = deps
-	}
-
-	return result, nil
+	return BuildEdgeReport(project, EdgeReportOptions{
+		Root:      project.Root,
+		Source:    source,
+		FromLayer: req.FromLayer,
+		ToLayer:   req.ToLayer,
+		Limit:     req.Limit,
+	}), nil
 }
 
 func (a *App) loadEdgeProject(ctx context.Context, req EdgeRequest) (*model.ProjectModel, string, error) {
@@ -124,149 +101,4 @@ func (a *App) loadEdgeProject(ctx context.Context, req EdgeRequest) (*model.Proj
 	}
 
 	return result.Project, root, nil
-}
-
-func filterEdgeDependencies(project *model.ProjectModel, fromLayer string, toLayer string) []model.DependencyEdge {
-	if project == nil {
-		return nil
-	}
-
-	ignoredFiles := ignoredEdgeFromFiles(project.Files)
-	result := make([]model.DependencyEdge, 0)
-
-	for _, dep := range project.Dependencies {
-		if ignoredFiles[dep.FromFile] {
-			continue
-		}
-
-		if dep.External || !dep.Resolved {
-			continue
-		}
-
-		if dep.FromLayer != fromLayer || dep.ToLayer != toLayer {
-			continue
-		}
-
-		result = append(result, dep)
-	}
-
-	return result
-}
-
-func ignoredEdgeFromFiles(files []model.FileModel) map[string]bool {
-	ignored := make(map[string]bool)
-
-	for _, file := range files {
-		switch file.Role {
-		case model.FileRoleTest, model.FileRoleGenerated, model.FileRoleExternal:
-			ignored[file.Path] = true
-		}
-	}
-
-	return ignored
-}
-
-func summarizeEdgeUsage(deps []model.DependencyEdge) EdgeUsageSummary {
-	var summary EdgeUsageSummary
-
-	for _, dep := range deps {
-		switch dep.Usage {
-		case model.DependencyUsageUsed:
-			summary.Used++
-		case model.DependencyUsageMaybe:
-			summary.Maybe++
-		case model.DependencyUsageUnused:
-			summary.Unused++
-		default:
-			summary.Unknown++
-		}
-	}
-
-	return summary
-}
-
-func topEdgeFiles(deps []model.DependencyEdge, from bool) []EdgeFileCount {
-	counts := make(map[string]int)
-
-	for _, dep := range deps {
-		file := dep.ToFile
-		if from {
-			file = dep.FromFile
-		}
-
-		if file == "" {
-			continue
-		}
-
-		counts[file]++
-	}
-
-	result := make([]EdgeFileCount, 0, len(counts))
-	for file, count := range counts {
-		result = append(result, EdgeFileCount{
-			File:  file,
-			Count: count,
-		})
-	}
-
-	sort.Slice(result, func(i, j int) bool {
-		if result[i].Count == result[j].Count {
-			return result[i].File < result[j].File
-		}
-
-		return result[i].Count > result[j].Count
-	})
-
-	return result
-}
-
-func sortEdgeDependencies(deps []model.DependencyEdge) {
-	sort.Slice(deps, func(i, j int) bool {
-		if deps[i].FromFile == deps[j].FromFile {
-			return edgeTarget(deps[i]) < edgeTarget(deps[j])
-		}
-
-		return deps[i].FromFile < deps[j].FromFile
-	})
-}
-
-func findEdgeFindings(findings []model.Finding, fromLayer string, toLayer string) []model.Finding {
-	needle := fromLayer + " -> " + toLayer
-	idNeedle := "." + fromLayer + "." + toLayer
-
-	result := make([]model.Finding, 0)
-	for _, finding := range findings {
-		if strings.Contains(finding.ID, idNeedle) {
-			result = append(result, finding)
-			continue
-		}
-
-		if findingEvidenceMentionsEdge(finding, needle) {
-			result = append(result, finding)
-		}
-	}
-
-	sort.SliceStable(result, func(i, j int) bool {
-		return result[i].ID < result[j].ID
-	})
-
-	return result
-}
-
-func findingEvidenceMentionsEdge(finding model.Finding, needle string) bool {
-	for _, evidence := range finding.Evidence {
-		if strings.Contains(evidence.Message, needle) {
-			return true
-		}
-	}
-
-	return false
-}
-
-func edgeTarget(dep model.DependencyEdge) string {
-	if dep.ToFile != "" {
-		return dep.ToFile
-	}
-
-	return dep.Target
 }

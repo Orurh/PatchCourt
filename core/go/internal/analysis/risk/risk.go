@@ -52,7 +52,7 @@ func Calculate(input Input) Score {
 		addReason(
 			&score,
 			points,
-			fmt.Sprintf("added %s %s: %s", change.After.Severity, humanFindingKind(change.After.Kind), change.ID),
+			fmt.Sprintf("added %s %s: %s", change.After.Severity, model.HumanFindingKind(change.After.Kind), change.ID),
 		)
 	}
 
@@ -126,22 +126,5 @@ func levelForPoints(points int) Level {
 		return LevelMedium
 	default:
 		return LevelLow
-	}
-}
-
-func humanFindingKind(kind model.FindingKind) string {
-	switch kind {
-	case model.FindingKindPolicyViolation:
-		return "policy violation"
-	case model.FindingKindDiscoveryHint:
-		return "discovery hint"
-	case model.FindingKindRefactorHint:
-		return "refactor hint"
-	case model.FindingKindReviewChange:
-		return "review change"
-	case model.FindingKindFactDiagnostic:
-		return "fact diagnostic"
-	default:
-		return "finding"
 	}
 }

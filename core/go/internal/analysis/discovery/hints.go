@@ -204,15 +204,18 @@ func dependencyEvidence(pair layerPair, deps []model.DependencyEdge) []model.Evi
 			target = dep.Target
 		}
 
-		evidence = append(evidence, model.Evidence{
-			File: dep.FromFile,
-			Message: fmt.Sprintf(
-				"includes %s, creating discovered layer dependency %s -> %s",
-				target,
-				pair.from,
-				pair.to,
-			),
-		})
+		message := fmt.Sprintf(
+			"includes %s, creating discovered layer dependency %s -> %s",
+			target,
+			pair.from,
+			pair.to,
+		)
+
+		edgeDep := dep
+		edgeDep.FromLayer = pair.from
+		edgeDep.ToLayer = pair.to
+
+		evidence = append(evidence, model.DependencyEvidence(edgeDep, message))
 	}
 
 	return evidence
