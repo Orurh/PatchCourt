@@ -97,3 +97,15 @@ func (r *Runner) renderExplainResult(format app.ExplainFormat, result *app.Expla
 		return fmt.Errorf("unknown explain format: %s", format)
 	}
 }
+
+func (r *Runner) renderEdgeResult(format app.EdgeFormat, result *app.EdgeResult) error {
+	switch format {
+	case app.EdgeFormatJSON:
+		return writeJSON(r.stdout, result)
+	case app.EdgeFormatText, "":
+		report.WriteEdgeText(r.stdout, result)
+		return nil
+	default:
+		return fmt.Errorf("unknown edge format: %s", format)
+	}
+}

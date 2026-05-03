@@ -18,6 +18,7 @@ type Application interface {
 	RunReview(ctx context.Context, req app.ReviewRequest) (*app.ReviewResult, error)
 	RunExplain(ctx context.Context, req app.ExplainRequest) (*app.ExplainResult, error)
 	RunCheck(ctx context.Context, req app.CheckRequest) (*app.CheckResult, error)
+	RunEdge(ctx context.Context, req app.EdgeRequest) (*app.EdgeResult, error)
 }
 
 // AppFactory создает Application для CLI-команды.

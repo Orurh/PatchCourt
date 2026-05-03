@@ -24,6 +24,7 @@ type fakeApplication struct {
 	graphReq   app.GraphRequest
 	reviewReq  app.ReviewRequest
 	explainReq app.ExplainRequest
+	edgeReq    app.EdgeRequest
 	checkReq   app.CheckRequest
 
 	initResult    *app.InitResult
@@ -31,6 +32,7 @@ type fakeApplication struct {
 	graphResult   *app.GraphResult
 	reviewResult  *app.ReviewResult
 	explainResult *app.ExplainResult
+	edgeResult    *app.EdgeResult
 	checkResult   *app.CheckResult
 
 	initErr    error
@@ -38,6 +40,7 @@ type fakeApplication struct {
 	graphErr   error
 	reviewErr  error
 	explainErr error
+	edgeErr    error
 	checkErr   error
 }
 
@@ -69,6 +72,11 @@ func (f *fakeApplication) RunExplain(ctx context.Context, req app.ExplainRequest
 func (f *fakeApplication) RunCheck(ctx context.Context, req app.CheckRequest) (*app.CheckResult, error) {
 	f.checkReq = req
 	return f.checkResult, f.checkErr
+}
+
+func (f *fakeApplication) RunEdge(ctx context.Context, req app.EdgeRequest) (*app.EdgeResult, error) {
+	f.edgeReq = req
+	return f.edgeResult, f.edgeErr
 }
 
 func TestRunner_RunInitUsesInjectedApplication(t *testing.T) {
@@ -388,4 +396,51 @@ func requireFileExists(t *testing.T, path string) {
 	info, err := os.Stat(path)
 	require.NoError(t, err)
 	require.False(t, info.IsDir())
+}
+
+func TestRunner_RunEdgeUsesInjectedApplication(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	fakeApp := &fakeApplication{
+		edgeResult: &app.EdgeResult{
+			Source:    "/repo/.patchcourt/out/project-model.json",
+			FromLayer: "application",
+			ToLayer:   "cameras",
+			Count:     1,
+			Usage: app.EdgeUsageSummary{
+				Used: 1,
+			},
+			Dependencies: []model.DependencyEdge{
+				{
+					FromFile: "src/application/bootstrapper.cc",
+					ToFile:   "src/cameras/camera_adapter_factory.h",
+					Usage:    model.DependencyUsageUsed,
+				},
+			},
+		},
+	}
+
+	runner := NewRunner(&stdout, &stderr).WithAppFactory(func(logger logx.Logger) Application {
+		return fakeApp
+	})
+
+	err := runner.Run(context.Background(), []string{
+		"edge",
+		"--model",
+		"/repo/.patchcourt/out/project-model.json",
+		"application",
+		"cameras",
+	})
+	require.NoError(t, err)
+
+	require.Equal(t, "/repo/.patchcourt/out/project-model.json", fakeApp.edgeReq.ModelPath)
+	require.Equal(t, "application", fakeApp.edgeReq.FromLayer)
+	require.Equal(t, "cameras", fakeApp.edgeReq.ToLayer)
+
+	output := stdout.String()
+	require.Contains(t, output, "PatchCourt edge")
+	require.Contains(t, output, "Edge: application -> cameras")
+	require.Contains(t, output, "src/application/bootstrapper.cc")
+	require.Empty(t, stderr.String())
 }
