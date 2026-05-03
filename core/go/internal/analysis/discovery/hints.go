@@ -2,7 +2,9 @@ package discovery
 
 import (
 	"fmt"
+	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/orurh/patchcourt/internal/model"
 )
@@ -32,6 +34,7 @@ func AnalyzeHints(project *model.ProjectModel) []model.Finding {
 	findings = append(findings, domainDependencyHints(edges)...)
 	findings = append(findings, reverseControllerServerHints(edges)...)
 	findings = append(findings, sharedDomainAwareHints(edges)...)
+	findings = append(findings, misplacedSharedCandidateHints(edges)...)
 	findings = append(findings, unusedIncludeHints(project)...)
 
 	sort.SliceStable(findings, func(i, j int) bool {
@@ -96,27 +99,114 @@ func bidirectionalLayerHints(edges map[layerPair][]model.DependencyEdge) []model
 		leftToRight := layerPair{from: left, to: right}
 		rightToLeft := layerPair{from: right, to: left}
 
+		severity := model.SeverityMedium
+		title := "Bidirectional layer dependency"
+		risk := fmt.Sprintf(
+			"Layers %q and %q depend on each other. This may indicate a cycle, misplaced types, or missing dependency inversion.",
+			left,
+			right,
+		)
+		suggestion := "Review whether one side should depend on an interface, shared model, or lower-level package instead."
+
 		evidence := make([]model.Evidence, 0, maxEvidencePerHint)
-		evidence = append(evidence, dependencyEvidence(leftToRight, edges[leftToRight])...)
-		evidence = append(evidence, dependencyEvidence(rightToLeft, edges[rightToLeft])...)
+
+		if expectedSide, suspiciousSide, ok := compositionRootBidirectionalContext(
+			leftToRight,
+			edges[leftToRight],
+			rightToLeft,
+			edges[rightToLeft],
+		); ok {
+			severity = model.SeverityLow
+			title = "Bidirectional layer dependency with composition-root side"
+			risk = fmt.Sprintf(
+				"Layer %q depends on %q, while the reverse dependency appears to come only from composition-root files. The composition-root side is often expected; inspect %s -> %s as the likely architectural concern.",
+				suspiciousSide.from,
+				suspiciousSide.to,
+				suspiciousSide.from,
+				suspiciousSide.to,
+			)
+			suggestion = fmt.Sprintf(
+				"Keep composition wiring in %q if intentional, but review whether %q should depend on an interface, shared model, or lower-level package instead of %q.",
+				expectedSide.from,
+				suspiciousSide.from,
+				suspiciousSide.to,
+			)
+
+			evidence = append(evidence, dependencyEvidence(suspiciousSide, edges[suspiciousSide])...)
+			evidence = append(evidence, dependencyEvidence(expectedSide, edges[expectedSide])...)
+		} else {
+			evidence = append(evidence, dependencyEvidence(leftToRight, edges[leftToRight])...)
+			evidence = append(evidence, dependencyEvidence(rightToLeft, edges[rightToLeft])...)
+		}
 
 		findings = append(findings, model.Finding{
 			ID:         fmt.Sprintf("discovery.bidirectional.%s.%s", left, right),
 			Kind:       model.FindingKindDiscoveryHint,
-			Severity:   model.SeverityMedium,
-			Title:      "Bidirectional layer dependency",
+			Severity:   severity,
+			Title:      title,
 			Confidence: model.ConfidenceMedium,
-			Risk: fmt.Sprintf(
-				"Layers %q and %q depend on each other. This may indicate a cycle, misplaced types, or missing dependency inversion.",
-				left,
-				right,
-			),
-			Suggestion: "Review whether one side should depend on an interface, shared model, or lower-level package instead.",
+			Risk:       risk,
+			Suggestion: suggestion,
 			Evidence:   limitEvidence(evidence, maxEvidencePerHint),
 		})
 	}
 
 	return findings
+}
+
+func compositionRootBidirectionalContext(
+	leftToRight layerPair,
+	leftToRightDeps []model.DependencyEdge,
+	rightToLeft layerPair,
+	rightToLeftDeps []model.DependencyEdge,
+) (expectedSide layerPair, suspiciousSide layerPair, ok bool) {
+	if isCompositionRootEdge(leftToRight, leftToRightDeps) {
+		return leftToRight, rightToLeft, true
+	}
+
+	if isCompositionRootEdge(rightToLeft, rightToLeftDeps) {
+		return rightToLeft, leftToRight, true
+	}
+
+	return layerPair{}, layerPair{}, false
+}
+
+func isCompositionRootEdge(pair layerPair, deps []model.DependencyEdge) bool {
+	if pair.from != "application" && pair.from != "entrypoint" {
+		return false
+	}
+
+	if len(deps) == 0 {
+		return false
+	}
+
+	for _, dep := range deps {
+		if !isCompositionRootFile(dep.FromFile) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func isCompositionRootFile(filePath string) bool {
+	normalized := strings.ToLower(strings.ReplaceAll(filePath, "\\", "/"))
+	base := filepath.Base(normalized)
+
+	switch base {
+	case "main.c", "main.cc", "main.cpp", "main.cxx", "main.go":
+		return true
+	}
+
+	if strings.Contains(normalized, "/bootstrapper.") {
+		return true
+	}
+
+	if strings.HasPrefix(normalized, "cmd/") && base == "main.go" {
+		return true
+	}
+
+	return false
 }
 
 func domainDependencyHints(edges map[layerPair][]model.DependencyEdge) []model.Finding {
@@ -168,6 +258,113 @@ func reverseControllerServerHints(edges map[layerPair][]model.DependencyEdge) []
 			Evidence:   dependencyEvidence(pair, deps),
 		},
 	}
+}
+
+func misplacedSharedCandidateHints(edges map[layerPair][]model.DependencyEdge) []model.Finding {
+	findings := make([]model.Finding, 0)
+
+	for pair, deps := range edges {
+		if pair.to != "application" {
+			continue
+		}
+
+		targetGroups := groupDepsByTargetFile(deps)
+		for target, targetDeps := range targetGroups {
+			if !isSharedCandidateTarget(target) {
+				continue
+			}
+
+			findings = append(findings, model.Finding{
+				ID:         fmt.Sprintf("discovery.shared_candidate.%s.%s", pair.to, sharedCandidateIDPart(target)),
+				Kind:       model.FindingKindDiscoveryHint,
+				Severity:   model.SeverityLow,
+				Title:      "Application file looks like shared dependency candidate",
+				Confidence: model.ConfidenceMedium,
+				Risk: fmt.Sprintf(
+					"Layer %q depends on %q only through %q. This file name looks shared/config-like, so the dependency may be caused by a misplaced constants/config header rather than a real dependency on the application layer.",
+					pair.from,
+					pair.to,
+					target,
+				),
+				Suggestion: "Consider moving this file to a lower-level shared/config/domain layer, or override its layer assignment in .patchcourt.yaml if it is intentionally shared.",
+				Evidence:   dependencyEvidence(pair, targetDeps),
+			})
+		}
+	}
+
+	return findings
+}
+
+func groupDepsByTargetFile(deps []model.DependencyEdge) map[string][]model.DependencyEdge {
+	result := make(map[string][]model.DependencyEdge)
+
+	for _, dep := range deps {
+		target := dep.ToFile
+		if target == "" {
+			target = dep.Target
+		}
+
+		if target == "" {
+			continue
+		}
+
+		result[target] = append(result[target], dep)
+	}
+
+	return result
+}
+
+func isSharedCandidateTarget(filePath string) bool {
+	normalized := strings.ToLower(strings.ReplaceAll(filePath, "\\", "/"))
+	base := filepath.Base(normalized)
+
+	switch base {
+	case "constants.h", "constants.hpp", "constants.hh", "constants.hxx",
+		"config.h", "config.hpp", "types.h", "types.hpp",
+		"common.h", "common.hpp":
+		return true
+	}
+
+	return strings.Contains(normalized, "/constants/") ||
+		strings.Contains(normalized, "/config/") ||
+		strings.Contains(normalized, "/configs/") ||
+		strings.Contains(normalized, "/common/") ||
+		strings.Contains(normalized, "/shared/")
+}
+
+func sharedCandidateIDPart(filePath string) string {
+	base := strings.ToLower(filepath.Base(strings.ReplaceAll(filePath, "\\", "/")))
+	base = strings.TrimSuffix(base, filepath.Ext(base))
+
+	if base == "" {
+		return "file"
+	}
+
+	var b strings.Builder
+	lastUnderscore := false
+
+	for _, r := range base {
+		switch {
+		case r >= 'a' && r <= 'z':
+			b.WriteRune(r)
+			lastUnderscore = false
+		case r >= '0' && r <= '9':
+			b.WriteRune(r)
+			lastUnderscore = false
+		default:
+			if !lastUnderscore {
+				b.WriteRune('_')
+				lastUnderscore = true
+			}
+		}
+	}
+
+	result := strings.Trim(b.String(), "_")
+	if result == "" {
+		return "file"
+	}
+
+	return result
 }
 
 func sharedDomainAwareHints(edges map[layerPair][]model.DependencyEdge) []model.Finding {

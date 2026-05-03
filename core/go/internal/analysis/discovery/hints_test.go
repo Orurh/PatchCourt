@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/orurh/patchcourt/internal/model"
@@ -205,5 +206,99 @@ func TestAnalyzeHints_AttachesStructuredEdgeEvidence(t *testing.T) {
 	evidence := finding.Evidence[0]
 	if evidence.FromLayer != "domain" || evidence.ToLayer != "session" {
 		t.Fatalf("expected structured edge domain -> session, got %q -> %q", evidence.FromLayer, evidence.ToLayer)
+	}
+}
+
+func TestAnalyzeHints_DowngradesBidirectionalHintWhenOneSideIsCompositionRoot(t *testing.T) {
+	project := &model.ProjectModel{
+		Dependencies: []model.DependencyEdge{
+			resolvedLayerDep(
+				"src/application/bootstrapper.cc",
+				"src/cameras/camera_adapter_factory.h",
+				"application",
+				"cameras",
+			),
+			resolvedLayerDep(
+				"src/application/bootstrapper.cc",
+				"src/cameras/sony_camera_manager_impl/sony_camera_manager.h",
+				"application",
+				"cameras",
+			),
+			resolvedLayerDep(
+				"src/cameras/sony_camera_manager_impl/sony_camera_manager.cc",
+				"src/application/constants.h",
+				"cameras",
+				"application",
+			),
+		},
+	}
+
+	findings := AnalyzeHints(project)
+
+	finding := findFinding(findings, "discovery.bidirectional.application.cameras")
+	if finding == nil {
+		t.Fatalf("expected bidirectional finding, got %#v", findings)
+	}
+
+	if finding.Severity != model.SeverityLow {
+		t.Fatalf("expected low severity for composition-root bidirectional hint, got %q", finding.Severity)
+	}
+
+	if finding.Title != "Bidirectional layer dependency with composition-root side" {
+		t.Fatalf("unexpected title: %q", finding.Title)
+	}
+
+	if !strings.Contains(finding.Risk, "composition-root") {
+		t.Fatalf("expected risk to explain composition-root side, got %q", finding.Risk)
+	}
+
+	if len(finding.Evidence) == 0 {
+		t.Fatalf("expected evidence")
+	}
+
+	if finding.Evidence[0].FromLayer != "cameras" || finding.Evidence[0].ToLayer != "application" {
+		t.Fatalf("expected suspicious reverse side first, got %q -> %q", finding.Evidence[0].FromLayer, finding.Evidence[0].ToLayer)
+	}
+}
+
+func TestAnalyzeHints_DetectsApplicationConstantsAsSharedCandidate(t *testing.T) {
+	project := &model.ProjectModel{
+		Dependencies: []model.DependencyEdge{
+			resolvedLayerDep(
+				"src/cameras/sony_camera_manager_impl/sony_camera_manager.cc",
+				"src/application/constants.h",
+				"cameras",
+				"application",
+			),
+			resolvedLayerDep(
+				"src/cameras/gopro_camera_manager_impl/gopro_camera_manager.cc",
+				"src/application/constants.h",
+				"cameras",
+				"application",
+			),
+		},
+	}
+
+	findings := AnalyzeHints(project)
+
+	finding := findFinding(findings, "discovery.shared_candidate.application.constants")
+	if finding == nil {
+		t.Fatalf("expected shared candidate finding, got %#v", findings)
+	}
+
+	if finding.Severity != model.SeverityLow {
+		t.Fatalf("expected low severity, got %q", finding.Severity)
+	}
+
+	if finding.Title != "Application file looks like shared dependency candidate" {
+		t.Fatalf("unexpected title: %q", finding.Title)
+	}
+
+	if len(finding.Evidence) != 2 {
+		t.Fatalf("expected 2 evidence items, got %d", len(finding.Evidence))
+	}
+
+	if finding.Evidence[0].FromLayer != "cameras" || finding.Evidence[0].ToLayer != "application" {
+		t.Fatalf("expected cameras -> application evidence, got %q -> %q", finding.Evidence[0].FromLayer, finding.Evidence[0].ToLayer)
 	}
 }
