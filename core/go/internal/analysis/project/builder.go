@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/orurh/patchcourt/internal/analysis/lang/cpp"
+	goanalysis "github.com/orurh/patchcourt/internal/analysis/lang/go"
 	"github.com/orurh/patchcourt/internal/analysis/resolver"
 	"github.com/orurh/patchcourt/internal/model"
 	"github.com/orurh/patchcourt/internal/platform/pathmatch"
@@ -44,7 +45,11 @@ func Build(opts Options) (*model.ProjectModel, error) {
 	fileIndex := resolver.NewFileIndex(project.Files)
 	cppIncludeResolver := resolver.NewCPPIncludeResolver(absRoot, fileIndex, opts.CPPIncludePaths)
 
-	if err := collectDependencies(absRoot, project, cppIncludeResolver); err != nil {
+	if err := collectCPPDependencies(absRoot, project, cppIncludeResolver); err != nil {
+		return nil, err
+	}
+
+	if err := collectGoDependencies(absRoot, project, fileIndex); err != nil {
 		return nil, err
 	}
 
@@ -95,7 +100,7 @@ func collectFiles(absRoot string, ignorePaths []string, project *model.ProjectMo
 	})
 }
 
-func collectDependencies(absRoot string, project *model.ProjectModel, cppIncludeResolver resolver.CPPIncludeResolver) error {
+func collectCPPDependencies(absRoot string, project *model.ProjectModel, cppIncludeResolver resolver.CPPIncludeResolver) error {
 	for i := range project.Files {
 		file := &project.Files[i]
 
@@ -140,6 +145,96 @@ func collectDependencies(absRoot string, project *model.ProjectModel, cppInclude
 	}
 
 	return nil
+}
+
+func collectGoDependencies(absRoot string, project *model.ProjectModel, fileIndex resolver.FileIndex) error {
+	modulePath := goanalysis.ModulePath(absRoot)
+	if modulePath == "" {
+		return nil
+	}
+
+	for i := range project.Files {
+		file := &project.Files[i]
+
+		if file.Language != model.LanguageGo {
+			continue
+		}
+
+		absPath := filepath.Join(absRoot, filepath.FromSlash(file.Path))
+
+		imports, err := goanalysis.ParseImports(absPath)
+		if err != nil {
+			return fmt.Errorf("parse go imports %s: %w", file.Path, err)
+		}
+
+		for _, importPath := range imports {
+			edge := model.DependencyEdge{
+				FromFile: file.Path,
+				Target:   importPath,
+				Kind:     model.DependencyKindImport,
+				Usage:    model.DependencyUsageUnknown,
+			}
+
+			if !strings.HasPrefix(importPath, modulePath+"/") {
+				edge.External = true
+				edge.Resolved = false
+				edge.ResolutionSource = model.ResolutionSourceNone
+				edge.ResolutionConfidence = model.ResolutionConfidenceLow
+				project.Dependencies = append(project.Dependencies, edge)
+				continue
+			}
+
+			relDir := strings.TrimPrefix(importPath, modulePath+"/")
+			relDir = pathmatch.Normalize(relDir)
+
+			if resolved := resolveGoPackageFile(fileIndex, relDir); resolved != "" {
+				edge.ToFile = resolved
+				edge.Resolved = true
+				edge.ResolutionSource = model.ResolutionSourceHeuristic
+				edge.ResolutionConfidence = model.ResolutionConfidenceHigh
+			} else {
+				edge.Resolved = false
+				edge.ResolutionSource = model.ResolutionSourceNone
+				edge.ResolutionConfidence = model.ResolutionConfidenceLow
+			}
+
+			project.Dependencies = append(project.Dependencies, edge)
+		}
+	}
+
+	return nil
+}
+
+func resolveGoPackageFile(index resolver.FileIndex, relDir string) string {
+	candidates := []string{
+		relDir + "/doc.go",
+		relDir + "/main.go",
+	}
+
+	for _, candidate := range candidates {
+		if resolved, ok := index.ResolvePath(candidate); ok {
+			return resolved
+		}
+	}
+
+	prefix := relDir + "/"
+	for _, file := range index.Files() {
+		if !strings.HasPrefix(file, prefix) {
+			continue
+		}
+
+		if !strings.HasSuffix(file, ".go") {
+			continue
+		}
+
+		if strings.HasSuffix(file, "_test.go") {
+			continue
+		}
+
+		return file
+	}
+
+	return ""
 }
 
 func shouldSkipDir(name string) bool {

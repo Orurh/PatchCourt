@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"path/filepath"
+	"sort"
 
 	"github.com/orurh/patchcourt/internal/model"
 )
@@ -34,4 +35,14 @@ func (i FileIndex) ResolvePath(path string) (string, bool) {
 
 func (i FileIndex) ResolveBase(base string) []string {
 	return i.byBase[base]
+}
+
+func (i FileIndex) Files() []string {
+	files := make([]string, 0, len(i.byPath))
+	for file := range i.byPath {
+		files = append(files, file)
+	}
+
+	sort.Strings(files)
+	return files
 }

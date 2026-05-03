@@ -134,3 +134,56 @@ func assertContains(t *testing.T, value string, expected string) {
 		t.Fatalf("expected generated config to contain %q\n\nconfig:\n%s", expected, value)
 	}
 }
+
+func TestGenerateInitConfig_GoCleanPreset(t *testing.T) {
+	root := t.TempDir()
+
+	writeFile(t, root, "go.mod", `module github.com/orurh/patchcourt
+
+go 1.26
+`)
+	writeFile(t, root, "cmd/patchcourt/main.go", `package main
+`)
+	writeFile(t, root, "internal/cli/root.go", `package cli
+`)
+	writeFile(t, root, "internal/app/app.go", `package app
+`)
+	writeFile(t, root, "internal/changes/compare.go", `package changes
+`)
+	writeFile(t, root, "internal/analysis/project/builder.go", `package project
+`)
+	writeFile(t, root, "internal/config/config.go", `package config
+`)
+	writeFile(t, root, "internal/model/project.go", `package model
+`)
+	writeFile(t, root, "internal/output/report/text.go", `package report
+`)
+	writeFile(t, root, "internal/platform/git/worktree.go", `package git
+`)
+
+	result, err := GenerateInitConfig(InitOptions{
+		Root:   root,
+		Preset: "go-clean",
+	})
+	if err != nil {
+		t.Fatalf("GenerateInitConfig failed: %v", err)
+	}
+
+	yaml := result.ConfigYAML
+
+	assertContains(t, yaml, `# Preset: go-clean`)
+	assertContains(t, yaml, `cmd:`)
+	assertContains(t, yaml, `cli:`)
+	assertContains(t, yaml, `app:`)
+	assertContains(t, yaml, `changes:`)
+	assertContains(t, yaml, `analysis:`)
+	assertContains(t, yaml, `config:`)
+	assertContains(t, yaml, `model:`)
+	assertContains(t, yaml, `output:`)
+	assertContains(t, yaml, `platform:`)
+
+	assertContains(t, yaml, `      - "internal/app/**"`)
+	assertContains(t, yaml, `      - analysis`)
+	assertContains(t, yaml, `      - changes`)
+	assertContains(t, yaml, `      - output`)
+}

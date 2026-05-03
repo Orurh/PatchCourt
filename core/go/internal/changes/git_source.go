@@ -3,6 +3,7 @@ package changes
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 
 	platformgit "github.com/orurh/patchcourt/internal/platform/git"
 )
@@ -36,7 +37,7 @@ func NewGitReviewSourcePair(ctx context.Context, opts GitReviewSourcePairOptions
 		return nil, fmt.Errorf("head ref is required")
 	}
 
-	gitRoot, err := platformgit.FindRoot(ctx, opts.Root)
+	gitRoot, projectRel, _, err := resolveGitProjectRoots(ctx, opts.Root)
 	if err != nil {
 		return nil, err
 	}
@@ -51,13 +52,13 @@ func NewGitReviewSourcePair(ctx context.Context, opts GitReviewSourcePairOptions
 	return &GitReviewSourcePair{
 		Pair: SourcePair{
 			Before: RootSource{
-				Root:       worktrees.Before,
+				Root:       filepath.Join(worktrees.Before, projectRel),
 				ConfigPath: opts.ConfigPath,
 				Operation:  "review-base",
 				Analyzer:   opts.Analyzer,
 			},
 			After: RootSource{
-				Root:       worktrees.After,
+				Root:       filepath.Join(worktrees.After, projectRel),
 				ConfigPath: opts.ConfigPath,
 				Operation:  "review-head",
 				Analyzer:   opts.Analyzer,
@@ -72,7 +73,7 @@ func NewGitBaseToWorktreeSourcePair(ctx context.Context, opts GitBaseToWorktreeS
 		return nil, fmt.Errorf("base ref is required")
 	}
 
-	gitRoot, err := platformgit.FindRoot(ctx, opts.Root)
+	gitRoot, projectRel, projectRoot, err := resolveGitProjectRoots(ctx, opts.Root)
 	if err != nil {
 		return nil, err
 	}
@@ -87,13 +88,13 @@ func NewGitBaseToWorktreeSourcePair(ctx context.Context, opts GitBaseToWorktreeS
 	return &GitReviewSourcePair{
 		Pair: SourcePair{
 			Before: RootSource{
-				Root:       baseWorktree.Path,
+				Root:       filepath.Join(baseWorktree.Path, projectRel),
 				ConfigPath: opts.ConfigPath,
 				Operation:  "review-base",
 				Analyzer:   opts.Analyzer,
 			},
 			After: RootSource{
-				Root:       gitRoot,
+				Root:       projectRoot,
 				ConfigPath: opts.ConfigPath,
 				Operation:  "review-working-tree",
 				Analyzer:   opts.Analyzer,
@@ -109,4 +110,31 @@ func (p *GitReviewSourcePair) Cleanup(ctx context.Context) error {
 	}
 
 	return p.cleanup(ctx)
+}
+
+func resolveGitProjectRoots(ctx context.Context, root string) (gitRoot string, projectRel string, projectRoot string, err error) {
+	if root == "" {
+		root = "."
+	}
+
+	projectRoot, err = filepath.Abs(root)
+	if err != nil {
+		return "", "", "", fmt.Errorf("resolve project root: %w", err)
+	}
+
+	gitRoot, err = platformgit.FindRoot(ctx, projectRoot)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	projectRel, err = filepath.Rel(gitRoot, projectRoot)
+	if err != nil {
+		return "", "", "", fmt.Errorf("resolve project path relative to git root: %w", err)
+	}
+
+	if projectRel == "." {
+		projectRel = ""
+	}
+
+	return gitRoot, projectRel, projectRoot, nil
 }
