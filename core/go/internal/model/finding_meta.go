@@ -4,6 +4,8 @@ func HumanFindingKind(kind FindingKind) string {
 	switch kind {
 	case FindingKindPolicyViolation:
 		return "policy violation"
+	case FindingKindPolicyReview:
+		return "policy review"
 	case FindingKindDiscoveryHint:
 		return "discovery hint"
 	case FindingKindRefactorHint:

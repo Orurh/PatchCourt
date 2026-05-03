@@ -14,7 +14,6 @@ import (
 	"github.com/orurh/patchcourt/internal/app"
 	"github.com/orurh/patchcourt/internal/config"
 	"github.com/orurh/patchcourt/internal/model"
-	"github.com/orurh/patchcourt/internal/platform/logx"
 	"github.com/stretchr/testify/require"
 )
 
@@ -89,7 +88,7 @@ func TestRunner_RunInitUsesInjectedApplication(t *testing.T) {
 		},
 	}
 
-	runner := NewRunner(&stdout, &stderr).WithAppFactory(func(logger logx.Logger) Application {
+	runner := NewRunner(&stdout, &stderr).WithAppFactory(func(opts AppFactoryOptions) Application {
 		return fakeApp
 	})
 
@@ -132,7 +131,7 @@ func TestRunner_RunScanUsesInjectedApplication(t *testing.T) {
 		},
 	}
 
-	runner := NewRunner(&stdout, &stderr).WithAppFactory(func(logger logx.Logger) Application {
+	runner := NewRunner(&stdout, &stderr).WithAppFactory(func(opts AppFactoryOptions) Application {
 		return fakeApp
 	})
 
@@ -196,7 +195,7 @@ func TestRunner_RunExplainUsesInjectedApplication(t *testing.T) {
 		},
 	}
 
-	runner := NewRunner(&stdout, &stderr).WithAppFactory(func(logger logx.Logger) Application {
+	runner := NewRunner(&stdout, &stderr).WithAppFactory(func(opts AppFactoryOptions) Application {
 		return fakeApp
 	})
 
@@ -283,7 +282,7 @@ func TestRunner_RunReviewRendersMarkdown(t *testing.T) {
 		},
 	}
 
-	runner := NewRunner(&stdout, &stderr).WithAppFactory(func(logger logx.Logger) Application {
+	runner := NewRunner(&stdout, &stderr).WithAppFactory(func(opts AppFactoryOptions) Application {
 		return fakeApp
 	})
 
@@ -358,7 +357,7 @@ func TestRunner_RunCheckUsesInjectedApplication(t *testing.T) {
 		},
 	}
 
-	runner := NewRunner(&stdout, &stderr).WithAppFactory(func(logger logx.Logger) Application {
+	runner := NewRunner(&stdout, &stderr).WithAppFactory(func(opts AppFactoryOptions) Application {
 		return fakeApp
 	})
 
@@ -421,7 +420,7 @@ func TestRunner_RunEdgeUsesInjectedApplication(t *testing.T) {
 		},
 	}
 
-	runner := NewRunner(&stdout, &stderr).WithAppFactory(func(logger logx.Logger) Application {
+	runner := NewRunner(&stdout, &stderr).WithAppFactory(func(opts AppFactoryOptions) Application {
 		return fakeApp
 	})
 

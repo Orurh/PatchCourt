@@ -350,20 +350,20 @@ func TestApplyArchitectureRules_AggregatesViolationsByLayerEdge(t *testing.T) {
 		Files: []model.FileModel{
 			{Path: "internal/cli/root.go", Language: model.LanguageGo, Role: model.FileRoleProduction},
 			{Path: "internal/cli/service.go", Language: model.LanguageGo, Role: model.FileRoleProduction},
-			{Path: "internal/platform/logx/adapter.go", Language: model.LanguageGo, Role: model.FileRoleProduction},
+			{Path: "internal/platform/storage/adapter.go", Language: model.LanguageGo, Role: model.FileRoleProduction},
 		},
 		Dependencies: []model.DependencyEdge{
 			{
 				FromFile: "internal/cli/root.go",
-				ToFile:   "internal/platform/logx/adapter.go",
-				Target:   "github.com/orurh/patchcourt/internal/platform/logx",
+				ToFile:   "internal/platform/storage/adapter.go",
+				Target:   "github.com/orurh/patchcourt/internal/platform/storage",
 				Kind:     model.DependencyKindImport,
 				Resolved: true,
 			},
 			{
 				FromFile: "internal/cli/service.go",
-				ToFile:   "internal/platform/logx/adapter.go",
-				Target:   "github.com/orurh/patchcourt/internal/platform/logx",
+				ToFile:   "internal/platform/storage/adapter.go",
+				Target:   "github.com/orurh/patchcourt/internal/platform/storage",
 				Kind:     model.DependencyKindImport,
 				Resolved: true,
 			},
@@ -441,5 +441,55 @@ func TestApplyArchitectureRules_IgnoresGoTestFiles(t *testing.T) {
 
 	if len(project.Findings) != 0 {
 		t.Fatalf("expected Go test dependency to be ignored, got %#v", project.Findings)
+	}
+}
+
+func TestApplyArchitectureRules_CompositionRootLoggingDependencyIsPolicyReview(t *testing.T) {
+	project := &model.ProjectModel{
+		Files: []model.FileModel{
+			{Path: "internal/cli/root.go", Language: model.LanguageGo, Role: model.FileRoleProduction},
+			{Path: "internal/platform/logx/adapter.go", Language: model.LanguageGo, Role: model.FileRoleProduction},
+		},
+		Dependencies: []model.DependencyEdge{
+			{
+				FromFile: "internal/cli/root.go",
+				ToFile:   "internal/platform/logx/adapter.go",
+				Target:   "github.com/orurh/patchcourt/internal/platform/logx",
+				Kind:     model.DependencyKindImport,
+				Resolved: true,
+			},
+		},
+	}
+
+	cfg := &config.Config{
+		Layers: map[string]config.LayerConfig{
+			"cli": {
+				Paths:       []string{"internal/cli/**"},
+				MayDependOn: []string{},
+			},
+			"platform": {
+				Paths:       []string{"internal/platform/**"},
+				MayDependOn: []string{},
+			},
+		},
+	}
+
+	ApplyArchitectureRules(project, cfg)
+
+	if len(project.Findings) != 1 {
+		t.Fatalf("expected 1 finding, got %d", len(project.Findings))
+	}
+
+	finding := project.Findings[0]
+	if finding.Kind != model.FindingKindPolicyReview {
+		t.Fatalf("expected policy review, got %q", finding.Kind)
+	}
+
+	if finding.Severity != model.SeverityMedium {
+		t.Fatalf("expected medium severity, got %q", finding.Severity)
+	}
+
+	if finding.Title != "Composition-root logging dependency review" {
+		t.Fatalf("unexpected title: %q", finding.Title)
 	}
 }

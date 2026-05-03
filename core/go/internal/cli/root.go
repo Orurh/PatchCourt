@@ -2,9 +2,7 @@ package cli
 
 import (
 	"context"
-	"log/slog"
 
-	"github.com/orurh/patchcourt/internal/platform/logx"
 	"github.com/spf13/cobra"
 )
 
@@ -52,22 +50,11 @@ func (r *Runner) newRootCommand(ctx context.Context) *cobra.Command {
 // При включенном verbose-режиме используется structured logger,
 // который пишет диагностический вывод в stderr.
 func (r *Runner) newApp(opts *rootOptions) Application {
-	logger := logx.Nop()
-	if opts != nil && opts.verbose {
-		logger = r.newVerboseLogger()
-	}
-
-	return r.appFactory(logger)
+	return r.appFactory(AppFactoryOptions{
+		Verbose: opts != nil && opts.verbose,
+	})
 }
 
-// newVerboseLogger создает logger для verbose/debug-режима.
 //
 // Логи пишутся только в stderr, чтобы не ломать машинно-читаемый stdout,
 // например JSON, DOT или Markdown-вывод команд.
-func (r *Runner) newVerboseLogger() logx.Logger {
-	handler := slog.NewTextHandler(r.stderr, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	})
-
-	return logx.NewSlogAdapter(slog.New(handler))
-}

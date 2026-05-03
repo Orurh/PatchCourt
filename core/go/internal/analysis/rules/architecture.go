@@ -131,14 +131,32 @@ func (b *architectureFindingBuilder) addDependency(dep model.DependencyEdge) {
 }
 
 func (b *architectureFindingBuilder) finding() model.Finding {
+	kind := model.FindingKindPolicyViolation
+	severity := model.SeverityHigh
+	title := architectureFindingTitle(b.kinds)
+	riskText := architectureRiskText(b.fromLayer, b.toLayer, b.kinds)
+	suggestion := architectureSuggestionText(b.kinds)
+
+	if isCompositionRootLoggingReview(b.fromLayer, b.toLayer, b.kinds, b.evidence) {
+		kind = model.FindingKindPolicyReview
+		severity = model.SeverityMedium
+		title = "Composition-root logging dependency review"
+		riskText = fmt.Sprintf(
+			"Layer %q imports logging infrastructure from layer %q. This is often acceptable in a CLI/composition root, but it is not allowed by the selected preset.",
+			b.fromLayer,
+			b.toLayer,
+		)
+		suggestion = "If this layer is intentionally wiring application dependencies, use a CLI/composition-root preset or keep this as an explicit architecture decision. Otherwise move logging setup behind an allowed boundary."
+	}
+
 	return model.Finding{
 		ID:         b.id,
-		Kind:       model.FindingKindPolicyViolation,
-		Severity:   model.SeverityHigh,
-		Title:      architectureFindingTitle(b.kinds),
+		Kind:       kind,
+		Severity:   severity,
+		Title:      title,
 		Confidence: model.ConfidenceHigh,
-		Risk:       architectureRiskText(b.fromLayer, b.toLayer, b.kinds),
-		Suggestion: architectureSuggestionText(b.kinds),
+		Risk:       riskText,
+		Suggestion: suggestion,
 		Evidence:   b.evidence,
 	}
 }
@@ -280,4 +298,61 @@ func isAllowedDependency(fromLayer string, toLayer string, cfg *config.Config) b
 	}
 
 	return false
+}
+
+func isCompositionRootLoggingReview(fromLayer string, toLayer string, kinds map[model.DependencyKind]struct{}, evidence []model.Evidence) bool {
+	if !hasOnlyDependencyKind(kinds, model.DependencyKindImport) {
+		return false
+	}
+
+	if !isCompositionRootLayer(fromLayer) {
+		return false
+	}
+
+	if !isPlatformLayer(toLayer) {
+		return false
+	}
+
+	if len(evidence) == 0 {
+		return false
+	}
+
+	for _, item := range evidence {
+		target := item.ToFile
+		if target == "" {
+			target = item.Message
+		}
+
+		if !looksLikeLoggingTarget(target) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func isCompositionRootLayer(layer string) bool {
+	switch layer {
+	case "cmd", "cli", "appmain", "main", "entrypoint":
+		return true
+	default:
+		return false
+	}
+}
+
+func isPlatformLayer(layer string) bool {
+	switch layer {
+	case "platform", "infra", "infrastructure":
+		return true
+	default:
+		return false
+	}
+}
+
+func looksLikeLoggingTarget(target string) bool {
+	normalized := strings.ToLower(target)
+	return strings.Contains(normalized, "/log") ||
+		strings.Contains(normalized, "logx") ||
+		strings.Contains(normalized, "logger") ||
+		strings.Contains(normalized, "slog")
 }

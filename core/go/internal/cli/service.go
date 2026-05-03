@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/orurh/patchcourt/internal/app"
-	"github.com/orurh/patchcourt/internal/platform/logx"
 )
 
 // Application описывает application/usecase-слой, который нужен CLI.
@@ -21,12 +20,17 @@ type Application interface {
 	RunEdge(ctx context.Context, req app.EdgeRequest) (*app.EdgeResult, error)
 }
 
+// AppFactoryOptions описывает нейтральные CLI-настройки,
+// которые нужны factory для сборки application layer.
+//
+// CLI не передает сюда инфраструктурные зависимости напрямую:
+// logger, adapters и прочая wiring-логика остаются за factory.
+type AppFactoryOptions struct {
+	Verbose bool
+}
+
 // AppFactory создает Application для CLI-команды.
 //
 // Через factory CLI может получить обычный app.App, mock в тестах
 // или другую реализацию application layer.
-type AppFactory func(logger logx.Logger) Application
-
-func defaultAppFactory(logger logx.Logger) Application {
-	return app.New(logger)
-}
+type AppFactory func(opts AppFactoryOptions) Application

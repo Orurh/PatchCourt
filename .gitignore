@@ -58,3 +58,10 @@ examples/**/third_party/
 tools/helpers.txt
 
 Tz.md
+PatchCourt_TZ_*.md
+# PatchCourt generated artifacts
+.patchcourt/out/
+.patchcourt/state/
+core/go/.patchcourt/out/
+core/go/.patchcourt/state/
+dist/

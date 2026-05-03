@@ -3,6 +3,8 @@ package cli
 import (
 	"context"
 	"io"
+
+	"github.com/orurh/patchcourt/internal/app"
 )
 
 // Runner запускает CLI-адаптер PatchCourt.
@@ -27,9 +29,14 @@ type Runner struct {
 // и служебных сообщений.
 func NewRunner(stdout io.Writer, stderr io.Writer) *Runner {
 	return &Runner{
-		stdout:     stdout,
-		stderr:     stderr,
-		appFactory: defaultAppFactory,
+		stdout: stdout,
+		stderr: stderr,
+		appFactory: func(opts AppFactoryOptions) Application {
+			return app.NewWithOptions(app.FactoryOptions{
+				Verbose: opts.Verbose,
+				Stderr:  stderr,
+			})
+		},
 	}
 }
 
