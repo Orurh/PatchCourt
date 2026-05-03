@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"github.com/orurh/patchcourt/internal/reportmodel"
 	"sort"
 
 	"github.com/orurh/patchcourt/internal/analysis/contracts"
@@ -10,19 +11,8 @@ import (
 	"github.com/orurh/patchcourt/internal/model"
 )
 
-type ReviewImpactReport struct {
-	Worse         []ReviewImpactItem `json:"worse"`
-	Better        []ReviewImpactItem `json:"better"`
-	UnchangedDebt []ReviewImpactItem `json:"unchanged_debt"`
-}
-
-type ReviewImpactItem struct {
-	Kind     string `json:"kind"`
-	Severity string `json:"severity,omitempty"`
-	Title    string `json:"title"`
-	Detail   string `json:"detail,omitempty"`
-	ID       string `json:"id,omitempty"`
-}
+type ReviewImpactReport = reportmodel.ReviewImpactReport
+type ReviewImpactItem = reportmodel.ReviewImpactItem
 
 func BuildReviewImpactReport(result *ReviewResult, beforeProject *model.ProjectModel, afterProject *model.ProjectModel) ReviewImpactReport {
 	if result == nil {

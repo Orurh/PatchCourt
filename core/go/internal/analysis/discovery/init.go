@@ -335,7 +335,7 @@ func renderGoCleanPresetConfig(absRoot string, ignorePaths []string, includePath
 		{
 			Name:        "app",
 			Paths:       []string{"internal/app/**"},
-			MayDependOn: []string{"analysis", "changes", "config", "model", "platform"},
+			MayDependOn: []string{"analysis", "changes", "config", "model", "platform", "reportmodel"},
 		},
 		{
 			Name:        "changes",
@@ -358,9 +358,14 @@ func renderGoCleanPresetConfig(absRoot string, ignorePaths []string, includePath
 			MayDependOn: []string{},
 		},
 		{
+			Name:        "reportmodel",
+			Paths:       []string{"internal/reportmodel/**"},
+			MayDependOn: []string{"analysis", "config", "model"},
+		},
+		{
 			Name:        "output",
 			Paths:       []string{"internal/output/**"},
-			MayDependOn: []string{"analysis", "model"},
+			MayDependOn: []string{"analysis", "model", "reportmodel"},
 		},
 		{
 			Name:        "platform",

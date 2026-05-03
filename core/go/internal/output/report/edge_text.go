@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/orurh/patchcourt/internal/app"
 	"github.com/orurh/patchcourt/internal/model"
+	"github.com/orurh/patchcourt/internal/reportmodel"
 )
 
 const maxEdgeTopFiles = 10
 
-func WriteEdgeText(w io.Writer, result *app.EdgeResult) {
+func WriteEdgeText(w io.Writer, result *reportmodel.EdgeResult) {
 	fmt.Fprintln(w, "PatchCourt edge")
 	fmt.Fprintln(w)
 
@@ -54,7 +54,7 @@ func writeEdgeFindingsText(w io.Writer, findings []model.Finding) {
 	}
 }
 
-func writeEdgeUsageText(w io.Writer, usage app.EdgeUsageSummary) {
+func writeEdgeUsageText(w io.Writer, usage reportmodel.EdgeUsageSummary) {
 	fmt.Fprintln(w, "Usage:")
 	fmt.Fprintf(w, "  used:    %d\n", usage.Used)
 	fmt.Fprintf(w, "  maybe:   %d\n", usage.Maybe)
@@ -62,7 +62,7 @@ func writeEdgeUsageText(w io.Writer, usage app.EdgeUsageSummary) {
 	fmt.Fprintf(w, "  unknown: %d\n", usage.Unknown)
 }
 
-func writeEdgeTopFilesText(w io.Writer, title string, files []app.EdgeFileCount) {
+func writeEdgeTopFilesText(w io.Writer, title string, files []reportmodel.EdgeFileCount) {
 	fmt.Fprintln(w, title)
 
 	if len(files) == 0 {

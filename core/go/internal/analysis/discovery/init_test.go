@@ -158,6 +158,8 @@ go 1.26
 `)
 	writeFile(t, root, "internal/output/report/text.go", `package report
 `)
+	writeFile(t, root, "internal/reportmodel/reportmodel.go", `package reportmodel
+`)
 	writeFile(t, root, "internal/platform/git/worktree.go", `package git
 `)
 
@@ -180,10 +182,12 @@ go 1.26
 	assertContains(t, yaml, `config:`)
 	assertContains(t, yaml, `model:`)
 	assertContains(t, yaml, `output:`)
+	assertContains(t, yaml, `reportmodel:`)
 	assertContains(t, yaml, `platform:`)
 
 	assertContains(t, yaml, `      - "internal/app/**"`)
 	assertContains(t, yaml, `      - analysis`)
 	assertContains(t, yaml, `      - changes`)
 	assertContains(t, yaml, `      - output`)
+	assertContains(t, yaml, `      - reportmodel`)
 }

@@ -6,25 +6,25 @@ import (
 	"io"
 	"strings"
 
-	"github.com/orurh/patchcourt/internal/app"
 	"github.com/orurh/patchcourt/internal/model"
+	"github.com/orurh/patchcourt/internal/reportmodel"
 )
 
 type CheckHTMLInput struct {
-	Report     app.CheckReport
+	Report     reportmodel.CheckReport
 	Project    *model.ProjectModel
 	LayerGraph any
 }
 
 type checkHTMLPayload struct {
-	Report       app.CheckReport        `json:"report"`
-	Root         string                 `json:"root"`
-	ConfigPath   string                 `json:"config_path,omitempty"`
-	OutDir       string                 `json:"out_dir"`
-	Summary      model.ScanSummary      `json:"summary"`
-	LayerGraph   any                    `json:"layer_graph"`
-	Findings     []model.Finding        `json:"findings"`
-	Dependencies []model.DependencyEdge `json:"dependencies"`
+	Report       reportmodel.CheckReport `json:"report"`
+	Root         string                  `json:"root"`
+	ConfigPath   string                  `json:"config_path,omitempty"`
+	OutDir       string                  `json:"out_dir"`
+	Summary      model.ScanSummary       `json:"summary"`
+	LayerGraph   any                     `json:"layer_graph"`
+	Findings     []model.Finding         `json:"findings"`
+	Dependencies []model.DependencyEdge  `json:"dependencies"`
 }
 
 func WriteCheckHTML(w io.Writer, input CheckHTMLInput) error {

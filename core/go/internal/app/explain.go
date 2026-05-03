@@ -3,10 +3,13 @@ package app
 import (
 	"context"
 	"fmt"
+	"github.com/orurh/patchcourt/internal/reportmodel"
 
 	"github.com/orurh/patchcourt/internal/changes"
 	"github.com/orurh/patchcourt/internal/model"
 )
+
+type ExplainResult = reportmodel.ExplainResult
 
 type ExplainFormat string
 
@@ -20,11 +23,6 @@ type ExplainRequest struct {
 	Root       string
 	ConfigPath string
 	ModelPath  string
-}
-
-type ExplainResult struct {
-	Finding model.Finding `json:"finding"`
-	Source  string        `json:"source"`
 }
 
 func (a *App) RunExplain(ctx context.Context, req ExplainRequest) (*ExplainResult, error) {

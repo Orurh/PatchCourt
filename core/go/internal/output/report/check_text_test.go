@@ -4,15 +4,15 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/orurh/patchcourt/internal/app"
 	"github.com/orurh/patchcourt/internal/model"
+	"github.com/orurh/patchcourt/internal/reportmodel"
 	"github.com/stretchr/testify/require"
 )
 
 func TestWriteCheckReportText_RendersCoupledSuspiciousEdgesAndNextCommands(t *testing.T) {
 	var out bytes.Buffer
 
-	WriteCheckReportText(&out, app.CheckReport{
+	WriteCheckReportText(&out, reportmodel.CheckReport{
 		Root:           "/repo",
 		OutDir:         "/repo/.patchcourt/out",
 		StatePath:      "/repo/.patchcourt/state/latest/project-model.json",
@@ -20,7 +20,7 @@ func TestWriteCheckReportText_RendersCoupledSuspiciousEdgesAndNextCommands(t *te
 		FindingCount:   1,
 		GraphNodeCount: 3,
 		GraphEdgeCount: 2,
-		Artifacts: []app.CheckArtifact{
+		Artifacts: []reportmodel.CheckArtifact{
 			{
 				Name: "project model",
 				Path: "/repo/.patchcourt/out/project-model.json",
@@ -30,7 +30,7 @@ func TestWriteCheckReportText_RendersCoupledSuspiciousEdgesAndNextCommands(t *te
 				Path: "/repo/.patchcourt/out/layer-graph.dot",
 			},
 		},
-		TopFindings: []app.FindingSummary{
+		TopFindings: []reportmodel.FindingSummary{
 			{
 				ID:       "discovery.controllers.depends_on.server",
 				Kind:     string(model.FindingKindDiscoveryHint),
@@ -38,14 +38,14 @@ func TestWriteCheckReportText_RendersCoupledSuspiciousEdgesAndNextCommands(t *te
 				Title:    "Controller layer depends on server layer",
 			},
 		},
-		MostCoupledEdges: []app.EdgeSummary{
+		MostCoupledEdges: []reportmodel.EdgeSummary{
 			{
 				From:  "controllers",
 				To:    "domain",
 				Count: 15,
 			},
 		},
-		SuspiciousEdges: []app.EdgeSummary{
+		SuspiciousEdges: []reportmodel.EdgeSummary{
 			{
 				From:      "controllers",
 				To:        "server",
@@ -54,7 +54,7 @@ func TestWriteCheckReportText_RendersCoupledSuspiciousEdgesAndNextCommands(t *te
 				Priority:  72,
 			},
 		},
-		NextSteps: []app.NextStep{
+		NextSteps: []reportmodel.NextStep{
 			{
 				Label:   "Inspect edge controllers -> server",
 				Command: "patchcourt edge --model /repo/.patchcourt/out/project-model.json controllers server",

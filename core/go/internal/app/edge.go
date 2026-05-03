@@ -3,10 +3,15 @@ package app
 import (
 	"context"
 	"fmt"
+	"github.com/orurh/patchcourt/internal/reportmodel"
 
 	"github.com/orurh/patchcourt/internal/changes"
 	"github.com/orurh/patchcourt/internal/model"
 )
+
+type EdgeResult = reportmodel.EdgeResult
+type EdgeUsageSummary = reportmodel.EdgeUsageSummary
+type EdgeFileCount = reportmodel.EdgeFileCount
 
 type EdgeFormat string
 
@@ -22,32 +27,6 @@ type EdgeRequest struct {
 	FromLayer  string `json:"from_layer"`
 	ToLayer    string `json:"to_layer"`
 	Limit      int    `json:"limit,omitempty"`
-}
-
-type EdgeResult struct {
-	Root          string                 `json:"root,omitempty"`
-	Source        string                 `json:"source"`
-	FromLayer     string                 `json:"from_layer"`
-	ToLayer       string                 `json:"to_layer"`
-	Count         int                    `json:"count"`
-	Usage         EdgeUsageSummary       `json:"usage"`
-	Findings      []model.Finding        `json:"findings,omitempty"`
-	TopFromFiles  []EdgeFileCount        `json:"top_from_files,omitempty"`
-	TopToFiles    []EdgeFileCount        `json:"top_to_files,omitempty"`
-	Dependencies  []model.DependencyEdge `json:"dependencies,omitempty"`
-	TruncatedDeps int                    `json:"truncated_deps,omitempty"`
-}
-
-type EdgeUsageSummary struct {
-	Used    int `json:"used"`
-	Maybe   int `json:"maybe"`
-	Unused  int `json:"unused"`
-	Unknown int `json:"unknown"`
-}
-
-type EdgeFileCount struct {
-	File  string `json:"file"`
-	Count int    `json:"count"`
 }
 
 func (a *App) RunEdge(ctx context.Context, req EdgeRequest) (*EdgeResult, error) {

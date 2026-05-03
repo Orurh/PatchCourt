@@ -7,8 +7,8 @@ import (
 	"github.com/orurh/patchcourt/internal/analysis/depdiff"
 	"github.com/orurh/patchcourt/internal/analysis/findingdiff"
 	"github.com/orurh/patchcourt/internal/analysis/risk"
-	"github.com/orurh/patchcourt/internal/app"
 	"github.com/orurh/patchcourt/internal/model"
+	"github.com/orurh/patchcourt/internal/reportmodel"
 	"github.com/stretchr/testify/require"
 )
 
@@ -16,7 +16,7 @@ func TestWriteReviewMarkdown_RendersSummaryRiskAndFinding(t *testing.T) {
 	var out bytes.Buffer
 
 	WriteReviewMarkdown(&out, ReviewMarkdownResult{
-		Summary: app.ReviewSummary{
+		Summary: reportmodel.ReviewSummary{
 			DependencyChanges:   1,
 			LayerEdgeChanges:    1,
 			FindingChanges:      1,

@@ -3,37 +3,23 @@ package app
 import (
 	"context"
 	"fmt"
+	"github.com/orurh/patchcourt/internal/reportmodel"
 	"path/filepath"
 
 	graphmodel "github.com/orurh/patchcourt/internal/analysis/graph"
 	"github.com/orurh/patchcourt/internal/changes"
-	"github.com/orurh/patchcourt/internal/config"
 	"github.com/orurh/patchcourt/internal/model"
 	"github.com/orurh/patchcourt/internal/platform/logx"
 )
+
+type CheckArtifact = reportmodel.CheckArtifact
+type CheckResult = reportmodel.CheckResult
 
 type CheckRequest struct {
 	Root       string
 	ConfigPath string
 	OutDir     string
 	SaveState  bool
-}
-
-type CheckArtifact struct {
-	Name string `json:"name"`
-	Path string `json:"path"`
-}
-
-type CheckResult struct {
-	Root       string                `json:"root"`
-	ConfigPath string                `json:"config_path,omitempty"`
-	OutDir     string                `json:"out_dir"`
-	StatePath  string                `json:"state_path,omitempty"`
-	Project    *model.ProjectModel   `json:"project,omitempty"`
-	Config     *config.Config        `json:"config,omitempty"`
-	LayerGraph graphmodel.LayerGraph `json:"layer_graph"`
-	Summary    model.ScanSummary     `json:"summary"`
-	Artifacts  []CheckArtifact       `json:"artifacts"`
 }
 
 func (a *App) RunCheck(ctx context.Context, req CheckRequest) (*CheckResult, error) {
@@ -113,18 +99,4 @@ func (a *App) RunCheck(ctx context.Context, req CheckRequest) (*CheckResult, err
 		LayerGraph: layerGraph,
 		Summary:    summary,
 	}, nil
-}
-
-func (r *CheckResult) ArtifactPathByName(name string) string {
-	if r == nil {
-		return ""
-	}
-
-	for _, artifact := range r.Artifacts {
-		if artifact.Name == name {
-			return artifact.Path
-		}
-	}
-
-	return ""
 }

@@ -3,14 +3,17 @@ package app
 import (
 	"context"
 	"fmt"
+	"github.com/orurh/patchcourt/internal/reportmodel"
 
 	"github.com/orurh/patchcourt/internal/analysis/contracts"
 	"github.com/orurh/patchcourt/internal/analysis/depdiff"
 	"github.com/orurh/patchcourt/internal/analysis/findingdiff"
-	"github.com/orurh/patchcourt/internal/analysis/risk"
 	"github.com/orurh/patchcourt/internal/changes"
 	"github.com/orurh/patchcourt/internal/model"
 )
+
+type ReviewSummary = reportmodel.ReviewSummary
+type ReviewResult = reportmodel.ReviewResult
 
 type ReviewFormat string
 
@@ -35,27 +38,6 @@ type ReviewRequest struct {
 	BaseRef  string
 	HeadRef  string
 	Worktree bool
-}
-
-type ReviewSummary struct {
-	ContractChanges     int `json:"contract_changes"`
-	DependencyChanges   int `json:"dependency_changes"`
-	LayerEdgeChanges    int `json:"layer_edge_changes"`
-	FindingChanges      int `json:"finding_changes"`
-	AddedFindings       int `json:"added_findings"`
-	RemovedFindings     int `json:"removed_findings"`
-	AddedHighFindings   int `json:"added_high_findings"`
-	AddedPolicyFindings int `json:"added_policy_findings"`
-}
-
-type ReviewResult struct {
-	Summary           ReviewSummary               `json:"summary"`
-	Risk              risk.Score                  `json:"risk"`
-	Impact            ReviewImpactReport          `json:"impact"`
-	ContractChanges   []contracts.SymbolChange    `json:"contract_changes"`
-	DependencyChanges []depdiff.DependencyChange  `json:"dependency_changes"`
-	LayerEdgeChanges  []depdiff.LayerEdgeChange   `json:"layer_edge_changes"`
-	FindingChanges    []findingdiff.FindingChange `json:"finding_changes"`
 }
 
 func (a *App) RunReview(ctx context.Context, req ReviewRequest) (*ReviewResult, error) {

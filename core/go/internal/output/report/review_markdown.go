@@ -9,14 +9,14 @@ import (
 	"github.com/orurh/patchcourt/internal/analysis/depdiff"
 	"github.com/orurh/patchcourt/internal/analysis/findingdiff"
 	"github.com/orurh/patchcourt/internal/analysis/risk"
-	"github.com/orurh/patchcourt/internal/app"
 	"github.com/orurh/patchcourt/internal/model"
+	"github.com/orurh/patchcourt/internal/reportmodel"
 )
 
 type ReviewMarkdownResult struct {
-	Summary           app.ReviewSummary
+	Summary           reportmodel.ReviewSummary
 	Risk              risk.Score
-	Impact            app.ReviewImpactReport
+	Impact            reportmodel.ReviewImpactReport
 	ContractChanges   []contracts.SymbolChange
 	DependencyChanges []depdiff.DependencyChange
 	LayerEdgeChanges  []depdiff.LayerEdgeChange
@@ -50,7 +50,7 @@ func WriteReviewMarkdown(w io.Writer, result ReviewMarkdownResult) {
 	writeMarkdownContractChanges(w, result.ContractChanges)
 }
 
-func writeMarkdownSummary(w io.Writer, summary app.ReviewSummary, score risk.Score) {
+func writeMarkdownSummary(w io.Writer, summary reportmodel.ReviewSummary, score risk.Score) {
 	fmt.Fprintln(w, "## Summary")
 	fmt.Fprintln(w)
 	fmt.Fprintf(w, "- **Risk:** `%s`, **%d** points\n", score.Level, score.Points)
@@ -352,7 +352,7 @@ func shellQuote(value string) string {
 	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
 }
 
-func writeMarkdownImpact(w io.Writer, impact app.ReviewImpactReport) {
+func writeMarkdownImpact(w io.Writer, impact reportmodel.ReviewImpactReport) {
 	fmt.Fprintln(w, "## Architecture impact")
 	fmt.Fprintln(w)
 
@@ -365,7 +365,7 @@ func writeMarkdownImpact(w io.Writer, impact app.ReviewImpactReport) {
 	writeMarkdownImpactSection(w, "### Unchanged debt", impact.UnchangedDebt)
 }
 
-func writeMarkdownImpactSection(w io.Writer, title string, items []app.ReviewImpactItem) {
+func writeMarkdownImpactSection(w io.Writer, title string, items []reportmodel.ReviewImpactItem) {
 	fmt.Fprintln(w, title)
 	fmt.Fprintln(w)
 

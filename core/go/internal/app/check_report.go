@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"github.com/orurh/patchcourt/internal/reportmodel"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -10,51 +11,17 @@ import (
 	"github.com/orurh/patchcourt/internal/model"
 )
 
+type CheckReport = reportmodel.CheckReport
+type FindingSummary = reportmodel.FindingSummary
+type EdgeSummary = reportmodel.EdgeSummary
+type NextStep = reportmodel.NextStep
+
 const (
 	defaultCheckTopFindings    = 5
 	defaultCheckCoupledEdges   = 5
 	defaultCheckSuspiciousEdge = 5
 	defaultCheckNextEdges      = 2
 )
-
-type CheckReport struct {
-	Root       string            `json:"root"`
-	ConfigPath string            `json:"config_path,omitempty"`
-	OutDir     string            `json:"out_dir"`
-	StatePath  string            `json:"state_path,omitempty"`
-	Summary    model.ScanSummary `json:"summary"`
-
-	FindingCount   int `json:"finding_count"`
-	GraphNodeCount int `json:"graph_node_count"`
-	GraphEdgeCount int `json:"graph_edge_count"`
-
-	Artifacts []CheckArtifact `json:"artifacts,omitempty"`
-
-	TopFindings      []FindingSummary `json:"top_findings,omitempty"`
-	MostCoupledEdges []EdgeSummary    `json:"most_coupled_edges,omitempty"`
-	SuspiciousEdges  []EdgeSummary    `json:"suspicious_edges,omitempty"`
-	NextSteps        []NextStep       `json:"next_steps,omitempty"`
-}
-
-type FindingSummary struct {
-	ID       string `json:"id,omitempty"`
-	Kind     string `json:"kind,omitempty"`
-	Severity string `json:"severity,omitempty"`
-	Title    string `json:"title,omitempty"`
-}
-
-type EdgeSummary struct {
-	From      string `json:"from"`
-	To        string `json:"to"`
-	Count     int    `json:"count"`
-	FindingID string `json:"finding_id,omitempty"`
-	Priority  int    `json:"priority,omitempty"`
-}
-
-type NextStep struct {
-	Label   string `json:"label"`
-	Command string `json:"command"`
-}
 
 func BuildCheckReport(result *CheckResult) CheckReport {
 	if result == nil {

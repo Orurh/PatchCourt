@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	graphmodel "github.com/orurh/patchcourt/internal/analysis/graph"
-	"github.com/orurh/patchcourt/internal/app"
 	"github.com/orurh/patchcourt/internal/model"
+	"github.com/orurh/patchcourt/internal/reportmodel"
 	"github.com/stretchr/testify/require"
 )
 
@@ -65,7 +65,7 @@ func TestWriteCheckHTML_RendersSelfContainedReport(t *testing.T) {
 	}
 
 	err := WriteCheckHTML(&out, CheckHTMLInput{
-		Report: app.CheckReport{
+		Report: reportmodel.CheckReport{
 			Root:           "/repo",
 			OutDir:         "/repo/.patchcourt/out",
 			Summary:        model.ScanSummary{},

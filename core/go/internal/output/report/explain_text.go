@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/orurh/patchcourt/internal/app"
 	"github.com/orurh/patchcourt/internal/model"
+	"github.com/orurh/patchcourt/internal/reportmodel"
 )
 
-func WriteExplainText(w io.Writer, result *app.ExplainResult) {
+func WriteExplainText(w io.Writer, result *reportmodel.ExplainResult) {
 	fmt.Fprintln(w, "PatchCourt explain")
 	fmt.Fprintln(w)
 

@@ -49,6 +49,7 @@ layers:
       - config
       - model
       - platform
+      - reportmodel
 
   changes:
     paths:
@@ -77,12 +78,21 @@ layers:
       - "internal/model/**"
     may_depend_on: []
 
+  reportmodel:
+    paths:
+      - "internal/reportmodel/**"
+    may_depend_on:
+      - analysis
+      - config
+      - model
+
   output:
     paths:
       - "internal/output/**"
     may_depend_on:
       - analysis
       - model
+      - reportmodel
 
   platform:
     paths:

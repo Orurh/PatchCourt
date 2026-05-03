@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/orurh/patchcourt/internal/app"
+	"github.com/orurh/patchcourt/internal/reportmodel"
 )
 
-func WriteCheckReportText(w io.Writer, result app.CheckReport) {
+func WriteCheckReportText(w io.Writer, result reportmodel.CheckReport) {
 	fmt.Fprintln(w, "PatchCourt check")
 	fmt.Fprintln(w)
 
@@ -43,7 +43,7 @@ func WriteCheckReportText(w io.Writer, result app.CheckReport) {
 	writeStructuredCheckNextSteps(w, result.NextSteps)
 }
 
-func writeStructuredCheckSummary(w io.Writer, result app.CheckReport) {
+func writeStructuredCheckSummary(w io.Writer, result reportmodel.CheckReport) {
 	summary := result.Summary
 
 	fmt.Fprintln(w, "Summary:")
@@ -57,7 +57,7 @@ func writeStructuredCheckSummary(w io.Writer, result app.CheckReport) {
 	fmt.Fprintf(w, "  graph edges:      %d\n", result.GraphEdgeCount)
 }
 
-func writeStructuredCheckArtifacts(w io.Writer, artifacts []app.CheckArtifact) {
+func writeStructuredCheckArtifacts(w io.Writer, artifacts []reportmodel.CheckArtifact) {
 	fmt.Fprintln(w, "Artifacts:")
 
 	if len(artifacts) == 0 {
@@ -70,7 +70,7 @@ func writeStructuredCheckArtifacts(w io.Writer, artifacts []app.CheckArtifact) {
 	}
 }
 
-func writeStructuredCheckTopFindings(w io.Writer, findings []app.FindingSummary) {
+func writeStructuredCheckTopFindings(w io.Writer, findings []reportmodel.FindingSummary) {
 	fmt.Fprintln(w, "Top findings:")
 
 	if len(findings) == 0 {
@@ -90,7 +90,7 @@ func writeStructuredCheckTopFindings(w io.Writer, findings []app.FindingSummary)
 	}
 }
 
-func writeStructuredCheckEdges(w io.Writer, title string, edges []app.EdgeSummary, includeFinding bool) {
+func writeStructuredCheckEdges(w io.Writer, title string, edges []reportmodel.EdgeSummary, includeFinding bool) {
 	fmt.Fprintln(w, title)
 
 	if len(edges) == 0 {
@@ -108,7 +108,7 @@ func writeStructuredCheckEdges(w io.Writer, title string, edges []app.EdgeSummar
 	}
 }
 
-func writeStructuredCheckNextSteps(w io.Writer, steps []app.NextStep) {
+func writeStructuredCheckNextSteps(w io.Writer, steps []reportmodel.NextStep) {
 	fmt.Fprintln(w, "Next:")
 
 	if len(steps) == 0 {

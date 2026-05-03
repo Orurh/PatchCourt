@@ -9,8 +9,8 @@ import (
 	"github.com/orurh/patchcourt/internal/analysis/depdiff"
 	"github.com/orurh/patchcourt/internal/analysis/findingdiff"
 	"github.com/orurh/patchcourt/internal/analysis/risk"
-	"github.com/orurh/patchcourt/internal/app"
 	"github.com/orurh/patchcourt/internal/model"
+	"github.com/orurh/patchcourt/internal/reportmodel"
 )
 
 func WriteReviewText(w io.Writer, result ReviewTextResult) {
@@ -39,16 +39,16 @@ func WriteReviewText(w io.Writer, result ReviewTextResult) {
 }
 
 type ReviewTextResult struct {
-	Summary           app.ReviewSummary
+	Summary           reportmodel.ReviewSummary
 	Risk              risk.Score
-	Impact            app.ReviewImpactReport
+	Impact            reportmodel.ReviewImpactReport
 	ContractChanges   []contracts.SymbolChange
 	DependencyChanges []depdiff.DependencyChange
 	LayerEdgeChanges  []depdiff.LayerEdgeChange
 	FindingChanges    []findingdiff.FindingChange
 }
 
-func writeReviewSummaryText(w io.Writer, summary app.ReviewSummary) {
+func writeReviewSummaryText(w io.Writer, summary reportmodel.ReviewSummary) {
 	fmt.Fprintln(w, "Summary:")
 	fmt.Fprintf(w, "  contract changes:      %d\n", summary.ContractChanges)
 	fmt.Fprintf(w, "  dependency changes:    %d\n", summary.DependencyChanges)
@@ -263,14 +263,14 @@ func writeContractChangesText(w io.Writer, changes []contracts.SymbolChange) {
 	}
 }
 
-func writeReviewImpactText(w io.Writer, impact app.ReviewImpactReport) {
+func writeReviewImpactText(w io.Writer, impact reportmodel.ReviewImpactReport) {
 	fmt.Fprintln(w, "Architecture impact:")
 	writeReviewImpactSectionText(w, "  Worse:", impact.Worse)
 	writeReviewImpactSectionText(w, "  Better:", impact.Better)
 	writeReviewImpactSectionText(w, "  Unchanged debt:", impact.UnchangedDebt)
 }
 
-func writeReviewImpactSectionText(w io.Writer, title string, items []app.ReviewImpactItem) {
+func writeReviewImpactSectionText(w io.Writer, title string, items []reportmodel.ReviewImpactItem) {
 	fmt.Fprintln(w, title)
 
 	if len(items) == 0 {
