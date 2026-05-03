@@ -182,6 +182,7 @@ func writeCheckNextSteps(w io.Writer, result CheckTextResult) {
 
 	projectModelPath := artifactPathByName(result.Artifacts, "project model")
 	layerGraphDOTPath := artifactPathByName(result.Artifacts, "layer graph dot")
+	htmlReportPath := artifactPathByName(result.Artifacts, "html report")
 
 	wrote := false
 
@@ -198,6 +199,11 @@ func writeCheckNextSteps(w io.Writer, result CheckTextResult) {
 			fmt.Fprintf(w, "  patchcourt explain %s --model %s\n", first.ID, projectModelPath)
 			wrote = true
 		}
+	}
+
+	if htmlReportPath != "" {
+		fmt.Fprintf(w, "  xdg-open %s\n", htmlReportPath)
+		wrote = true
 	}
 
 	if layerGraphDOTPath != "" {

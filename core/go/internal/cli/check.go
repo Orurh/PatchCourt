@@ -70,7 +70,7 @@ func (r *Runner) writeCheckArtifacts(result *app.CheckResult) ([]app.CheckArtifa
 		return nil, fmt.Errorf("create check output dir: %w", err)
 	}
 
-	artifacts := make([]app.CheckArtifact, 0, 5)
+	artifacts := make([]app.CheckArtifact, 0, 6)
 
 	writeArtifact := func(name string, filename string, write func(*os.File) error) error {
 		path := filepath.Join(result.OutDir, filename)
@@ -127,6 +127,19 @@ func (r *Runner) writeCheckArtifacts(result *app.CheckResult) ([]app.CheckArtifa
 	if err := writeArtifact("layer graph mermaid", "layer-graph.mmd", func(file *os.File) error {
 		report.WriteLayerGraphMermaid(file, result.LayerGraph)
 		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	if err := writeArtifact("html report", "report.html", func(file *os.File) error {
+		return report.WriteCheckHTML(file, report.CheckTextResult{
+			Root:       result.Root,
+			ConfigPath: result.ConfigPath,
+			OutDir:     result.OutDir,
+			Project:    result.Project,
+			Summary:    result.Summary,
+			LayerGraph: result.LayerGraph,
+		})
 	}); err != nil {
 		return nil, err
 	}
