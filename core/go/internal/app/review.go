@@ -84,7 +84,7 @@ func (a *App) RunReview(ctx context.Context, req ReviewRequest) (*ReviewResult, 
 		FindingChanges:    findingChanges,
 	}
 
-	result.Impact = BuildReviewImpactReport(result)
+	result.Impact = BuildReviewImpactReport(result, beforeProject, afterProject)
 
 	return result, nil
 }

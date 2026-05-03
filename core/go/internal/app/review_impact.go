@@ -11,8 +11,9 @@ import (
 )
 
 type ReviewImpactReport struct {
-	Worse  []ReviewImpactItem `json:"worse"`
-	Better []ReviewImpactItem `json:"better"`
+	Worse         []ReviewImpactItem `json:"worse"`
+	Better        []ReviewImpactItem `json:"better"`
+	UnchangedDebt []ReviewImpactItem `json:"unchanged_debt"`
 }
 
 type ReviewImpactItem struct {
@@ -23,12 +24,16 @@ type ReviewImpactItem struct {
 	ID       string `json:"id,omitempty"`
 }
 
-func BuildReviewImpactReport(result *ReviewResult) ReviewImpactReport {
+func BuildReviewImpactReport(result *ReviewResult, beforeProject *model.ProjectModel, afterProject *model.ProjectModel) ReviewImpactReport {
 	if result == nil {
 		return ReviewImpactReport{}
 	}
 
-	report := ReviewImpactReport{}
+	report := ReviewImpactReport{
+		Worse:         make([]ReviewImpactItem, 0),
+		Better:        make([]ReviewImpactItem, 0),
+		UnchangedDebt: make([]ReviewImpactItem, 0),
+	}
 
 	report.Worse = append(report.Worse, worseFindingChanges(result.FindingChanges)...)
 	report.Worse = append(report.Worse, worseLayerEdgeChanges(result.LayerEdgeChanges)...)
@@ -39,8 +44,11 @@ func BuildReviewImpactReport(result *ReviewResult) ReviewImpactReport {
 	report.Better = append(report.Better, betterLayerEdgeChanges(result.LayerEdgeChanges)...)
 	report.Better = append(report.Better, betterDependencyChanges(result.DependencyChanges)...)
 
+	report.UnchangedDebt = unchangedDebtImpact(beforeProject, afterProject, result.FindingChanges)
+
 	sortImpactItems(report.Worse)
 	sortImpactItems(report.Better)
+	sortImpactItems(report.UnchangedDebt)
 
 	return report
 }
@@ -259,4 +267,76 @@ func severityImpactRank(severity string) int {
 	default:
 		return 0
 	}
+}
+
+const defaultUnchangedDebtLimit = 10
+
+func unchangedDebtImpact(beforeProject *model.ProjectModel, afterProject *model.ProjectModel, changes []findingdiff.FindingChange) []ReviewImpactItem {
+	if beforeProject == nil || afterProject == nil {
+		return nil
+	}
+
+	changed := changedFindingIDs(changes)
+	beforeByID := findingsByID(beforeProject.Findings)
+
+	items := make([]ReviewImpactItem, 0)
+
+	for _, after := range afterProject.Findings {
+		if _, ok := changed[after.ID]; ok {
+			continue
+		}
+
+		before, ok := beforeByID[after.ID]
+		if !ok {
+			continue
+		}
+
+		if before.Kind != after.Kind || before.Severity != after.Severity {
+			continue
+		}
+
+		items = append(items, ReviewImpactItem{
+			Kind:     "unchanged_finding",
+			Severity: string(after.Severity),
+			Title:    fmt.Sprintf("Existing %s finding", model.HumanFindingKind(after.Kind)),
+			Detail:   after.Title,
+			ID:       after.ID,
+		})
+	}
+
+	sortImpactItems(items)
+
+	if len(items) > defaultUnchangedDebtLimit {
+		return items[:defaultUnchangedDebtLimit]
+	}
+
+	return items
+}
+
+func changedFindingIDs(changes []findingdiff.FindingChange) map[string]struct{} {
+	result := make(map[string]struct{}, len(changes))
+
+	for _, change := range changes {
+		if change.ID == "" {
+			continue
+		}
+
+		result[change.ID] = struct{}{}
+	}
+
+	return result
+}
+
+func findingsByID(findings []model.Finding) map[string]model.Finding {
+	result := make(map[string]model.Finding, len(findings))
+
+	for _, finding := range findings {
+		if finding.ID == "" {
+			continue
+		}
+
+		result[finding.ID] = finding
+	}
+
+	return result
 }

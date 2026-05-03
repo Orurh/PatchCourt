@@ -360,6 +360,9 @@ func writeMarkdownImpact(w io.Writer, impact app.ReviewImpactReport) {
 	fmt.Fprintln(w)
 
 	writeMarkdownImpactSection(w, "### Better", impact.Better)
+	fmt.Fprintln(w)
+
+	writeMarkdownImpactSection(w, "### Unchanged debt", impact.UnchangedDebt)
 }
 
 func writeMarkdownImpactSection(w io.Writer, title string, items []app.ReviewImpactItem) {
