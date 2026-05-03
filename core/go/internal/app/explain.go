@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/orurh/patchcourt/internal/changes"
 	"github.com/orurh/patchcourt/internal/model"
 )
 
@@ -53,7 +54,7 @@ func (a *App) RunExplain(ctx context.Context, req ExplainRequest) (*ExplainResul
 
 func (a *App) loadExplainProject(ctx context.Context, req ExplainRequest) (*model.ProjectModel, string, error) {
 	if req.ModelPath != "" {
-		project, err := readProjectModelJSON(req.ModelPath)
+		project, err := changes.ReadProjectModel(req.ModelPath)
 		if err != nil {
 			return nil, "", fmt.Errorf("read project model: %w", err)
 		}

@@ -15,6 +15,7 @@ func TestWriteCheckReportText_RendersCoupledSuspiciousEdgesAndNextCommands(t *te
 	WriteCheckReportText(&out, app.CheckReport{
 		Root:           "/repo",
 		OutDir:         "/repo/.patchcourt/out",
+		StatePath:      "/repo/.patchcourt/state/latest/project-model.json",
 		Summary:        model.ScanSummary{ProductionFiles: 2, TotalEdges: 16, Resolved: 16},
 		FindingCount:   1,
 		GraphNodeCount: 3,

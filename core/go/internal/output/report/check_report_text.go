@@ -18,6 +18,11 @@ func WriteCheckReportText(w io.Writer, result app.CheckReport) {
 		fmt.Fprintln(w, "Config: defaults")
 	}
 	fmt.Fprintf(w, "Out: %s\n", result.OutDir)
+	if result.StatePath != "" {
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "State:")
+		fmt.Fprintf(w, "  saved latest: %s\n", result.StatePath)
+	}
 	fmt.Fprintln(w)
 
 	writeStructuredCheckSummary(w, result)

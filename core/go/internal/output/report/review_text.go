@@ -220,6 +220,7 @@ func writeReviewImpactText(w io.Writer, impact app.ReviewImpactReport) {
 	fmt.Fprintln(w, "Architecture impact:")
 	writeReviewImpactSectionText(w, "  Worse:", impact.Worse)
 	writeReviewImpactSectionText(w, "  Better:", impact.Better)
+	writeReviewImpactSectionText(w, "  Unchanged debt:", impact.UnchangedDebt)
 }
 
 func writeReviewImpactSectionText(w io.Writer, title string, items []app.ReviewImpactItem) {

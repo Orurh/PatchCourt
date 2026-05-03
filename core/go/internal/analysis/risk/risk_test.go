@@ -84,3 +84,22 @@ func addedFinding(id string, severity model.Severity) findingdiff.FindingChange 
 		},
 	}
 }
+
+func TestCalculate_ScoresIncreasedLayerEdgeCount(t *testing.T) {
+	score := Calculate(Input{
+		LayerEdgeChanges: []depdiff.LayerEdgeChange{
+			{
+				Kind:        depdiff.DependencyChangeKindChanged,
+				FromLayer:   "domain",
+				ToLayer:     "application",
+				BeforeCount: 2,
+				AfterCount:  3,
+			},
+		},
+	})
+
+	require.Equal(t, 1, score.Points)
+	require.Equal(t, LevelLow, score.Level)
+	require.Len(t, score.Reasons, 1)
+	require.Equal(t, "layer edge count increased: domain -> application (2 -> 3)", score.Reasons[0].Message)
+}

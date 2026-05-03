@@ -78,11 +78,24 @@ func Calculate(input Input) Score {
 	}
 
 	for _, change := range input.LayerEdgeChanges {
-		if change.Kind != depdiff.DependencyChangeKindAdded {
-			continue
+		switch change.Kind {
+		case depdiff.DependencyChangeKindAdded:
+			addReason(&score, 3, fmt.Sprintf("layer edge added: %s -> %s", change.FromLayer, change.ToLayer))
+		case depdiff.DependencyChangeKindChanged:
+			if change.AfterCount > change.BeforeCount {
+				addReason(
+					&score,
+					1,
+					fmt.Sprintf(
+						"layer edge count increased: %s -> %s (%d -> %d)",
+						change.FromLayer,
+						change.ToLayer,
+						change.BeforeCount,
+						change.AfterCount,
+					),
+				)
+			}
 		}
-
-		addReason(&score, 3, fmt.Sprintf("layer edge added: %s -> %s", change.FromLayer, change.ToLayer))
 	}
 
 	score.Level = levelForPoints(score.Points)

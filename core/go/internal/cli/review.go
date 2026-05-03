@@ -28,6 +28,9 @@ type reviewOptions struct {
 	afterRoot  string
 	configPath string
 
+	sinceLast   string
+	updateState bool
+
 	format string
 }
 
@@ -45,22 +48,26 @@ func (r *Runner) newReviewCommand(ctx context.Context, rootOpts *rootOptions) *c
 			format := app.ReviewFormat(opts.format)
 
 			result, err := r.newApp(rootOpts).RunReview(ctx, app.ReviewRequest{
-				BeforePath: opts.beforePath,
-				AfterPath:  opts.afterPath,
-				BeforeRoot: opts.beforeRoot,
-				AfterRoot:  opts.afterRoot,
-				ConfigPath: opts.configPath,
+				BeforePath:    opts.beforePath,
+				AfterPath:     opts.afterPath,
+				BeforeRoot:    opts.beforeRoot,
+				AfterRoot:     opts.afterRoot,
+				ConfigPath:    opts.configPath,
+				SinceLastRoot: opts.sinceLast,
+				UpdateState:   opts.updateState,
 			})
 			if err != nil {
 				return err
 			}
 
 			return r.renderReviewResult(format, app.ReviewRequest{
-				BeforePath: opts.beforePath,
-				AfterPath:  opts.afterPath,
-				BeforeRoot: opts.beforeRoot,
-				AfterRoot:  opts.afterRoot,
-				ConfigPath: opts.configPath,
+				BeforePath:    opts.beforePath,
+				AfterPath:     opts.afterPath,
+				BeforeRoot:    opts.beforeRoot,
+				AfterRoot:     opts.afterRoot,
+				ConfigPath:    opts.configPath,
+				SinceLastRoot: opts.sinceLast,
+				UpdateState:   opts.updateState,
 			}, result)
 		},
 	}
@@ -70,6 +77,8 @@ func (r *Runner) newReviewCommand(ctx context.Context, rootOpts *rootOptions) *c
 	cmd.Flags().StringVar(&opts.beforeRoot, "before-root", "", "path to before project root")
 	cmd.Flags().StringVar(&opts.afterRoot, "after-root", "", "path to after project root")
 	cmd.Flags().StringVar(&opts.configPath, "config", "", "path to .patchcourt.yaml")
+	cmd.Flags().StringVar(&opts.sinceLast, "since-last", "", "compare saved .patchcourt/state/latest with current project root")
+	cmd.Flags().BoolVar(&opts.updateState, "update-state", false, "save current project model as .patchcourt/state/latest after successful review")
 	cmd.Flags().StringVar(&opts.format, "format", string(app.ReviewFormatText), "output format: text, json, markdown")
 
 	return cmd

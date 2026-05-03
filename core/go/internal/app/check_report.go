@@ -21,6 +21,7 @@ type CheckReport struct {
 	Root       string            `json:"root"`
 	ConfigPath string            `json:"config_path,omitempty"`
 	OutDir     string            `json:"out_dir"`
+	StatePath  string            `json:"state_path,omitempty"`
 	Summary    model.ScanSummary `json:"summary"`
 
 	FindingCount   int `json:"finding_count"`
@@ -69,6 +70,7 @@ func BuildCheckReport(result *CheckResult) CheckReport {
 		Root:           result.Root,
 		ConfigPath:     result.ConfigPath,
 		OutDir:         result.OutDir,
+		StatePath:      result.StatePath,
 		Summary:        result.Summary,
 		FindingCount:   len(findings),
 		GraphNodeCount: len(result.LayerGraph.Nodes),

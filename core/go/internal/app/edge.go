@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/orurh/patchcourt/internal/changes"
 	"github.com/orurh/patchcourt/internal/model"
 )
 
@@ -78,7 +79,7 @@ func (a *App) RunEdge(ctx context.Context, req EdgeRequest) (*EdgeResult, error)
 
 func (a *App) loadEdgeProject(ctx context.Context, req EdgeRequest) (*model.ProjectModel, string, error) {
 	if req.ModelPath != "" {
-		project, err := readProjectModelJSON(req.ModelPath)
+		project, err := changes.ReadProjectModel(req.ModelPath)
 		if err != nil {
 			return nil, "", fmt.Errorf("read project model: %w", err)
 		}

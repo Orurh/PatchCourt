@@ -13,6 +13,7 @@ type DependencyChangeKind string
 const (
 	DependencyChangeKindAdded   DependencyChangeKind = "added"
 	DependencyChangeKindRemoved DependencyChangeKind = "removed"
+	DependencyChangeKindChanged DependencyChangeKind = "changed"
 )
 
 type DependencyChange struct {
@@ -91,6 +92,15 @@ func DiffLayerEdges(before []model.DependencyEdge, after []model.DependencyEdge)
 				FromLayer:   from,
 				ToLayer:     to,
 				BeforeCount: beforeCount,
+			})
+
+		case hadBefore && hasAfter && beforeCount != afterCount:
+			changes = append(changes, LayerEdgeChange{
+				Kind:        DependencyChangeKindChanged,
+				FromLayer:   from,
+				ToLayer:     to,
+				BeforeCount: beforeCount,
+				AfterCount:  afterCount,
 			})
 		}
 	}

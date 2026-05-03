@@ -16,14 +16,19 @@ func TestWriteCheckHTML_RendersSelfContainedReport(t *testing.T) {
 	project := &model.ProjectModel{
 		Findings: []model.Finding{
 			{
-				ID:       "discovery.controllers.depends_on.server",
-				Kind:     model.FindingKindDiscoveryHint,
-				Severity: model.SeverityMedium,
-				Title:    "Controller layer depends on server layer",
+				ID:         "discovery.controllers.depends_on.server",
+				Kind:       model.FindingKindDiscoveryHint,
+				Severity:   model.SeverityMedium,
+				Title:      "Controller layer depends on server layer",
+				Confidence: model.ConfidenceMedium,
 				Evidence: []model.Evidence{
 					{
-						File:    "src/controllers/device_orchestrator.cc",
-						Message: "includes src/server/mapper.h, creating discovered layer dependency controllers -> server",
+						File:      "src/controllers/device_orchestrator.cc",
+						Message:   "includes src/server/mapper.h, creating discovered layer dependency controllers -> server",
+						FromLayer: "controllers",
+						ToLayer:   "server",
+						FromFile:  "src/controllers/device_orchestrator.cc",
+						ToFile:    "src/server/mapper.h",
 					},
 				},
 			},
@@ -32,6 +37,14 @@ func TestWriteCheckHTML_RendersSelfContainedReport(t *testing.T) {
 			{
 				FromFile:  "src/controllers/device_orchestrator.cc",
 				ToFile:    "src/server/mapper.h",
+				Resolved:  true,
+				FromLayer: "controllers",
+				ToLayer:   "server",
+				Usage:     model.DependencyUsageUsed,
+			},
+			{
+				FromFile:  "src/controllers/camera_manager_controller.cc",
+				ToFile:    "src/server/api_router.h",
 				Resolved:  true,
 				FromLayer: "controllers",
 				ToLayer:   "server",
@@ -46,7 +59,7 @@ func TestWriteCheckHTML_RendersSelfContainedReport(t *testing.T) {
 			{
 				From:  "controllers",
 				To:    "server",
-				Count: 1,
+				Count: 2,
 			},
 		},
 	}
@@ -74,4 +87,19 @@ func TestWriteCheckHTML_RendersSelfContainedReport(t *testing.T) {
 	require.Contains(t, got, "controllers")
 	require.Contains(t, got, "server")
 	require.Contains(t, got, "discovery.controllers.depends_on.server")
+
+	require.Contains(t, got, "edgeSearch")
+	require.Contains(t, got, "onlyFindings")
+	require.Contains(t, got, "onlyPolicy")
+	require.Contains(t, got, "edgeMatchesFilters")
+	require.Contains(t, got, "from_layer")
+	require.Contains(t, got, "to_layer")
+	require.Contains(t, got, "Evidence:")
+	require.Contains(t, got, "edgeDiagram")
+	require.Contains(t, got, "buildEdgeDiagramData")
+	require.Contains(t, got, "Detailed file-level picture")
+	require.Contains(t, got, "overviewGraph")
+	require.Contains(t, got, "renderOverviewGraph")
+	require.Contains(t, got, "overview-edge")
+	require.Contains(t, got, "Layer graph")
 }

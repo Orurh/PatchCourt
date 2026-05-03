@@ -148,3 +148,25 @@ func TestDiffLayerEdges_IgnoresEdgesFromTestGeneratedAndExternalFiles(t *testing
 
 	require.Empty(t, changes)
 }
+
+func TestDiffLayerEdges_DetectsChangedLayerEdgeCount(t *testing.T) {
+	before := []model.DependencyEdge{
+		dep("src/domain/a.h", "src/application/constants.h", "domain", "application"),
+		dep("src/domain/b.h", "src/application/constants.h", "domain", "application"),
+	}
+
+	after := []model.DependencyEdge{
+		dep("src/domain/a.h", "src/application/constants.h", "domain", "application"),
+		dep("src/domain/b.h", "src/application/constants.h", "domain", "application"),
+		dep("src/domain/c.h", "src/application/constants.h", "domain", "application"),
+	}
+
+	changes := DiffLayerEdges(before, after)
+
+	require.Len(t, changes, 1)
+	require.Equal(t, DependencyChangeKindChanged, changes[0].Kind)
+	require.Equal(t, "domain", changes[0].FromLayer)
+	require.Equal(t, "application", changes[0].ToLayer)
+	require.Equal(t, 2, changes[0].BeforeCount)
+	require.Equal(t, 3, changes[0].AfterCount)
+}

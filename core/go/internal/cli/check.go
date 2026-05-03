@@ -17,6 +17,7 @@ type checkOptions struct {
 	configPath string
 	outDir     string
 	format     string
+	saveState  bool
 }
 
 func (r *Runner) newCheckCommand(ctx context.Context, rootOpts *rootOptions) *cobra.Command {
@@ -33,6 +34,7 @@ func (r *Runner) newCheckCommand(ctx context.Context, rootOpts *rootOptions) *co
 				Root:       root,
 				ConfigPath: opts.configPath,
 				OutDir:     opts.outDir,
+				SaveState:  opts.saveState,
 			})
 			if err != nil {
 				return err
@@ -64,6 +66,7 @@ func (r *Runner) newCheckCommand(ctx context.Context, rootOpts *rootOptions) *co
 	cmd.Flags().StringVar(&opts.configPath, "config", "", "path to .patchcourt.yaml")
 	cmd.Flags().StringVar(&opts.outDir, "out", "", "output directory for generated artifacts")
 	cmd.Flags().StringVar(&opts.format, "format", "text", "output format: text, json")
+	cmd.Flags().BoolVar(&opts.saveState, "save-state", false, "save current project model as .patchcourt/state/latest")
 
 	return cmd
 }

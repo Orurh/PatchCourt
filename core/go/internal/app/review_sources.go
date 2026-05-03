@@ -2,15 +2,18 @@ package app
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/orurh/patchcourt/internal/analysis/engine"
+	"github.com/orurh/patchcourt/internal/changes"
 	"github.com/orurh/patchcourt/internal/model"
 )
 
 func (a *App) loadReviewProjects(ctx context.Context, req ReviewRequest) (*model.ProjectModel, *model.ProjectModel, error) {
+	if req.SinceLastRoot != "" {
+		return a.loadReviewProjectsSinceLast(ctx, req)
+	}
+
 	if req.BeforePath != "" || req.AfterPath != "" {
 		return loadReviewProjectsFromJSON(req)
 	}
@@ -27,17 +30,37 @@ func loadReviewProjectsFromJSON(req ReviewRequest) (*model.ProjectModel, *model.
 		return nil, nil, fmt.Errorf("after project model path is required")
 	}
 
-	beforeProject, err := readProjectModelJSON(req.BeforePath)
+	beforeProject, err := changes.ReadProjectModel(req.BeforePath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("read before project model: %w", err)
 	}
 
-	afterProject, err := readProjectModelJSON(req.AfterPath)
+	afterProject, err := changes.ReadProjectModel(req.AfterPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("read after project model: %w", err)
 	}
 
 	return beforeProject, afterProject, nil
+}
+
+func (a *App) loadReviewProjectsSinceLast(ctx context.Context, req ReviewRequest) (*model.ProjectModel, *model.ProjectModel, error) {
+	state, err := changes.LoadState(changes.LoadStateOptions{
+		Root: req.SinceLastRoot,
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("load previous state: %w. Run `patchcourt check %s --save-state` first", err, req.SinceLastRoot)
+	}
+
+	afterResult, err := a.analysis.Analyze(ctx, engine.AnalyzeRequest{
+		Operation:  "review-since-last",
+		Root:       req.SinceLastRoot,
+		ConfigPath: req.ConfigPath,
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("analyze current root: %w", err)
+	}
+
+	return state.Project, afterResult.Project, nil
 }
 
 func (a *App) loadReviewProjectsFromRoots(ctx context.Context, req ReviewRequest) (*model.ProjectModel, *model.ProjectModel, error) {
@@ -68,18 +91,4 @@ func (a *App) loadReviewProjectsFromRoots(ctx context.Context, req ReviewRequest
 	}
 
 	return beforeResult.Project, afterResult.Project, nil
-}
-
-func readProjectModelJSON(path string) (*model.ProjectModel, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", path, err)
-	}
-
-	var project model.ProjectModel
-	if err := json.Unmarshal(data, &project); err != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, err)
-	}
-
-	return &project, nil
 }

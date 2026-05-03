@@ -26,6 +26,9 @@ type ReviewRequest struct {
 	BeforeRoot string
 	AfterRoot  string
 	ConfigPath string
+
+	SinceLastRoot string
+	UpdateState   bool
 }
 
 type ReviewSummary struct {

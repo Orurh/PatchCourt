@@ -99,15 +99,23 @@ func worseLayerEdgeChanges(changes []depdiff.LayerEdgeChange) []ReviewImpactItem
 	items := make([]ReviewImpactItem, 0)
 
 	for _, change := range changes {
-		if change.Kind != depdiff.DependencyChangeKindAdded {
-			continue
-		}
+		switch change.Kind {
+		case depdiff.DependencyChangeKindAdded:
+			items = append(items, ReviewImpactItem{
+				Kind:   "layer_edge_added",
+				Title:  "Added layer dependency",
+				Detail: fmt.Sprintf("%s -> %s (%d)", change.FromLayer, change.ToLayer, change.AfterCount),
+			})
 
-		items = append(items, ReviewImpactItem{
-			Kind:   "layer_edge_added",
-			Title:  "Added layer dependency",
-			Detail: fmt.Sprintf("%s -> %s (%d)", change.FromLayer, change.ToLayer, change.AfterCount),
-		})
+		case depdiff.DependencyChangeKindChanged:
+			if change.AfterCount > change.BeforeCount {
+				items = append(items, ReviewImpactItem{
+					Kind:   "layer_edge_increased",
+					Title:  "Increased layer dependency",
+					Detail: fmt.Sprintf("%s -> %s (%d -> %d)", change.FromLayer, change.ToLayer, change.BeforeCount, change.AfterCount),
+				})
+			}
+		}
 	}
 
 	return items
@@ -117,15 +125,23 @@ func betterLayerEdgeChanges(changes []depdiff.LayerEdgeChange) []ReviewImpactIte
 	items := make([]ReviewImpactItem, 0)
 
 	for _, change := range changes {
-		if change.Kind != depdiff.DependencyChangeKindRemoved {
-			continue
-		}
+		switch change.Kind {
+		case depdiff.DependencyChangeKindRemoved:
+			items = append(items, ReviewImpactItem{
+				Kind:   "layer_edge_removed",
+				Title:  "Removed layer dependency",
+				Detail: fmt.Sprintf("%s -> %s (%d)", change.FromLayer, change.ToLayer, change.BeforeCount),
+			})
 
-		items = append(items, ReviewImpactItem{
-			Kind:   "layer_edge_removed",
-			Title:  "Removed layer dependency",
-			Detail: fmt.Sprintf("%s -> %s (%d)", change.FromLayer, change.ToLayer, change.BeforeCount),
-		})
+		case depdiff.DependencyChangeKindChanged:
+			if change.AfterCount < change.BeforeCount {
+				items = append(items, ReviewImpactItem{
+					Kind:   "layer_edge_decreased",
+					Title:  "Reduced layer dependency",
+					Detail: fmt.Sprintf("%s -> %s (%d -> %d)", change.FromLayer, change.ToLayer, change.BeforeCount, change.AfterCount),
+				})
+			}
+		}
 	}
 
 	return items

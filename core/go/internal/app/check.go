@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	graphmodel "github.com/orurh/patchcourt/internal/analysis/graph"
+	"github.com/orurh/patchcourt/internal/changes"
 	"github.com/orurh/patchcourt/internal/config"
 	"github.com/orurh/patchcourt/internal/model"
 	"github.com/orurh/patchcourt/internal/platform/logx"
@@ -15,6 +16,7 @@ type CheckRequest struct {
 	Root       string
 	ConfigPath string
 	OutDir     string
+	SaveState  bool
 }
 
 type CheckArtifact struct {
@@ -26,6 +28,7 @@ type CheckResult struct {
 	Root       string                `json:"root"`
 	ConfigPath string                `json:"config_path,omitempty"`
 	OutDir     string                `json:"out_dir"`
+	StatePath  string                `json:"state_path,omitempty"`
 	Project    *model.ProjectModel   `json:"project,omitempty"`
 	Config     *config.Config        `json:"config,omitempty"`
 	LayerGraph graphmodel.LayerGraph `json:"layer_graph"`
@@ -79,6 +82,20 @@ func (a *App) RunCheck(ctx context.Context, req CheckRequest) (*CheckResult, err
 	layerGraph := graphmodel.BuildLayerGraph(scanResult.Project, scanResult.Config)
 	summary := model.BuildScanSummary(scanResult.Project)
 
+	statePath := ""
+
+	if req.SaveState {
+		if _, err := changes.SaveState(changes.SaveStateOptions{
+			Root:       absRoot,
+			ConfigPath: req.ConfigPath,
+			Project:    scanResult.Project,
+		}); err != nil {
+			return nil, fmt.Errorf("save state: %w", err)
+		}
+
+		statePath = filepath.Join(changes.StateDir(absRoot, changes.LatestStateName), "project-model.json")
+	}
+
 	a.logger.Debug(
 		"check completed",
 		logx.Int("findings", len(scanResult.Project.Findings)),
@@ -90,6 +107,7 @@ func (a *App) RunCheck(ctx context.Context, req CheckRequest) (*CheckResult, err
 		Root:       absRoot,
 		ConfigPath: req.ConfigPath,
 		OutDir:     outDir,
+		StatePath:  statePath,
 		Project:    scanResult.Project,
 		Config:     scanResult.Config,
 		LayerGraph: layerGraph,
