@@ -9,6 +9,27 @@ import (
 )
 
 func (a *App) loadReviewProjects(ctx context.Context, req ReviewRequest) (*model.ProjectModel, *model.ProjectModel, error) {
+	if req.Worktree {
+		if req.HeadRef != "" {
+			return nil, nil, fmt.Errorf("--worktree cannot be combined with --head")
+		}
+
+		gitPair, err := changes.NewGitBaseToWorktreeSourcePair(ctx, changes.GitBaseToWorktreeSourcePairOptions{
+			Root:       req.GitRoot,
+			BaseRef:    req.BaseRef,
+			ConfigPath: req.ConfigPath,
+			Analyzer:   a.analysis,
+		})
+		if err != nil {
+			return nil, nil, err
+		}
+		defer func() {
+			_ = gitPair.Cleanup(context.Background())
+		}()
+
+		return changes.LoadPair(ctx, gitPair.Pair)
+	}
+
 	if req.BaseRef != "" || req.HeadRef != "" {
 		gitPair, err := changes.NewGitReviewSourcePair(ctx, changes.GitReviewSourcePairOptions{
 			Root:       req.GitRoot,

@@ -31,6 +31,11 @@ type reviewOptions struct {
 	sinceLast   string
 	updateState bool
 
+	gitRoot  string
+	baseRef  string
+	headRef  string
+	worktree bool
+
 	format string
 }
 
@@ -55,6 +60,10 @@ func (r *Runner) newReviewCommand(ctx context.Context, rootOpts *rootOptions) *c
 				ConfigPath:    opts.configPath,
 				SinceLastRoot: opts.sinceLast,
 				UpdateState:   opts.updateState,
+				GitRoot:       opts.gitRoot,
+				BaseRef:       opts.baseRef,
+				HeadRef:       opts.headRef,
+				Worktree:      opts.worktree,
 			})
 			if err != nil {
 				return err
@@ -68,6 +77,10 @@ func (r *Runner) newReviewCommand(ctx context.Context, rootOpts *rootOptions) *c
 				ConfigPath:    opts.configPath,
 				SinceLastRoot: opts.sinceLast,
 				UpdateState:   opts.updateState,
+				GitRoot:       opts.gitRoot,
+				BaseRef:       opts.baseRef,
+				HeadRef:       opts.headRef,
+				Worktree:      opts.worktree,
 			}, result)
 		},
 	}
@@ -79,6 +92,10 @@ func (r *Runner) newReviewCommand(ctx context.Context, rootOpts *rootOptions) *c
 	cmd.Flags().StringVar(&opts.configPath, "config", "", "path to .patchcourt.yaml")
 	cmd.Flags().StringVar(&opts.sinceLast, "since-last", "", "compare saved .patchcourt/state/latest with current project root")
 	cmd.Flags().BoolVar(&opts.updateState, "update-state", false, "save current project model as .patchcourt/state/latest after successful review")
+	cmd.Flags().StringVar(&opts.gitRoot, "root", ".", "git repository root or any path inside it for --base/--head review")
+	cmd.Flags().StringVar(&opts.baseRef, "base", "", "base git ref for review, for example main or origin/main")
+	cmd.Flags().StringVar(&opts.headRef, "head", "", "head git ref for review, for example HEAD")
+	cmd.Flags().BoolVar(&opts.worktree, "worktree", false, "compare --base git ref with current working tree")
 	cmd.Flags().StringVar(&opts.format, "format", string(app.ReviewFormatText), "output format: text, json, markdown")
 
 	return cmd

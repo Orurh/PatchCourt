@@ -70,7 +70,7 @@ func (r *Runner) renderReviewResult(format app.ReviewFormat, req app.ReviewReque
 			FindingChanges:    result.FindingChanges,
 			AfterRoot:         req.AfterRoot,
 			ConfigPath:        req.ConfigPath,
-		})	
+		})
 		return nil
 	case app.ReviewFormatText, "":
 		report.WriteReviewText(r.stdout, report.ReviewTextResult{
