@@ -23,6 +23,9 @@ func WriteReviewText(w io.Writer, result ReviewTextResult) {
 	writeRiskText(w, result.Risk)
 	fmt.Fprintln(w)
 
+	writeReviewImpactText(w, result.Impact)
+	fmt.Fprintln(w)
+
 	writeFindingChangesText(w, result.FindingChanges)
 	fmt.Fprintln(w)
 
@@ -38,6 +41,7 @@ func WriteReviewText(w io.Writer, result ReviewTextResult) {
 type ReviewTextResult struct {
 	Summary           app.ReviewSummary
 	Risk              risk.Score
+	Impact            app.ReviewImpactReport
 	ContractChanges   []contracts.SymbolChange
 	DependencyChanges []depdiff.DependencyChange
 	LayerEdgeChanges  []depdiff.LayerEdgeChange
@@ -209,5 +213,39 @@ func writeContractChangesText(w io.Writer, changes []contracts.SymbolChange) {
 		if len(change.RemovedMods) > 0 {
 			fmt.Fprintf(w, "    removed modifiers: %s\n", strings.Join(change.RemovedMods, ", "))
 		}
+	}
+}
+
+func writeReviewImpactText(w io.Writer, impact app.ReviewImpactReport) {
+	fmt.Fprintln(w, "Architecture impact:")
+	writeReviewImpactSectionText(w, "  Worse:", impact.Worse)
+	writeReviewImpactSectionText(w, "  Better:", impact.Better)
+}
+
+func writeReviewImpactSectionText(w io.Writer, title string, items []app.ReviewImpactItem) {
+	fmt.Fprintln(w, title)
+
+	if len(items) == 0 {
+		fmt.Fprintln(w, "    none")
+		return
+	}
+
+	for _, item := range items {
+		if item.ID != "" && item.Detail != "" {
+			fmt.Fprintf(w, "    - [%s] %s: %s — %s\n", item.Kind, item.Title, item.ID, item.Detail)
+			continue
+		}
+
+		if item.ID != "" {
+			fmt.Fprintf(w, "    - [%s] %s: %s\n", item.Kind, item.Title, item.ID)
+			continue
+		}
+
+		if item.Detail != "" {
+			fmt.Fprintf(w, "    - [%s] %s — %s\n", item.Kind, item.Title, item.Detail)
+			continue
+		}
+
+		fmt.Fprintf(w, "    - [%s] %s\n", item.Kind, item.Title)
 	}
 }

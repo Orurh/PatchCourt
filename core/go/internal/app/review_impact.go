@@ -1,0 +1,279 @@
+package app
+
+import (
+	"fmt"
+	"sort"
+
+	"github.com/orurh/patchcourt/internal/analysis/contracts"
+	"github.com/orurh/patchcourt/internal/analysis/depdiff"
+	"github.com/orurh/patchcourt/internal/analysis/findingdiff"
+	"github.com/orurh/patchcourt/internal/model"
+)
+
+type ReviewImpactReport struct {
+	Worse  []ReviewImpactItem `json:"worse"`
+	Better []ReviewImpactItem `json:"better"`
+}
+
+type ReviewImpactItem struct {
+	Kind     string `json:"kind"`
+	Severity string `json:"severity,omitempty"`
+	Title    string `json:"title"`
+	Detail   string `json:"detail,omitempty"`
+	ID       string `json:"id,omitempty"`
+}
+
+func BuildReviewImpactReport(result *ReviewResult) ReviewImpactReport {
+	if result == nil {
+		return ReviewImpactReport{}
+	}
+
+	report := ReviewImpactReport{}
+
+	report.Worse = append(report.Worse, worseFindingChanges(result.FindingChanges)...)
+	report.Worse = append(report.Worse, worseLayerEdgeChanges(result.LayerEdgeChanges)...)
+	report.Worse = append(report.Worse, worseDependencyChanges(result.DependencyChanges)...)
+	report.Worse = append(report.Worse, worseContractChanges(result.ContractChanges)...)
+
+	report.Better = append(report.Better, betterFindingChanges(result.FindingChanges)...)
+	report.Better = append(report.Better, betterLayerEdgeChanges(result.LayerEdgeChanges)...)
+	report.Better = append(report.Better, betterDependencyChanges(result.DependencyChanges)...)
+
+	sortImpactItems(report.Worse)
+	sortImpactItems(report.Better)
+
+	return report
+}
+
+func worseFindingChanges(changes []findingdiff.FindingChange) []ReviewImpactItem {
+	items := make([]ReviewImpactItem, 0)
+
+	for _, change := range changes {
+		if change.Kind != findingdiff.FindingChangeKindAdded || change.After == nil {
+			continue
+		}
+
+		finding := change.After
+		items = append(items, ReviewImpactItem{
+			Kind:     "finding_added",
+			Severity: string(finding.Severity),
+			Title:    fmt.Sprintf("Added %s finding", humanFindingKind(finding.Kind)),
+			Detail:   finding.Title,
+			ID:       change.ID,
+		})
+	}
+
+	return items
+}
+
+func betterFindingChanges(changes []findingdiff.FindingChange) []ReviewImpactItem {
+	items := make([]ReviewImpactItem, 0)
+
+	for _, change := range changes {
+		if change.Kind != findingdiff.FindingChangeKindRemoved || change.Before == nil {
+			continue
+		}
+
+		finding := change.Before
+		items = append(items, ReviewImpactItem{
+			Kind:     "finding_removed",
+			Severity: string(finding.Severity),
+			Title:    fmt.Sprintf("Removed %s finding", humanFindingKind(finding.Kind)),
+			Detail:   finding.Title,
+			ID:       change.ID,
+		})
+	}
+
+	return items
+}
+
+func worseLayerEdgeChanges(changes []depdiff.LayerEdgeChange) []ReviewImpactItem {
+	items := make([]ReviewImpactItem, 0)
+
+	for _, change := range changes {
+		if change.Kind != depdiff.DependencyChangeKindAdded {
+			continue
+		}
+
+		items = append(items, ReviewImpactItem{
+			Kind:   "layer_edge_added",
+			Title:  "Added layer dependency",
+			Detail: fmt.Sprintf("%s -> %s (%d)", change.FromLayer, change.ToLayer, change.AfterCount),
+		})
+	}
+
+	return items
+}
+
+func betterLayerEdgeChanges(changes []depdiff.LayerEdgeChange) []ReviewImpactItem {
+	items := make([]ReviewImpactItem, 0)
+
+	for _, change := range changes {
+		if change.Kind != depdiff.DependencyChangeKindRemoved {
+			continue
+		}
+
+		items = append(items, ReviewImpactItem{
+			Kind:   "layer_edge_removed",
+			Title:  "Removed layer dependency",
+			Detail: fmt.Sprintf("%s -> %s (%d)", change.FromLayer, change.ToLayer, change.BeforeCount),
+		})
+	}
+
+	return items
+}
+
+func worseDependencyChanges(changes []depdiff.DependencyChange) []ReviewImpactItem {
+	items := make([]ReviewImpactItem, 0)
+
+	for _, change := range changes {
+		if change.Kind != depdiff.DependencyChangeKindAdded || change.After == nil {
+			continue
+		}
+
+		dep := change.After
+		items = append(items, ReviewImpactItem{
+			Kind:   "dependency_added",
+			Title:  "Added dependency",
+			Detail: dependencyImpactDetail(*dep),
+			ID:     change.Key,
+		})
+	}
+
+	return items
+}
+
+func betterDependencyChanges(changes []depdiff.DependencyChange) []ReviewImpactItem {
+	items := make([]ReviewImpactItem, 0)
+
+	for _, change := range changes {
+		if change.Kind != depdiff.DependencyChangeKindRemoved || change.Before == nil {
+			continue
+		}
+
+		dep := change.Before
+		items = append(items, ReviewImpactItem{
+			Kind:   "dependency_removed",
+			Title:  "Removed dependency",
+			Detail: dependencyImpactDetail(*dep),
+			ID:     change.Key,
+		})
+	}
+
+	return items
+}
+
+func worseContractChanges(changes []contracts.SymbolChange) []ReviewImpactItem {
+	items := make([]ReviewImpactItem, 0)
+
+	for _, change := range changes {
+		switch change.Kind {
+		case contracts.ChangeKindRemoved:
+			items = append(items, ReviewImpactItem{
+				Kind:   "contract_removed",
+				Title:  "Removed public contract symbol",
+				Detail: change.SymbolKey,
+			})
+		case contracts.ChangeKindSignatureChanged:
+			items = append(items, ReviewImpactItem{
+				Kind:   "contract_signature_changed",
+				Title:  "Changed public contract signature",
+				Detail: change.SymbolKey,
+			})
+		case contracts.ChangeKindModifiersChanged:
+			items = append(items, ReviewImpactItem{
+				Kind:   "contract_modifiers_changed",
+				Title:  "Changed public contract modifiers",
+				Detail: change.SymbolKey,
+			})
+		}
+	}
+
+	return items
+}
+
+func dependencyImpactDetail(dep model.DependencyEdge) string {
+	target := dep.ToFile
+	if target == "" {
+		target = dep.Target
+	}
+
+	if dep.FromLayer != "" || dep.ToLayer != "" {
+		return fmt.Sprintf("%s -> %s (%s -> %s)", dep.FromFile, target, dep.FromLayer, dep.ToLayer)
+	}
+
+	return fmt.Sprintf("%s -> %s", dep.FromFile, target)
+}
+
+func sortImpactItems(items []ReviewImpactItem) {
+	sort.SliceStable(items, func(i, j int) bool {
+		leftRank := impactRank(items[i])
+		rightRank := impactRank(items[j])
+		if leftRank != rightRank {
+			return leftRank > rightRank
+		}
+
+		if items[i].Kind != items[j].Kind {
+			return items[i].Kind < items[j].Kind
+		}
+
+		if items[i].ID != items[j].ID {
+			return items[i].ID < items[j].ID
+		}
+
+		return items[i].Detail < items[j].Detail
+	})
+}
+
+func impactRank(item ReviewImpactItem) int {
+	switch item.Kind {
+	case "finding_added":
+		return 100 + severityImpactRank(item.Severity)
+	case "contract_removed", "contract_signature_changed":
+		return 90
+	case "layer_edge_added":
+		return 80
+	case "dependency_added":
+		return 50
+	case "finding_removed":
+		return 40 + severityImpactRank(item.Severity)
+	case "layer_edge_removed":
+		return 30
+	case "dependency_removed":
+		return 20
+	default:
+		return 0
+	}
+}
+
+func severityImpactRank(severity string) int {
+	switch severity {
+	case string(model.SeverityCritical):
+		return 4
+	case string(model.SeverityHigh):
+		return 3
+	case string(model.SeverityMedium):
+		return 2
+	case string(model.SeverityLow):
+		return 1
+	default:
+		return 0
+	}
+}
+
+func humanFindingKind(kind model.FindingKind) string {
+	switch kind {
+	case model.FindingKindPolicyViolation:
+		return "policy violation"
+	case model.FindingKindDiscoveryHint:
+		return "discovery hint"
+	case model.FindingKindRefactorHint:
+		return "refactor hint"
+	case model.FindingKindReviewChange:
+		return "review change"
+	case model.FindingKindFactDiagnostic:
+		return "fact diagnostic"
+	default:
+		return "finding"
+	}
+}

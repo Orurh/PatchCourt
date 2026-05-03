@@ -16,6 +16,7 @@ import (
 type ReviewMarkdownResult struct {
 	Summary           app.ReviewSummary
 	Risk              risk.Score
+	Impact            app.ReviewImpactReport
 	ContractChanges   []contracts.SymbolChange
 	DependencyChanges []depdiff.DependencyChange
 	LayerEdgeChanges  []depdiff.LayerEdgeChange
@@ -32,6 +33,9 @@ func WriteReviewMarkdown(w io.Writer, result ReviewMarkdownResult) {
 	fmt.Fprintln(w)
 
 	writeMarkdownRiskReasons(w, result.Risk)
+	fmt.Fprintln(w)
+
+	writeMarkdownImpact(w, result.Impact)
 	fmt.Fprintln(w)
 
 	writeMarkdownFindingChanges(w, result.FindingChanges, result.AfterRoot, result.ConfigPath)
@@ -346,4 +350,43 @@ func shellQuote(value string) string {
 	}
 
 	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
+}
+
+func writeMarkdownImpact(w io.Writer, impact app.ReviewImpactReport) {
+	fmt.Fprintln(w, "## Architecture impact")
+	fmt.Fprintln(w)
+
+	writeMarkdownImpactSection(w, "### Worse", impact.Worse)
+	fmt.Fprintln(w)
+
+	writeMarkdownImpactSection(w, "### Better", impact.Better)
+}
+
+func writeMarkdownImpactSection(w io.Writer, title string, items []app.ReviewImpactItem) {
+	fmt.Fprintln(w, title)
+	fmt.Fprintln(w)
+
+	if len(items) == 0 {
+		fmt.Fprintln(w, "_None._")
+		return
+	}
+
+	for _, item := range items {
+		label := item.Title
+		if item.Severity != "" {
+			label = fmt.Sprintf("%s `%s`", label, item.Severity)
+		}
+
+		if item.ID != "" {
+			fmt.Fprintf(w, "- **%s:** `%s`", markdownTextEscape(label), markdownTextEscape(item.ID))
+		} else {
+			fmt.Fprintf(w, "- **%s**", markdownTextEscape(label))
+		}
+
+		if item.Detail != "" {
+			fmt.Fprintf(w, " — %s", markdownTextEscape(item.Detail))
+		}
+
+		fmt.Fprintln(w)
+	}
 }

@@ -63,18 +63,20 @@ func (r *Runner) renderReviewResult(format app.ReviewFormat, req app.ReviewReque
 		report.WriteReviewMarkdown(r.stdout, report.ReviewMarkdownResult{
 			Summary:           result.Summary,
 			Risk:              result.Risk,
+			Impact:            result.Impact,
 			ContractChanges:   result.ContractChanges,
 			DependencyChanges: result.DependencyChanges,
 			LayerEdgeChanges:  result.LayerEdgeChanges,
 			FindingChanges:    result.FindingChanges,
 			AfterRoot:         req.AfterRoot,
 			ConfigPath:        req.ConfigPath,
-		})
+		})	
 		return nil
 	case app.ReviewFormatText, "":
 		report.WriteReviewText(r.stdout, report.ReviewTextResult{
 			Summary:           result.Summary,
 			Risk:              result.Risk,
+			Impact:            result.Impact,
 			ContractChanges:   result.ContractChanges,
 			DependencyChanges: result.DependencyChanges,
 			LayerEdgeChanges:  result.LayerEdgeChanges,

@@ -42,6 +42,7 @@ type ReviewSummary struct {
 type ReviewResult struct {
 	Summary           ReviewSummary               `json:"summary"`
 	Risk              risk.Score                  `json:"risk"`
+	Impact            ReviewImpactReport          `json:"impact"`
 	ContractChanges   []contracts.SymbolChange    `json:"contract_changes"`
 	DependencyChanges []depdiff.DependencyChange  `json:"dependency_changes"`
 	LayerEdgeChanges  []depdiff.LayerEdgeChange   `json:"layer_edge_changes"`
@@ -74,14 +75,18 @@ func (a *App) RunReview(ctx context.Context, req ReviewRequest) (*ReviewResult, 
 		FindingChanges:    findingChanges,
 	})
 
-	return &ReviewResult{
+	result := &ReviewResult{
 		Summary:           buildReviewSummary(contractChanges, dependencyChanges, layerEdgeChanges, findingChanges),
 		Risk:              reviewRisk,
 		ContractChanges:   contractChanges,
 		DependencyChanges: dependencyChanges,
 		LayerEdgeChanges:  layerEdgeChanges,
 		FindingChanges:    findingChanges,
-	}, nil
+	}
+
+	result.Impact = BuildReviewImpactReport(result)
+
+	return result, nil
 }
 
 func buildReviewSummary(
