@@ -25,9 +25,11 @@ func BuildReviewImpactReport(result *ReviewResult, beforeProject *model.ProjectM
 		UnchangedDebt: make([]ReviewImpactItem, 0),
 	}
 
+	policyIndex := buildPolicyViolationEdgeIndex(afterProject)
+
 	report.Worse = append(report.Worse, worseFindingChanges(result.FindingChanges)...)
-	report.Worse = append(report.Worse, worseLayerEdgeChanges(result.LayerEdgeChanges)...)
-	report.Worse = append(report.Worse, worseDependencyChanges(result.DependencyChanges)...)
+	report.Worse = append(report.Worse, worseLayerEdgeChanges(result.LayerEdgeChanges, policyIndex)...)
+	report.Worse = append(report.Worse, worseDependencyChanges(result.DependencyChanges, policyIndex)...)
 	report.Worse = append(report.Worse, worseContractChanges(result.ContractChanges)...)
 
 	report.Better = append(report.Better, betterFindingChanges(result.FindingChanges)...)
@@ -85,26 +87,36 @@ func betterFindingChanges(changes []findingdiff.FindingChange) []ReviewImpactIte
 	return items
 }
 
-func worseLayerEdgeChanges(changes []depdiff.LayerEdgeChange) []ReviewImpactItem {
+func worseLayerEdgeChanges(changes []depdiff.LayerEdgeChange, policyIndex policyViolationEdgeIndex) []ReviewImpactItem {
 	items := make([]ReviewImpactItem, 0)
 
 	for _, change := range changes {
 		switch change.Kind {
 		case depdiff.DependencyChangeKindAdded:
+			if !isPolicyViolationLayerEdge(policyIndex, change.FromLayer, change.ToLayer) {
+				continue
+			}
+
 			items = append(items, ReviewImpactItem{
 				Kind:   "layer_edge_added",
-				Title:  "Added layer dependency",
+				Title:  "Added forbidden layer dependency",
 				Detail: fmt.Sprintf("%s -> %s (%d)", change.FromLayer, change.ToLayer, change.AfterCount),
 			})
 
 		case depdiff.DependencyChangeKindChanged:
-			if change.AfterCount > change.BeforeCount {
-				items = append(items, ReviewImpactItem{
-					Kind:   "layer_edge_increased",
-					Title:  "Increased layer dependency",
-					Detail: fmt.Sprintf("%s -> %s (%d -> %d)", change.FromLayer, change.ToLayer, change.BeforeCount, change.AfterCount),
-				})
+			if change.AfterCount <= change.BeforeCount {
+				continue
 			}
+
+			if !isPolicyViolationLayerEdge(policyIndex, change.FromLayer, change.ToLayer) {
+				continue
+			}
+
+			items = append(items, ReviewImpactItem{
+				Kind:   "layer_edge_increased",
+				Title:  "Increased forbidden layer dependency",
+				Detail: fmt.Sprintf("%s -> %s (%d -> %d)", change.FromLayer, change.ToLayer, change.BeforeCount, change.AfterCount),
+			})
 		}
 	}
 
@@ -137,7 +149,7 @@ func betterLayerEdgeChanges(changes []depdiff.LayerEdgeChange) []ReviewImpactIte
 	return items
 }
 
-func worseDependencyChanges(changes []depdiff.DependencyChange) []ReviewImpactItem {
+func worseDependencyChanges(changes []depdiff.DependencyChange, policyIndex policyViolationEdgeIndex) []ReviewImpactItem {
 	items := make([]ReviewImpactItem, 0)
 
 	for _, change := range changes {
@@ -150,9 +162,13 @@ func worseDependencyChanges(changes []depdiff.DependencyChange) []ReviewImpactIt
 			continue
 		}
 
+		if !isPolicyViolationDependency(policyIndex, *dep) {
+			continue
+		}
+
 		items = append(items, ReviewImpactItem{
 			Kind:   "dependency_added",
-			Title:  "Added dependency",
+			Title:  "Added forbidden dependency",
 			Detail: dependencyImpactDetail(*dep),
 			ID:     change.Key,
 		})

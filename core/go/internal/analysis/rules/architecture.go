@@ -2,6 +2,7 @@ package rules
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/orurh/patchcourt/internal/config"
@@ -52,8 +53,6 @@ func enrichDependencyLayers(project *model.ProjectModel) {
 }
 
 func checkLayerDependencies(project *model.ProjectModel, cfg *config.Config) []model.Finding {
-	findings := make([]model.Finding, 0)
-
 	ignoredFromFiles := make(map[string]bool, len(project.Files))
 	for _, file := range project.Files {
 		switch file.Role {
@@ -61,6 +60,8 @@ func checkLayerDependencies(project *model.ProjectModel, cfg *config.Config) []m
 			ignoredFromFiles[file.Path] = true
 		}
 	}
+
+	builders := make(map[string]*architectureFindingBuilder)
 
 	for _, dep := range project.Dependencies {
 		if dep.External || !dep.Resolved {
@@ -83,32 +84,151 @@ func checkLayerDependencies(project *model.ProjectModel, cfg *config.Config) []m
 			continue
 		}
 
-		message := fmt.Sprintf(
-			"includes %s, creating include dependency %s -> %s",
-			dep.Target,
-			dep.FromLayer,
-			dep.ToLayer,
-		)
+		id := fmt.Sprintf("architecture.%s.%s", dep.FromLayer, dep.ToLayer)
 
-		findings = append(findings, model.Finding{
-			ID:         fmt.Sprintf("architecture.%s.%s", dep.FromLayer, dep.ToLayer),
-			Kind:       model.FindingKindPolicyViolation,
-			Severity:   model.SeverityHigh,
-			Title:      "Include-level architecture boundary violation",
-			Confidence: model.ConfidenceHigh,
-			Risk: fmt.Sprintf(
-				"Layer %q includes a header from layer %q, which is not allowed by .patchcourt.yaml. For C++, this is a compile-time include dependency; actual symbol usage is not verified yet.",
-				dep.FromLayer,
-				dep.ToLayer,
-			),
-			Suggestion: "Move the dependency behind an allowed interface, remove the include if it is unused, replace it with a forward declaration if possible, or update the architecture rules if this dependency is intentional.",
-			Evidence: []model.Evidence{
-				model.DependencyEvidence(dep, message),
-			},
-		})
+		builder := builders[id]
+		if builder == nil {
+			builder = &architectureFindingBuilder{
+				id:        id,
+				fromLayer: dep.FromLayer,
+				toLayer:   dep.ToLayer,
+			}
+			builders[id] = builder
+		}
+
+		builder.addDependency(dep)
+	}
+
+	ids := make([]string, 0, len(builders))
+	for id := range builders {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+
+	findings := make([]model.Finding, 0, len(ids))
+	for _, id := range ids {
+		findings = append(findings, builders[id].finding())
 	}
 
 	return findings
+}
+
+type architectureFindingBuilder struct {
+	id        string
+	fromLayer string
+	toLayer   string
+	kinds     map[model.DependencyKind]struct{}
+	evidence  []model.Evidence
+}
+
+func (b *architectureFindingBuilder) addDependency(dep model.DependencyEdge) {
+	if b.kinds == nil {
+		b.kinds = make(map[model.DependencyKind]struct{})
+	}
+
+	b.kinds[dep.Kind] = struct{}{}
+	b.evidence = append(b.evidence, model.DependencyEvidence(dep, architectureEvidenceMessage(dep)))
+}
+
+func (b *architectureFindingBuilder) finding() model.Finding {
+	return model.Finding{
+		ID:         b.id,
+		Kind:       model.FindingKindPolicyViolation,
+		Severity:   model.SeverityHigh,
+		Title:      architectureFindingTitle(b.kinds),
+		Confidence: model.ConfidenceHigh,
+		Risk:       architectureRiskText(b.fromLayer, b.toLayer, b.kinds),
+		Suggestion: architectureSuggestionText(b.kinds),
+		Evidence:   b.evidence,
+	}
+}
+
+func architectureFindingTitle(kinds map[model.DependencyKind]struct{}) string {
+	if hasOnlyDependencyKind(kinds, model.DependencyKindImport) {
+		return "Import-level architecture boundary violation"
+	}
+
+	if hasOnlyDependencyKind(kinds, model.DependencyKindInclude) {
+		return "Include-level architecture boundary violation"
+	}
+
+	return "Architecture boundary violation"
+}
+
+func architectureRiskText(fromLayer string, toLayer string, kinds map[model.DependencyKind]struct{}) string {
+	if hasOnlyDependencyKind(kinds, model.DependencyKindImport) {
+		return fmt.Sprintf(
+			"Layer %q imports code from layer %q, which is not allowed by .patchcourt.yaml.",
+			fromLayer,
+			toLayer,
+		)
+	}
+
+	if hasOnlyDependencyKind(kinds, model.DependencyKindInclude) {
+		return fmt.Sprintf(
+			"Layer %q includes a header from layer %q, which is not allowed by .patchcourt.yaml. For C++, this is a compile-time include dependency; actual symbol usage is not verified yet.",
+			fromLayer,
+			toLayer,
+		)
+	}
+
+	return fmt.Sprintf(
+		"Layer %q depends on layer %q, which is not allowed by .patchcourt.yaml.",
+		fromLayer,
+		toLayer,
+	)
+}
+
+func architectureSuggestionText(kinds map[model.DependencyKind]struct{}) string {
+	if hasOnlyDependencyKind(kinds, model.DependencyKindImport) {
+		return "Move the dependency behind an allowed package boundary, introduce a lower-level shared package, or update the architecture rules if this dependency is intentional."
+	}
+
+	if hasOnlyDependencyKind(kinds, model.DependencyKindInclude) {
+		return "Move the dependency behind an allowed interface, remove the include if it is unused, replace it with a forward declaration if possible, or update the architecture rules if this dependency is intentional."
+	}
+
+	return "Move the dependency behind an allowed boundary, introduce a lower-level shared package/module, or update the architecture rules if this dependency is intentional."
+}
+
+func architectureEvidenceMessage(dep model.DependencyEdge) string {
+	target := dep.ToFile
+	if target == "" {
+		target = dep.Target
+	}
+
+	switch dep.Kind {
+	case model.DependencyKindImport:
+		return fmt.Sprintf(
+			"imports %s, creating forbidden layer dependency %s -> %s",
+			target,
+			dep.FromLayer,
+			dep.ToLayer,
+		)
+	case model.DependencyKindInclude:
+		return fmt.Sprintf(
+			"includes %s, creating forbidden layer dependency %s -> %s",
+			target,
+			dep.FromLayer,
+			dep.ToLayer,
+		)
+	default:
+		return fmt.Sprintf(
+			"depends on %s, creating forbidden layer dependency %s -> %s",
+			target,
+			dep.FromLayer,
+			dep.ToLayer,
+		)
+	}
+}
+
+func hasOnlyDependencyKind(kinds map[model.DependencyKind]struct{}, kind model.DependencyKind) bool {
+	if len(kinds) != 1 {
+		return false
+	}
+
+	_, ok := kinds[kind]
+	return ok
 }
 
 func detectLayer(filePath string, cfg *config.Config) string {

@@ -109,8 +109,17 @@ func layerEdgeEvidence(dep model.DependencyEdge) model.Evidence {
 		target = dep.Target
 	}
 
+	action := "depends on"
+	switch dep.Kind {
+	case model.DependencyKindImport:
+		action = "imports"
+	case model.DependencyKindInclude:
+		action = "includes"
+	}
+
 	message := fmt.Sprintf(
-		"includes %s, creating layer dependency %s -> %s",
+		"%s %s, creating layer dependency %s -> %s",
+		action,
 		target,
 		dep.FromLayer,
 		dep.ToLayer,

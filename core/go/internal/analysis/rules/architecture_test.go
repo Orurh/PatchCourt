@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/orurh/patchcourt/internal/config"
@@ -341,5 +342,104 @@ func TestApplyArchitectureRules_AttachesStructuredEdgeEvidence(t *testing.T) {
 
 	if evidence.FromFile != "src/server/api_router.cc" || evidence.ToFile != "src/cameras/sony.h" {
 		t.Fatalf("unexpected evidence files: %q -> %q", evidence.FromFile, evidence.ToFile)
+	}
+}
+
+func TestApplyArchitectureRules_AggregatesViolationsByLayerEdge(t *testing.T) {
+	project := &model.ProjectModel{
+		Files: []model.FileModel{
+			{Path: "internal/cli/root.go", Language: model.LanguageGo, Role: model.FileRoleProduction},
+			{Path: "internal/cli/service.go", Language: model.LanguageGo, Role: model.FileRoleProduction},
+			{Path: "internal/platform/logx/adapter.go", Language: model.LanguageGo, Role: model.FileRoleProduction},
+		},
+		Dependencies: []model.DependencyEdge{
+			{
+				FromFile: "internal/cli/root.go",
+				ToFile:   "internal/platform/logx/adapter.go",
+				Target:   "github.com/orurh/patchcourt/internal/platform/logx",
+				Kind:     model.DependencyKindImport,
+				Resolved: true,
+			},
+			{
+				FromFile: "internal/cli/service.go",
+				ToFile:   "internal/platform/logx/adapter.go",
+				Target:   "github.com/orurh/patchcourt/internal/platform/logx",
+				Kind:     model.DependencyKindImport,
+				Resolved: true,
+			},
+		},
+	}
+
+	cfg := &config.Config{
+		Layers: map[string]config.LayerConfig{
+			"cli": {
+				Paths:       []string{"internal/cli/**"},
+				MayDependOn: []string{},
+			},
+			"platform": {
+				Paths:       []string{"internal/platform/**"},
+				MayDependOn: []string{},
+			},
+		},
+	}
+
+	ApplyArchitectureRules(project, cfg)
+
+	if len(project.Findings) != 1 {
+		t.Fatalf("expected 1 aggregated finding, got %d: %#v", len(project.Findings), project.Findings)
+	}
+
+	finding := project.Findings[0]
+	if finding.ID != "architecture.cli.platform" {
+		t.Fatalf("unexpected finding id: %q", finding.ID)
+	}
+
+	if finding.Title != "Import-level architecture boundary violation" {
+		t.Fatalf("unexpected title: %q", finding.Title)
+	}
+
+	if strings.Contains(finding.Risk, "C++") || strings.Contains(finding.Risk, "header") {
+		t.Fatalf("Go import finding must not use C++ wording: %q", finding.Risk)
+	}
+
+	if len(finding.Evidence) != 2 {
+		t.Fatalf("expected 2 evidence items, got %d", len(finding.Evidence))
+	}
+}
+
+func TestApplyArchitectureRules_IgnoresGoTestFiles(t *testing.T) {
+	project := &model.ProjectModel{
+		Files: []model.FileModel{
+			{Path: "internal/cli/runner_test.go", Language: model.LanguageGo, Role: model.FileRoleTest},
+			{Path: "internal/platform/logx/adapter.go", Language: model.LanguageGo, Role: model.FileRoleProduction},
+		},
+		Dependencies: []model.DependencyEdge{
+			{
+				FromFile: "internal/cli/runner_test.go",
+				ToFile:   "internal/platform/logx/adapter.go",
+				Target:   "github.com/orurh/patchcourt/internal/platform/logx",
+				Kind:     model.DependencyKindImport,
+				Resolved: true,
+			},
+		},
+	}
+
+	cfg := &config.Config{
+		Layers: map[string]config.LayerConfig{
+			"cli": {
+				Paths:       []string{"internal/cli/**"},
+				MayDependOn: []string{},
+			},
+			"platform": {
+				Paths:       []string{"internal/platform/**"},
+				MayDependOn: []string{},
+			},
+		},
+	}
+
+	ApplyArchitectureRules(project, cfg)
+
+	if len(project.Findings) != 0 {
+		t.Fatalf("expected Go test dependency to be ignored, got %#v", project.Findings)
 	}
 }

@@ -48,7 +48,22 @@ func TestBuildReviewImpactReport_DoesNotPutNoisyAddedDependenciesInWorse(t *test
 		},
 	}
 
-	impact := BuildReviewImpactReport(result, nil, nil)
+	afterProject := &model.ProjectModel{
+		Findings: []model.Finding{
+			{
+				ID:   "architecture.cameras.domain",
+				Kind: model.FindingKindPolicyViolation,
+				Evidence: []model.Evidence{
+					{
+						FromLayer: "cameras",
+						ToLayer:   "domain",
+					},
+				},
+			},
+		},
+	}
+
+	impact := BuildReviewImpactReport(result, nil, afterProject)
 
 	require.Len(t, impact.Worse, 1)
 	require.Equal(t, "dependency_added", impact.Worse[0].Kind)
@@ -100,4 +115,28 @@ func TestBuildReviewImpactReport_DoesNotPutNoisyRemovedDependenciesInBetter(t *t
 	require.Len(t, impact.Better, 1)
 	require.Equal(t, "dependency_removed", impact.Better[0].Kind)
 	require.Equal(t, "include|src/domain/a.h|src/cameras/b.h", impact.Better[0].ID)
+}
+
+func TestBuildReviewImpactReport_DoesNotPutAllowedAddedCrossLayerDependencyInWorse(t *testing.T) {
+	result := &ReviewResult{
+		DependencyChanges: []depdiff.DependencyChange{
+			{
+				Kind: depdiff.DependencyChangeKindAdded,
+				Key:  "import|internal/app/check.go|internal/reportmodel/reportmodel.go",
+				After: &model.DependencyEdge{
+					FromFile:  "internal/app/check.go",
+					ToFile:    "internal/reportmodel/reportmodel.go",
+					Target:    "github.com/orurh/patchcourt/internal/reportmodel",
+					Kind:      model.DependencyKindImport,
+					FromLayer: "app",
+					ToLayer:   "reportmodel",
+					Resolved:  true,
+				},
+			},
+		},
+	}
+
+	impact := BuildReviewImpactReport(result, nil, &model.ProjectModel{})
+
+	require.Empty(t, impact.Worse)
 }
