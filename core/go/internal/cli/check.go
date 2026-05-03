@@ -2,9 +2,11 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/orurh/patchcourt/internal/app"
 	"github.com/orurh/patchcourt/internal/output/report"
@@ -14,6 +16,7 @@ import (
 type checkOptions struct {
 	configPath string
 	outDir     string
+	format     string
 }
 
 func (r *Runner) newCheckCommand(ctx context.Context, rootOpts *rootOptions) *cobra.Command {
@@ -42,21 +45,25 @@ func (r *Runner) newCheckCommand(ctx context.Context, rootOpts *rootOptions) *co
 
 			result.Artifacts = artifacts
 
-			report.WriteCheckText(r.stdout, report.CheckTextResult{
-				Root:       result.Root,
-				ConfigPath: result.ConfigPath,
-				OutDir:     result.OutDir,
-				Project:    result.Project,
-				Summary:    result.Summary,
-				LayerGraph: result.LayerGraph,
-				Artifacts:  checkTextArtifacts(artifacts),
-			})
-			return nil
+			checkReport := app.BuildCheckReport(result)
+
+			switch strings.ToLower(opts.format) {
+			case "", "text":
+				report.WriteCheckReportText(r.stdout, checkReport)
+				return nil
+			case "json":
+				encoder := json.NewEncoder(r.stdout)
+				encoder.SetIndent("", "  ")
+				return encoder.Encode(checkReport)
+			default:
+				return fmt.Errorf("unsupported check format %q", opts.format)
+			}
 		},
 	}
 
 	cmd.Flags().StringVar(&opts.configPath, "config", "", "path to .patchcourt.yaml")
 	cmd.Flags().StringVar(&opts.outDir, "out", "", "output directory for generated artifacts")
+	cmd.Flags().StringVar(&opts.format, "format", "text", "output format: text, json")
 
 	return cmd
 }
