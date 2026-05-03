@@ -8,6 +8,7 @@ import (
 	"github.com/orurh/patchcourt/internal/analysis/depdiff"
 	"github.com/orurh/patchcourt/internal/analysis/findingdiff"
 	"github.com/orurh/patchcourt/internal/analysis/risk"
+	"github.com/orurh/patchcourt/internal/changes"
 	"github.com/orurh/patchcourt/internal/model"
 )
 
@@ -66,25 +67,34 @@ func (a *App) RunReview(ctx context.Context, req ReviewRequest) (*ReviewResult, 
 		return nil, fmt.Errorf("review canceled after loading project models: %w", err)
 	}
 
-	contractChanges := contracts.DiffSymbols(beforeProject.Symbols, afterProject.Symbols)
-	dependencyChanges := depdiff.DiffDependencies(beforeProject.Dependencies, afterProject.Dependencies)
-	layerEdgeChanges := depdiff.DiffLayerEdges(beforeProject.Dependencies, afterProject.Dependencies)
-	findingChanges := findingdiff.DiffFindings(beforeProject.Findings, afterProject.Findings)
+	if req.UpdateState {
+		root := req.SinceLastRoot
+		if root == "" {
+			root = req.AfterRoot
+		}
 
-	reviewRisk := risk.Calculate(risk.Input{
-		ContractChanges:   contractChanges,
-		DependencyChanges: dependencyChanges,
-		LayerEdgeChanges:  layerEdgeChanges,
-		FindingChanges:    findingChanges,
-	})
+		if root == "" {
+			return nil, fmt.Errorf("--update-state requires --since-last or --after-root")
+		}
+
+		if _, err := changes.SaveState(changes.SaveStateOptions{
+			Root:       root,
+			ConfigPath: req.ConfigPath,
+			Project:    afterProject,
+		}); err != nil {
+			return nil, fmt.Errorf("update state: %w", err)
+		}
+	}
+
+	changeSet := changes.Compare(beforeProject, afterProject)
 
 	result := &ReviewResult{
-		Summary:           buildReviewSummary(contractChanges, dependencyChanges, layerEdgeChanges, findingChanges),
-		Risk:              reviewRisk,
-		ContractChanges:   contractChanges,
-		DependencyChanges: dependencyChanges,
-		LayerEdgeChanges:  layerEdgeChanges,
-		FindingChanges:    findingChanges,
+		Summary:           buildReviewSummary(changeSet.ContractChanges, changeSet.DependencyChanges, changeSet.LayerEdgeChanges, changeSet.FindingChanges),
+		Risk:              changeSet.Risk,
+		ContractChanges:   changeSet.ContractChanges,
+		DependencyChanges: changeSet.DependencyChanges,
+		LayerEdgeChanges:  changeSet.LayerEdgeChanges,
+		FindingChanges:    changeSet.FindingChanges,
 	}
 
 	result.Impact = BuildReviewImpactReport(result, beforeProject, afterProject)
