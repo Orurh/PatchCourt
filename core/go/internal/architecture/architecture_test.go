@@ -75,6 +75,33 @@ func TestCoreDoesNotWriteDirectlyToStdoutOrStderr(t *testing.T) {
 	require.Empty(t, violations, strings.Join(violations, "\n"))
 }
 
+func TestUsecaseSubpackagesDoNotDependOnRootFacade(t *testing.T) {
+	root := moduleRoot(t)
+
+	var violations []string
+
+	walkGoFiles(t, root, func(path string, rel string, data string) {
+		if !strings.HasPrefix(rel, "internal/usecase/") {
+			return
+		}
+
+		rest := strings.TrimPrefix(rel, "internal/usecase/")
+		if !strings.Contains(rest, "/") {
+			return
+		}
+
+		if strings.Contains(data, `"github.com/orurh/patchcourt/internal/usecase"`) {
+			violations = append(violations, rel+": imports root usecase facade")
+		}
+
+		if regexp.MustCompile(`\btype\s+App\b|\*App\b`).MatchString(data) {
+			violations = append(violations, rel+": depends on root App")
+		}
+	})
+
+	require.Empty(t, violations, strings.Join(violations, "\n"))
+}
+
 func moduleRoot(t *testing.T) string {
 	t.Helper()
 
