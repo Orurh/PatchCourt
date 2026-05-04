@@ -39,6 +39,7 @@ func WriteReviewHTML(w io.Writer, result reportmodel.ReviewResult) error {
 
 	writeReviewHTMLSummary(&b, result)
 	writeReviewHTMLImpact(&b, result.Impact)
+	writeReviewHTMLLayerImpactGraph(&b, result)
 	writeReviewHTMLChangedFiles(&b, "Changed files", result.ChangedFiles)
 	writeReviewHTMLRiskReasons(&b, result)
 	writeReviewHTMLCounts(&b, result)
@@ -107,6 +108,56 @@ func writeReviewHTMLImpactColumn(b *strings.Builder, title string, class string,
 	}
 	fmt.Fprintln(b, `</ul>`)
 	fmt.Fprintln(b, `</div>`)
+}
+
+func writeReviewHTMLLayerImpactGraph(b *strings.Builder, result reportmodel.ReviewResult) {
+	fmt.Fprintln(b, `<section class="card">`)
+	fmt.Fprintln(b, `<h2>Layer impact graph</h2>`)
+
+	if len(result.LayerEdgeChanges) == 0 {
+		fmt.Fprintln(b, `<p class="muted">No layer edge changes.</p>`)
+		fmt.Fprintln(b, `</section>`)
+		return
+	}
+
+	fmt.Fprintln(b, `<p class="muted">Mermaid graph of layer edges touched by this review.</p>`)
+	fmt.Fprintln(b, `<pre class="graph-block"><code>graph LR`)
+
+	for _, change := range result.LayerEdgeChanges {
+		if change.FromLayer == "" || change.ToLayer == "" {
+			continue
+		}
+
+		from := mermaidNodeID(change.FromLayer)
+		to := mermaidNodeID(change.ToLayer)
+
+		fmt.Fprintf(b, `  %s["%s"] --> %s["%s"]`, from, escape(change.FromLayer), to, escape(change.ToLayer))
+
+		if string(change.Kind) != "" {
+			fmt.Fprintf(b, `:::edge_%s`, htmlClass(string(change.Kind)))
+		}
+
+		fmt.Fprintln(b)
+	}
+
+	fmt.Fprintln(b, `</code></pre>`)
+	fmt.Fprintln(b, `</section>`)
+}
+
+func mermaidNodeID(value string) string {
+	var b strings.Builder
+	b.WriteString("n_")
+
+	for _, r := range value {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+			continue
+		}
+
+		b.WriteRune('_')
+	}
+
+	return b.String()
 }
 
 func writeReviewHTMLChangedFiles(b *strings.Builder, title string, files []string) {
@@ -307,6 +358,18 @@ code {
   background: #f1f5f9;
   border-radius: 6px;
   padding: 2px 5px;
+}
+.graph-block {
+  overflow: auto;
+  background: #0f172a;
+  color: #e5e7eb;
+  border-radius: 14px;
+  padding: 16px;
+}
+.graph-block code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
 }
 .file-list {
   columns: 2;

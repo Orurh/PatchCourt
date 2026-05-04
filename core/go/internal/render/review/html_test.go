@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"testing"
 
+	depdiff "github.com/orurh/patchcourt/internal/diff/dep"
 	"github.com/orurh/patchcourt/internal/reportmodel"
 	"github.com/stretchr/testify/require"
 )
@@ -23,6 +24,14 @@ func TestWriteReviewHTML_RendersRiskImpactAndChangedFiles(t *testing.T) {
 		ChangedFiles: []string{
 			"src/api/router.cc",
 			"src/cameras/sony.h",
+		},
+		LayerEdgeChanges: []depdiff.LayerEdgeChange{
+			{
+				Kind:       depdiff.DependencyChangeKindAdded,
+				FromLayer:  "api",
+				ToLayer:    "cameras",
+				AfterCount: 1,
+			},
 		},
 		Impact: reportmodel.ReviewImpactReport{
 			Worse: []reportmodel.ReviewImpactItem{
@@ -50,6 +59,10 @@ func TestWriteReviewHTML_RendersRiskImpactAndChangedFiles(t *testing.T) {
 	require.Contains(t, got, "PatchCourt")
 	require.Contains(t, got, "Review report")
 	require.Contains(t, got, "Architecture impact")
+	require.Contains(t, got, "Layer impact graph")
+	require.Contains(t, got, "graph LR")
+	require.Contains(t, got, `api`)
+	require.Contains(t, got, `cameras`)
 	require.Contains(t, got, "Worse")
 	require.Contains(t, got, "Better")
 	require.Contains(t, got, "Unchanged debt")
@@ -64,6 +77,14 @@ func TestWriteReviewHTML_EscapesHTML(t *testing.T) {
 
 	err := WriteReviewHTML(&out, reportmodel.ReviewResult{
 		ChangedFiles: []string{`src/<script>.cc`},
+		LayerEdgeChanges: []depdiff.LayerEdgeChange{
+			{
+				Kind:       depdiff.DependencyChangeKindAdded,
+				FromLayer:  "api",
+				ToLayer:    "cameras",
+				AfterCount: 1,
+			},
+		},
 		Impact: reportmodel.ReviewImpactReport{
 			Worse: []reportmodel.ReviewImpactItem{
 				{
