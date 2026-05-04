@@ -3,7 +3,7 @@ package projectdiff
 import (
 	"testing"
 
-	"github.com/orurh/patchcourt/internal/analysis/depdiff"
+	"github.com/orurh/patchcourt/internal/diff/dep"
 	"github.com/orurh/patchcourt/internal/model"
 	"github.com/stretchr/testify/require"
 )

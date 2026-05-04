@@ -2,11 +2,11 @@ package reportmodel
 
 import (
 	"github.com/orurh/patchcourt/internal/analysis/contracts"
-	"github.com/orurh/patchcourt/internal/analysis/depdiff"
 	"github.com/orurh/patchcourt/internal/analysis/findingdiff"
 	graphmodel "github.com/orurh/patchcourt/internal/analysis/graph"
 	"github.com/orurh/patchcourt/internal/analysis/risk"
 	"github.com/orurh/patchcourt/internal/config"
+	"github.com/orurh/patchcourt/internal/diff/dep"
 	"github.com/orurh/patchcourt/internal/model"
 )
 

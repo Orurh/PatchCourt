@@ -6,8 +6,8 @@ import (
 	"sort"
 
 	"github.com/orurh/patchcourt/internal/analysis/contracts"
-	"github.com/orurh/patchcourt/internal/analysis/depdiff"
 	"github.com/orurh/patchcourt/internal/analysis/findingdiff"
+	"github.com/orurh/patchcourt/internal/diff/dep"
 	"github.com/orurh/patchcourt/internal/model"
 )
 
