@@ -1,4 +1,4 @@
-package changes
+package projectdiff
 
 import (
 	"testing"

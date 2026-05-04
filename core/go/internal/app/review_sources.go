@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/orurh/patchcourt/internal/changes"
 	"github.com/orurh/patchcourt/internal/model"
+	"github.com/orurh/patchcourt/internal/source"
 )
 
 func (a *App) loadReviewProjects(ctx context.Context, req ReviewRequest) (*model.ProjectModel, *model.ProjectModel, []string, error) {
@@ -14,7 +14,7 @@ func (a *App) loadReviewProjects(ctx context.Context, req ReviewRequest) (*model
 			return nil, nil, nil, fmt.Errorf("--worktree cannot be combined with --head")
 		}
 
-		gitPair, err := changes.NewGitBaseToWorktreeSourcePair(ctx, changes.GitBaseToWorktreeSourcePairOptions{
+		gitPair, err := source.NewGitBaseToWorktreeSourcePair(ctx, source.GitBaseToWorktreeSourcePairOptions{
 			Root:       req.GitRoot,
 			BaseRef:    req.BaseRef,
 			ConfigPath: req.ConfigPath,
@@ -27,7 +27,7 @@ func (a *App) loadReviewProjects(ctx context.Context, req ReviewRequest) (*model
 			_ = gitPair.Cleanup(context.Background())
 		}()
 
-		beforeProject, afterProject, err := changes.LoadPair(ctx, gitPair.Pair)
+		beforeProject, afterProject, err := source.LoadPair(ctx, gitPair.Pair)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -36,7 +36,7 @@ func (a *App) loadReviewProjects(ctx context.Context, req ReviewRequest) (*model
 	}
 
 	if req.BaseRef != "" || req.HeadRef != "" {
-		gitPair, err := changes.NewGitReviewSourcePair(ctx, changes.GitReviewSourcePairOptions{
+		gitPair, err := source.NewGitReviewSourcePair(ctx, source.GitReviewSourcePairOptions{
 			Root:       req.GitRoot,
 			BaseRef:    req.BaseRef,
 			HeadRef:    req.HeadRef,
@@ -50,7 +50,7 @@ func (a *App) loadReviewProjects(ctx context.Context, req ReviewRequest) (*model
 			_ = gitPair.Cleanup(context.Background())
 		}()
 
-		beforeProject, afterProject, err := changes.LoadPair(ctx, gitPair.Pair)
+		beforeProject, afterProject, err := source.LoadPair(ctx, gitPair.Pair)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -63,7 +63,7 @@ func (a *App) loadReviewProjects(ctx context.Context, req ReviewRequest) (*model
 		return nil, nil, nil, err
 	}
 
-	beforeProject, afterProject, err := changes.LoadPair(ctx, pair)
+	beforeProject, afterProject, err := source.LoadPair(ctx, pair)
 	if err != nil {
 		if req.SinceLastRoot != "" {
 			return nil, nil, nil, fmt.Errorf("%w. Run `patchcourt check %s --save-state` first", err, req.SinceLastRoot)
@@ -75,13 +75,13 @@ func (a *App) loadReviewProjects(ctx context.Context, req ReviewRequest) (*model
 	return beforeProject, afterProject, nil, nil
 }
 
-func (a *App) reviewSourcePair(req ReviewRequest) (changes.SourcePair, error) {
+func (a *App) reviewSourcePair(req ReviewRequest) (source.SourcePair, error) {
 	if req.SinceLastRoot != "" {
-		return changes.SourcePair{
-			Before: changes.StateSource{
+		return source.SourcePair{
+			Before: source.StateSource{
 				Root: req.SinceLastRoot,
 			},
-			After: changes.RootSource{
+			After: source.RootSource{
 				Root:       req.SinceLastRoot,
 				ConfigPath: req.ConfigPath,
 				Operation:  "review-since-last",
@@ -92,39 +92,39 @@ func (a *App) reviewSourcePair(req ReviewRequest) (changes.SourcePair, error) {
 
 	if req.BeforePath != "" || req.AfterPath != "" {
 		if req.BeforePath == "" {
-			return changes.SourcePair{}, fmt.Errorf("before project model path is required")
+			return source.SourcePair{}, fmt.Errorf("before project model path is required")
 		}
 
 		if req.AfterPath == "" {
-			return changes.SourcePair{}, fmt.Errorf("after project model path is required")
+			return source.SourcePair{}, fmt.Errorf("after project model path is required")
 		}
 
-		return changes.SourcePair{
-			Before: changes.SnapshotSource{
+		return source.SourcePair{
+			Before: source.SnapshotSource{
 				Path: req.BeforePath,
 			},
-			After: changes.SnapshotSource{
+			After: source.SnapshotSource{
 				Path: req.AfterPath,
 			},
 		}, nil
 	}
 
 	if req.BeforeRoot == "" {
-		return changes.SourcePair{}, fmt.Errorf("before root is required")
+		return source.SourcePair{}, fmt.Errorf("before root is required")
 	}
 
 	if req.AfterRoot == "" {
-		return changes.SourcePair{}, fmt.Errorf("after root is required")
+		return source.SourcePair{}, fmt.Errorf("after root is required")
 	}
 
-	return changes.SourcePair{
-		Before: changes.RootSource{
+	return source.SourcePair{
+		Before: source.RootSource{
 			Root:       req.BeforeRoot,
 			ConfigPath: req.ConfigPath,
 			Operation:  "review-before",
 			Analyzer:   a.analysis,
 		},
-		After: changes.RootSource{
+		After: source.RootSource{
 			Root:       req.AfterRoot,
 			ConfigPath: req.ConfigPath,
 			Operation:  "review-after",

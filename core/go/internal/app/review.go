@@ -9,7 +9,7 @@ import (
 	"github.com/orurh/patchcourt/internal/analysis/depdiff"
 	"github.com/orurh/patchcourt/internal/analysis/findingdiff"
 	"github.com/orurh/patchcourt/internal/analysis/risk"
-	"github.com/orurh/patchcourt/internal/changes"
+	projectdiff "github.com/orurh/patchcourt/internal/diff/project"
 	"github.com/orurh/patchcourt/internal/model"
 	"github.com/orurh/patchcourt/internal/state"
 )
@@ -75,8 +75,8 @@ func (a *App) RunReview(ctx context.Context, req ReviewRequest) (*ReviewResult, 
 		}
 	}
 
-	changeSet := changes.Compare(beforeProject, afterProject)
-	changeSet.ChangedFiles = changes.MergeChangedFiles(changeSet.ChangedFiles, gitChangedFiles)
+	changeSet := projectdiff.Compare(beforeProject, afterProject)
+	changeSet.ChangedFiles = projectdiff.MergeChangedFiles(changeSet.ChangedFiles, gitChangedFiles)
 	policyIndex := buildPolicyViolationEdgeIndex(afterProject)
 	reviewRisk := risk.Calculate(risk.Input{
 		ContractChanges:   changeSet.ContractChanges,
