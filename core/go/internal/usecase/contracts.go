@@ -1,11 +1,7 @@
 package usecase
 
-import (
-	"context"
+import "github.com/orurh/patchcourt/internal/usecase/ports"
 
-	"github.com/orurh/patchcourt/internal/engine"
-)
-
-type AnalysisService interface {
-	Analyze(ctx context.Context, req engine.AnalyzeRequest) (*engine.AnalyzeResult, error)
-}
+// AnalysisService is kept as a compatibility alias for the current usecase facade.
+// New split usecase packages should depend on ports.AnalysisService directly.
+type AnalysisService = ports.AnalysisService

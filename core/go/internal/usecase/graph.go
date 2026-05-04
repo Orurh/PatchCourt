@@ -28,8 +28,20 @@ type GraphResult struct {
 	LayerGraph graphmodel.LayerGraph
 }
 
-func (a *App) RunGraph(ctx context.Context, req GraphRequest) (*GraphResult, error) {
-	result, err := a.buildProject(ctx, buildProjectRequest{
+type GraphService struct {
+	Projects ProjectBuilder
+	Logger   logx.Logger
+}
+
+func NewGraphService(projects ProjectBuilder, logger logx.Logger) GraphService {
+	return GraphService{
+		Projects: projects,
+		Logger:   logger,
+	}
+}
+
+func (s GraphService) Run(ctx context.Context, req GraphRequest) (*GraphResult, error) {
+	result, err := s.Projects.Build(ctx, buildProjectRequest{
 		Operation:  "graph",
 		Root:       req.Root,
 		ConfigPath: req.ConfigPath,
@@ -40,15 +52,21 @@ func (a *App) RunGraph(ctx context.Context, req GraphRequest) (*GraphResult, err
 
 	layerGraph := graphmodel.BuildLayerGraph(result.Project, result.Config)
 
-	a.logger.Debug(
-		"graph completed",
-		logx.Int("nodes", len(layerGraph.Nodes)),
-		logx.Int("edges", len(layerGraph.Edges)),
-	)
+	if s.Logger != nil {
+		s.Logger.Debug(
+			"graph completed",
+			logx.Int("nodes", len(layerGraph.Nodes)),
+			logx.Int("edges", len(layerGraph.Edges)),
+		)
+	}
 
 	return &GraphResult{
 		Project:    result.Project,
 		Config:     result.Config,
 		LayerGraph: layerGraph,
 	}, nil
+}
+
+func (a *App) RunGraph(ctx context.Context, req GraphRequest) (*GraphResult, error) {
+	return NewGraphService(NewProjectBuilder(a.analysis), a.logger).Run(ctx, req)
 }

@@ -3,9 +3,9 @@ package usecase
 import (
 	"context"
 	"fmt"
-	"github.com/orurh/patchcourt/internal/reportmodel"
 
 	"github.com/orurh/patchcourt/internal/model"
+	"github.com/orurh/patchcourt/internal/reportmodel"
 	"github.com/orurh/patchcourt/internal/state"
 )
 
@@ -29,7 +29,17 @@ type EdgeRequest struct {
 	Limit      int    `json:"limit,omitempty"`
 }
 
-func (a *App) RunEdge(ctx context.Context, req EdgeRequest) (*EdgeResult, error) {
+type EdgeService struct {
+	Projects ProjectBuilder
+}
+
+func NewEdgeService(projects ProjectBuilder) EdgeService {
+	return EdgeService{
+		Projects: projects,
+	}
+}
+
+func (s EdgeService) Run(ctx context.Context, req EdgeRequest) (*EdgeResult, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("edge canceled before start: %w", err)
 	}
@@ -42,7 +52,7 @@ func (a *App) RunEdge(ctx context.Context, req EdgeRequest) (*EdgeResult, error)
 		return nil, fmt.Errorf("to layer is required")
 	}
 
-	project, source, err := a.loadEdgeProject(ctx, req)
+	project, source, err := s.loadProject(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +66,7 @@ func (a *App) RunEdge(ctx context.Context, req EdgeRequest) (*EdgeResult, error)
 	}), nil
 }
 
-func (a *App) loadEdgeProject(ctx context.Context, req EdgeRequest) (*model.ProjectModel, string, error) {
+func (s EdgeService) loadProject(ctx context.Context, req EdgeRequest) (*model.ProjectModel, string, error) {
 	if req.ModelPath != "" {
 		project, err := state.ReadProjectModel(req.ModelPath)
 		if err != nil {
@@ -71,7 +81,7 @@ func (a *App) loadEdgeProject(ctx context.Context, req EdgeRequest) (*model.Proj
 		root = "."
 	}
 
-	result, err := a.buildProject(ctx, buildProjectRequest{
+	result, err := s.Projects.Build(ctx, buildProjectRequest{
 		Operation:  "edge",
 		Root:       root,
 		ConfigPath: req.ConfigPath,
@@ -81,4 +91,8 @@ func (a *App) loadEdgeProject(ctx context.Context, req EdgeRequest) (*model.Proj
 	}
 
 	return result.Project, root, nil
+}
+
+func (a *App) RunEdge(ctx context.Context, req EdgeRequest) (*EdgeResult, error) {
+	return NewEdgeService(NewProjectBuilder(a.analysis)).Run(ctx, req)
 }

@@ -6,9 +6,20 @@ import (
 
 	"github.com/orurh/patchcourt/internal/model"
 	"github.com/orurh/patchcourt/internal/source"
+	"github.com/orurh/patchcourt/internal/usecase/ports"
 )
 
-func (a *App) loadReviewProjects(ctx context.Context, req ReviewRequest) (*model.ProjectModel, *model.ProjectModel, []string, error) {
+type ReviewProjectLoader struct {
+	Analysis ports.AnalysisService
+}
+
+func NewReviewProjectLoader(analysis ports.AnalysisService) ReviewProjectLoader {
+	return ReviewProjectLoader{
+		Analysis: analysis,
+	}
+}
+
+func (l ReviewProjectLoader) LoadProjects(ctx context.Context, req ReviewRequest) (*model.ProjectModel, *model.ProjectModel, []string, error) {
 	if req.Worktree {
 		if req.HeadRef != "" {
 			return nil, nil, nil, fmt.Errorf("--worktree cannot be combined with --head")
@@ -18,7 +29,7 @@ func (a *App) loadReviewProjects(ctx context.Context, req ReviewRequest) (*model
 			Root:       req.GitRoot,
 			BaseRef:    req.BaseRef,
 			ConfigPath: req.ConfigPath,
-			Analyzer:   a.analysis,
+			Analyzer:   l.Analysis,
 		})
 		if err != nil {
 			return nil, nil, nil, err
@@ -41,7 +52,7 @@ func (a *App) loadReviewProjects(ctx context.Context, req ReviewRequest) (*model
 			BaseRef:    req.BaseRef,
 			HeadRef:    req.HeadRef,
 			ConfigPath: req.ConfigPath,
-			Analyzer:   a.analysis,
+			Analyzer:   l.Analysis,
 		})
 		if err != nil {
 			return nil, nil, nil, err
@@ -58,7 +69,7 @@ func (a *App) loadReviewProjects(ctx context.Context, req ReviewRequest) (*model
 		return beforeProject, afterProject, gitPair.ChangedFiles, nil
 	}
 
-	pair, err := a.reviewSourcePair(req)
+	pair, err := l.SourcePair(req)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -75,7 +86,7 @@ func (a *App) loadReviewProjects(ctx context.Context, req ReviewRequest) (*model
 	return beforeProject, afterProject, nil, nil
 }
 
-func (a *App) reviewSourcePair(req ReviewRequest) (source.SourcePair, error) {
+func (l ReviewProjectLoader) SourcePair(req ReviewRequest) (source.SourcePair, error) {
 	if req.SinceLastRoot != "" {
 		return source.SourcePair{
 			Before: source.StateSource{
@@ -85,7 +96,7 @@ func (a *App) reviewSourcePair(req ReviewRequest) (source.SourcePair, error) {
 				Root:       req.SinceLastRoot,
 				ConfigPath: req.ConfigPath,
 				Operation:  "review-since-last",
-				Analyzer:   a.analysis,
+				Analyzer:   l.Analysis,
 			},
 		}, nil
 	}
@@ -122,13 +133,13 @@ func (a *App) reviewSourcePair(req ReviewRequest) (source.SourcePair, error) {
 			Root:       req.BeforeRoot,
 			ConfigPath: req.ConfigPath,
 			Operation:  "review-before",
-			Analyzer:   a.analysis,
+			Analyzer:   l.Analysis,
 		},
 		After: source.RootSource{
 			Root:       req.AfterRoot,
 			ConfigPath: req.ConfigPath,
 			Operation:  "review-after",
-			Analyzer:   a.analysis,
+			Analyzer:   l.Analysis,
 		},
 	}, nil
 }

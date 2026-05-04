@@ -3,12 +3,12 @@ package usecase
 import (
 	"context"
 	"fmt"
-	"github.com/orurh/patchcourt/internal/reportmodel"
 	"path/filepath"
 
 	graphmodel "github.com/orurh/patchcourt/internal/analyzer/graph"
 	"github.com/orurh/patchcourt/internal/model"
 	"github.com/orurh/patchcourt/internal/platform/logx"
+	"github.com/orurh/patchcourt/internal/reportmodel"
 	"github.com/orurh/patchcourt/internal/state"
 )
 
@@ -22,7 +22,19 @@ type CheckRequest struct {
 	SaveState  bool
 }
 
-func (a *App) RunCheck(ctx context.Context, req CheckRequest) (*CheckResult, error) {
+type CheckService struct {
+	Scan   ScanService
+	Logger logx.Logger
+}
+
+func NewCheckService(scan ScanService, logger logx.Logger) CheckService {
+	return CheckService{
+		Scan:   scan,
+		Logger: logger,
+	}
+}
+
+func (s CheckService) Run(ctx context.Context, req CheckRequest) (*CheckResult, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("check canceled before start: %w", err)
 	}
@@ -46,14 +58,16 @@ func (a *App) RunCheck(ctx context.Context, req CheckRequest) (*CheckResult, err
 		outDir = filepath.Join(absRoot, outDir)
 	}
 
-	a.logger.Debug(
-		"running check",
-		logx.String("root", absRoot),
-		logx.String("config_path", req.ConfigPath),
-		logx.String("out_dir", outDir),
-	)
+	if s.Logger != nil {
+		s.Logger.Debug(
+			"running check",
+			logx.String("root", absRoot),
+			logx.String("config_path", req.ConfigPath),
+			logx.String("out_dir", outDir),
+		)
+	}
 
-	scanResult, err := a.RunScan(ctx, ScanRequest{
+	scanResult, err := s.Scan.Run(ctx, ScanRequest{
 		Root:       absRoot,
 		ConfigPath: req.ConfigPath,
 	})
@@ -82,12 +96,14 @@ func (a *App) RunCheck(ctx context.Context, req CheckRequest) (*CheckResult, err
 		statePath = filepath.Join(state.StateDir(absRoot, state.LatestStateName), "project-model.json")
 	}
 
-	a.logger.Debug(
-		"check completed",
-		logx.Int("findings", len(scanResult.Project.Findings)),
-		logx.Int("graph_nodes", len(layerGraph.Nodes)),
-		logx.Int("graph_edges", len(layerGraph.Edges)),
-	)
+	if s.Logger != nil {
+		s.Logger.Debug(
+			"check completed",
+			logx.Int("findings", len(scanResult.Project.Findings)),
+			logx.Int("graph_nodes", len(layerGraph.Nodes)),
+			logx.Int("graph_edges", len(layerGraph.Edges)),
+		)
+	}
 
 	return &CheckResult{
 		Root:       absRoot,
@@ -99,4 +115,11 @@ func (a *App) RunCheck(ctx context.Context, req CheckRequest) (*CheckResult, err
 		LayerGraph: layerGraph,
 		Summary:    summary,
 	}, nil
+}
+
+func (a *App) RunCheck(ctx context.Context, req CheckRequest) (*CheckResult, error) {
+	projects := NewProjectBuilder(a.analysis)
+	scan := NewScanService(projects)
+
+	return NewCheckService(scan, a.logger).Run(ctx, req)
 }

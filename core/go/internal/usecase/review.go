@@ -3,13 +3,13 @@ package usecase
 import (
 	"context"
 	"fmt"
-	"github.com/orurh/patchcourt/internal/reportmodel"
 
 	"github.com/orurh/patchcourt/internal/diff/contract"
 	"github.com/orurh/patchcourt/internal/diff/dep"
 	"github.com/orurh/patchcourt/internal/diff/finding"
 	projectdiff "github.com/orurh/patchcourt/internal/diff/project"
 	"github.com/orurh/patchcourt/internal/model"
+	"github.com/orurh/patchcourt/internal/reportmodel"
 	"github.com/orurh/patchcourt/internal/reviewrisk"
 	"github.com/orurh/patchcourt/internal/state"
 )
@@ -42,12 +42,22 @@ type ReviewRequest struct {
 	Worktree bool
 }
 
-func (a *App) RunReview(ctx context.Context, req ReviewRequest) (*ReviewResult, error) {
+type ReviewService struct {
+	Projects ReviewProjectLoader
+}
+
+func NewReviewService(projects ReviewProjectLoader) ReviewService {
+	return ReviewService{
+		Projects: projects,
+	}
+}
+
+func (s ReviewService) Run(ctx context.Context, req ReviewRequest) (*ReviewResult, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("review canceled before start: %w", err)
 	}
 
-	beforeProject, afterProject, gitChangedFiles, err := a.loadReviewProjects(ctx, req)
+	beforeProject, afterProject, gitChangedFiles, err := s.Projects.LoadProjects(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -77,6 +87,7 @@ func (a *App) RunReview(ctx context.Context, req ReviewRequest) (*ReviewResult, 
 
 	changeSet := projectdiff.Compare(beforeProject, afterProject)
 	changeSet.ChangedFiles = projectdiff.MergeChangedFiles(changeSet.ChangedFiles, gitChangedFiles)
+
 	policyIndex := buildPolicyViolationEdgeIndex(afterProject)
 	reviewRisk := risk.Calculate(risk.Input{
 		ContractChanges:   changeSet.ContractChanges,
@@ -99,6 +110,10 @@ func (a *App) RunReview(ctx context.Context, req ReviewRequest) (*ReviewResult, 
 	result.Impact = BuildReviewImpactReport(result, beforeProject, afterProject)
 
 	return result, nil
+}
+
+func (a *App) RunReview(ctx context.Context, req ReviewRequest) (*ReviewResult, error) {
+	return NewReviewService(NewReviewProjectLoader(a.analysis)).Run(ctx, req)
 }
 
 func buildReviewSummary(

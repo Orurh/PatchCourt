@@ -3,9 +3,9 @@ package usecase
 import (
 	"context"
 	"fmt"
-	"github.com/orurh/patchcourt/internal/reportmodel"
 
 	"github.com/orurh/patchcourt/internal/model"
+	"github.com/orurh/patchcourt/internal/reportmodel"
 	"github.com/orurh/patchcourt/internal/state"
 )
 
@@ -25,7 +25,17 @@ type ExplainRequest struct {
 	ModelPath  string
 }
 
-func (a *App) RunExplain(ctx context.Context, req ExplainRequest) (*ExplainResult, error) {
+type ExplainService struct {
+	Projects ProjectBuilder
+}
+
+func NewExplainService(projects ProjectBuilder) ExplainService {
+	return ExplainService{
+		Projects: projects,
+	}
+}
+
+func (s ExplainService) Run(ctx context.Context, req ExplainRequest) (*ExplainResult, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("explain canceled before start: %w", err)
 	}
@@ -34,7 +44,7 @@ func (a *App) RunExplain(ctx context.Context, req ExplainRequest) (*ExplainResul
 		return nil, fmt.Errorf("finding id is required")
 	}
 
-	project, source, err := a.loadExplainProject(ctx, req)
+	project, source, err := s.loadProject(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +60,7 @@ func (a *App) RunExplain(ctx context.Context, req ExplainRequest) (*ExplainResul
 	}, nil
 }
 
-func (a *App) loadExplainProject(ctx context.Context, req ExplainRequest) (*model.ProjectModel, string, error) {
+func (s ExplainService) loadProject(ctx context.Context, req ExplainRequest) (*model.ProjectModel, string, error) {
 	if req.ModelPath != "" {
 		project, err := state.ReadProjectModel(req.ModelPath)
 		if err != nil {
@@ -65,7 +75,7 @@ func (a *App) loadExplainProject(ctx context.Context, req ExplainRequest) (*mode
 		root = "."
 	}
 
-	result, err := a.buildProject(ctx, buildProjectRequest{
+	result, err := s.Projects.Build(ctx, buildProjectRequest{
 		Operation:  "explain",
 		Root:       root,
 		ConfigPath: req.ConfigPath,
@@ -75,6 +85,10 @@ func (a *App) loadExplainProject(ctx context.Context, req ExplainRequest) (*mode
 	}
 
 	return result.Project, root, nil
+}
+
+func (a *App) RunExplain(ctx context.Context, req ExplainRequest) (*ExplainResult, error) {
+	return NewExplainService(NewProjectBuilder(a.analysis)).Run(ctx, req)
 }
 
 func findProjectFinding(findings []model.Finding, id string) (model.Finding, bool) {

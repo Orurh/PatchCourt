@@ -26,7 +26,17 @@ type InitResult struct {
 	Written    bool
 }
 
-func (a *App) RunInit(ctx context.Context, req InitRequest) (*InitResult, error) {
+type InitService struct {
+	Logger logx.Logger
+}
+
+func NewInitService(logger logx.Logger) InitService {
+	return InitService{
+		Logger: logger,
+	}
+}
+
+func (s InitService) Run(ctx context.Context, req InitRequest) (*InitResult, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("init canceled before start: %w", err)
 	}
@@ -41,7 +51,12 @@ func (a *App) RunInit(ctx context.Context, req InitRequest) (*InitResult, error)
 		return nil, fmt.Errorf("resolve root: %w", err)
 	}
 
-	logger := a.logger.With(
+	logger := logx.Nop()
+	if s.Logger != nil {
+		logger = s.Logger
+	}
+
+	logger = logger.With(
 		logx.String("operation", "init"),
 		logx.String("root", absRoot),
 		logx.String("preset", req.Preset),
@@ -95,4 +110,8 @@ func (a *App) RunInit(ctx context.Context, req InitRequest) (*InitResult, error)
 	initResult.Written = true
 
 	return initResult, nil
+}
+
+func (a *App) RunInit(ctx context.Context, req InitRequest) (*InitResult, error) {
+	return NewInitService(a.logger).Run(ctx, req)
 }

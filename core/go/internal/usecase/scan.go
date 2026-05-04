@@ -11,13 +11,14 @@ type ScanFormat string
 
 const (
 	ScanFormatText     ScanFormat = "text"
-	ScanFormatMarkdown ScanFormat = "markdown"
 	ScanFormatJSON     ScanFormat = "json"
+	ScanFormatMarkdown ScanFormat = "markdown"
 )
 
 type ScanRequest struct {
 	Root       string
 	ConfigPath string
+	Format     ScanFormat
 }
 
 type ScanResult struct {
@@ -25,8 +26,18 @@ type ScanResult struct {
 	Config  *config.Config
 }
 
-func (a *App) RunScan(ctx context.Context, req ScanRequest) (*ScanResult, error) {
-	result, err := a.buildProject(ctx, buildProjectRequest{
+type ScanService struct {
+	Projects ProjectBuilder
+}
+
+func NewScanService(projects ProjectBuilder) ScanService {
+	return ScanService{
+		Projects: projects,
+	}
+}
+
+func (s ScanService) Run(ctx context.Context, req ScanRequest) (*ScanResult, error) {
+	result, err := s.Projects.Build(ctx, buildProjectRequest{
 		Operation:  "scan",
 		Root:       req.Root,
 		ConfigPath: req.ConfigPath,
@@ -39,4 +50,8 @@ func (a *App) RunScan(ctx context.Context, req ScanRequest) (*ScanResult, error)
 		Project: result.Project,
 		Config:  result.Config,
 	}, nil
+}
+
+func (a *App) RunScan(ctx context.Context, req ScanRequest) (*ScanResult, error) {
+	return NewScanService(NewProjectBuilder(a.analysis)).Run(ctx, req)
 }
