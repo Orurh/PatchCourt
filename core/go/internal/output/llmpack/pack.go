@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"sort"
 
 	"github.com/orurh/patchcourt/internal/analysis/contracts"
 	"github.com/orurh/patchcourt/internal/analysis/depdiff"
@@ -49,6 +50,12 @@ func WriteReviewContext(w io.Writer, input ReviewContextInput) {
 	writeSummary(w, result)
 	fmt.Fprintln(w)
 
+	writeChangedFiles(w, result, limit)
+	fmt.Fprintln(w)
+
+	writeTouchedLayers(w, result, limit)
+	fmt.Fprintln(w)
+
 	writeArchitectureImpact(w, result.Impact, limit)
 	fmt.Fprintln(w)
 
@@ -90,6 +97,152 @@ func writeSummary(w io.Writer, result reportmodel.ReviewResult) {
 	for _, reason := range result.Risk.Reasons {
 		fmt.Fprintf(w, "- +%d %s\n", reason.Points, reason.Message)
 	}
+}
+
+func writeChangedFiles(w io.Writer, result reportmodel.ReviewResult, limit int) {
+	files := changedFiles(result)
+
+	fmt.Fprintln(w, "## Changed files")
+	fmt.Fprintln(w)
+
+	if len(files) == 0 {
+		fmt.Fprintln(w, "- none")
+		return
+	}
+
+	for _, file := range limited(files, limit) {
+		fmt.Fprintf(w, "- `%s`\n", file)
+	}
+
+	writeMore(w, len(files), limit)
+}
+
+func writeTouchedLayers(w io.Writer, result reportmodel.ReviewResult, limit int) {
+	layers := touchedLayers(result)
+
+	fmt.Fprintln(w, "## Touched layers")
+	fmt.Fprintln(w)
+
+	if len(layers) == 0 {
+		fmt.Fprintln(w, "- none")
+		return
+	}
+
+	for _, layer := range limited(layers, limit) {
+		fmt.Fprintf(w, "- `%s`\n", layer)
+	}
+
+	writeMore(w, len(layers), limit)
+}
+
+func changedFiles(result reportmodel.ReviewResult) []string {
+	seen := make(map[string]struct{})
+
+	addDependencyFiles(seen, result.DependencyChanges)
+	addFindingFiles(seen, result.FindingChanges)
+
+	for _, change := range result.ContractChanges {
+		if change.Before != nil {
+			addNonEmpty(seen, change.Before.File)
+		}
+		if change.After != nil {
+			addNonEmpty(seen, change.After.File)
+		}
+	}
+
+	return sortedKeys(seen)
+}
+
+func addDependencyFiles(seen map[string]struct{}, changes []depdiff.DependencyChange) {
+	for _, change := range changes {
+		if change.Before != nil {
+			addNonEmpty(seen, change.Before.FromFile)
+			addNonEmpty(seen, change.Before.ToFile)
+		}
+
+		if change.After != nil {
+			addNonEmpty(seen, change.After.FromFile)
+			addNonEmpty(seen, change.After.ToFile)
+		}
+	}
+}
+
+func addFindingFiles(seen map[string]struct{}, changes []findingdiff.FindingChange) {
+	for _, change := range changes {
+		if change.Before != nil {
+			for _, evidence := range change.Before.Evidence {
+				addNonEmpty(seen, evidence.File)
+				addNonEmpty(seen, evidence.FromFile)
+				addNonEmpty(seen, evidence.ToFile)
+			}
+		}
+
+		if change.After != nil {
+			for _, evidence := range change.After.Evidence {
+				addNonEmpty(seen, evidence.File)
+				addNonEmpty(seen, evidence.FromFile)
+				addNonEmpty(seen, evidence.ToFile)
+			}
+		}
+	}
+}
+
+func touchedLayers(result reportmodel.ReviewResult) []string {
+	seen := make(map[string]struct{})
+
+	for _, change := range result.LayerEdgeChanges {
+		addNonEmpty(seen, change.FromLayer)
+		addNonEmpty(seen, change.ToLayer)
+	}
+
+	for _, change := range result.DependencyChanges {
+		if change.Before != nil {
+			addNonEmpty(seen, change.Before.FromLayer)
+			addNonEmpty(seen, change.Before.ToLayer)
+		}
+
+		if change.After != nil {
+			addNonEmpty(seen, change.After.FromLayer)
+			addNonEmpty(seen, change.After.ToLayer)
+		}
+	}
+
+	for _, change := range result.FindingChanges {
+		if change.Before != nil {
+			for _, evidence := range change.Before.Evidence {
+				addNonEmpty(seen, evidence.FromLayer)
+				addNonEmpty(seen, evidence.ToLayer)
+			}
+		}
+
+		if change.After != nil {
+			for _, evidence := range change.After.Evidence {
+				addNonEmpty(seen, evidence.FromLayer)
+				addNonEmpty(seen, evidence.ToLayer)
+			}
+		}
+	}
+
+	return sortedKeys(seen)
+}
+
+func addNonEmpty(values map[string]struct{}, value string) {
+	if value == "" {
+		return
+	}
+
+	values[value] = struct{}{}
+}
+
+func sortedKeys(values map[string]struct{}) []string {
+	keys := make([]string, 0, len(values))
+
+	for value := range values {
+		keys = append(keys, value)
+	}
+
+	sort.Strings(keys)
+	return keys
 }
 
 func writeArchitectureImpact(w io.Writer, impact reportmodel.ReviewImpactReport, limit int) {
@@ -166,7 +319,15 @@ func writeDependencyChanges(w io.Writer, changes []depdiff.DependencyChange, lim
 	fmt.Fprintln(w, "## Dependency changes")
 	fmt.Fprintln(w)
 
+	rawCount := len(changes)
+	changes = reviewRelevantDependencyChanges(changes)
+
 	if len(changes) == 0 {
+		if rawCount > 0 {
+			fmt.Fprintf(w, "- none review-relevant; raw dependency changes: %d\n", rawCount)
+			return
+		}
+
 		fmt.Fprintln(w, "- none")
 		return
 	}
@@ -287,6 +448,42 @@ func writeReviewQuestions(w io.Writer, result reportmodel.ReviewResult, limit in
 	if count == 0 {
 		fmt.Fprintln(w, "- No specific high-signal questions generated from the current facts.")
 	}
+}
+
+func reviewRelevantDependencyChanges(changes []depdiff.DependencyChange) []depdiff.DependencyChange {
+	filtered := make([]depdiff.DependencyChange, 0, len(changes))
+
+	for _, change := range changes {
+		if isReviewRelevantDependencyChange(change) {
+			filtered = append(filtered, change)
+		}
+	}
+
+	return filtered
+}
+
+func isReviewRelevantDependencyChange(change depdiff.DependencyChange) bool {
+	if change.Before != nil && isReviewRelevantDependency(*change.Before) {
+		return true
+	}
+
+	if change.After != nil && isReviewRelevantDependency(*change.After) {
+		return true
+	}
+
+	return false
+}
+
+func isReviewRelevantDependency(dep model.DependencyEdge) bool {
+	if dep.External {
+		return false
+	}
+
+	if dep.FromLayer == "" && dep.ToLayer == "" {
+		return false
+	}
+
+	return dep.ToFile != "" || dep.ToLayer != ""
 }
 
 func dependencyTarget(dep *model.DependencyEdge) string {

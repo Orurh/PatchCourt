@@ -69,6 +69,15 @@ func TestWriteReviewContext_RendersDeterministicContextPack(t *testing.T) {
 						ToLayer:   "cameras",
 					},
 				},
+				{
+					Kind: depdiff.DependencyChangeKindAdded,
+					Key:  "import|src/api.cc|testing",
+					After: &model.DependencyEdge{
+						FromFile: "src/api.cc",
+						Target:   "testing",
+						External: true,
+					},
+				},
 			},
 			LayerEdgeChanges: []depdiff.LayerEdgeChange{
 				{
@@ -87,6 +96,12 @@ func TestWriteReviewContext_RendersDeterministicContextPack(t *testing.T) {
 	require.Contains(t, got, "Do not invent files, dependencies, symbols, or findings not listed here.")
 	require.Contains(t, got, "- Schema: `patchcourt.review.v1`")
 	require.Contains(t, got, "- Risk: `medium`, 5 points")
+	require.Contains(t, got, "## Changed files")
+	require.Contains(t, got, "- `src/api.cc`")
+	require.Contains(t, got, "- `src/cameras/sony.h`")
+	require.Contains(t, got, "## Touched layers")
+	require.Contains(t, got, "- `api`")
+	require.Contains(t, got, "- `cameras`")
 	require.Contains(t, got, "## Architecture impact")
 	require.Contains(t, got, "Removed public contract symbol")
 	require.Contains(t, got, "architecture.domain.cameras")
@@ -94,6 +109,37 @@ func TestWriteReviewContext_RendersDeterministicContextPack(t *testing.T) {
 	require.Contains(t, got, "method::ICamera::Status")
 	require.Contains(t, got, "## Dependency changes")
 	require.Contains(t, got, "src/api.cc -> src/cameras/sony.h")
+	require.NotContains(t, got, "`import|src/api.cc|testing`")
 	require.Contains(t, got, "## Review questions")
 	require.Contains(t, got, "Verify callers and tests for public contract change")
+}
+
+func TestWriteReviewContext_ReportsRawDependencyChangesWhenNoneReviewRelevant(t *testing.T) {
+	var out bytes.Buffer
+
+	WriteReviewContext(&out, ReviewContextInput{
+		MaxItems: 3,
+		Result: reportmodel.ReviewResult{
+			SchemaVersion: reportmodel.ReviewResultSchemaVersion,
+			Summary: reportmodel.ReviewSummary{
+				DependencyChanges: 1,
+			},
+			DependencyChanges: []depdiff.DependencyChange{
+				{
+					Kind: depdiff.DependencyChangeKindAdded,
+					Key:  "import|internal/output/llmpack/pack.go|sort",
+					After: &model.DependencyEdge{
+						FromFile: "internal/output/llmpack/pack.go",
+						Target:   "sort",
+						External: true,
+					},
+				},
+			},
+		},
+	})
+
+	got := out.String()
+
+	require.Contains(t, got, "## Dependency changes")
+	require.Contains(t, got, "- none review-relevant; raw dependency changes: 1")
 }
