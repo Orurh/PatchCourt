@@ -8,11 +8,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/orurh/patchcourt/internal/analysis/findingdiff"
 	"github.com/orurh/patchcourt/internal/analysis/graph"
 	"github.com/orurh/patchcourt/internal/analysis/risk"
 	"github.com/orurh/patchcourt/internal/app"
 	"github.com/orurh/patchcourt/internal/config"
+	"github.com/orurh/patchcourt/internal/diff/finding"
 	"github.com/orurh/patchcourt/internal/model"
 	"github.com/stretchr/testify/require"
 )
