@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 
 	graphmodel "github.com/orurh/patchcourt/internal/analysis/graph"
-	"github.com/orurh/patchcourt/internal/changes"
 	"github.com/orurh/patchcourt/internal/model"
 	"github.com/orurh/patchcourt/internal/platform/logx"
+	"github.com/orurh/patchcourt/internal/state"
 )
 
 type CheckArtifact = reportmodel.CheckArtifact
@@ -71,7 +71,7 @@ func (a *App) RunCheck(ctx context.Context, req CheckRequest) (*CheckResult, err
 	statePath := ""
 
 	if req.SaveState {
-		if _, err := changes.SaveState(changes.SaveStateOptions{
+		if _, err := state.SaveState(state.SaveStateOptions{
 			Root:       absRoot,
 			ConfigPath: req.ConfigPath,
 			Project:    scanResult.Project,
@@ -79,7 +79,7 @@ func (a *App) RunCheck(ctx context.Context, req CheckRequest) (*CheckResult, err
 			return nil, fmt.Errorf("save state: %w", err)
 		}
 
-		statePath = filepath.Join(changes.StateDir(absRoot, changes.LatestStateName), "project-model.json")
+		statePath = filepath.Join(state.StateDir(absRoot, state.LatestStateName), "project-model.json")
 	}
 
 	a.logger.Debug(

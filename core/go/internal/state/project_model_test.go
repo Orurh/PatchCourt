@@ -1,4 +1,4 @@
-package changes
+package state
 
 import (
 	"os"

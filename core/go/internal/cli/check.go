@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/orurh/patchcourt/internal/app"
-	"github.com/orurh/patchcourt/internal/output/report"
+	"github.com/orurh/patchcourt/internal/render/report"
 	"github.com/spf13/cobra"
 )
 

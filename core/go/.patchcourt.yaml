@@ -92,6 +92,7 @@ layers:
     may_depend_on:
       - analysis
       - model
+      - platform
       - reportmodel
 
   platform:

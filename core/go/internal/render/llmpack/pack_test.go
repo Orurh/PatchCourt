@@ -128,9 +128,9 @@ func TestWriteReviewContext_ReportsRawDependencyChangesWhenNoneReviewRelevant(t 
 			DependencyChanges: []depdiff.DependencyChange{
 				{
 					Kind: depdiff.DependencyChangeKindAdded,
-					Key:  "import|internal/output/llmpack/pack.go|sort",
+					Key:  "import|internal/render/llmpack/pack.go|sort",
 					After: &model.DependencyEdge{
-						FromFile: "internal/output/llmpack/pack.go",
+						FromFile: "internal/render/llmpack/pack.go",
 						Target:   "sort",
 						External: true,
 					},
@@ -153,7 +153,7 @@ func TestWriteReviewContext_UsesReviewResultChangedFiles(t *testing.T) {
 		Result: reportmodel.ReviewResult{
 			SchemaVersion: reportmodel.ReviewResultSchemaVersion,
 			ChangedFiles: []string{
-				"internal/output/llmpack/pack.go",
+				"internal/render/llmpack/pack.go",
 				"internal/app/review.go",
 			},
 		},
@@ -163,7 +163,7 @@ func TestWriteReviewContext_UsesReviewResultChangedFiles(t *testing.T) {
 
 	require.Contains(t, got, "## Changed files")
 	require.Contains(t, got, "- `internal/app/review.go`")
-	require.Contains(t, got, "- `internal/output/llmpack/pack.go`")
+	require.Contains(t, got, "- `internal/render/llmpack/pack.go`")
 }
 
 func TestWriteReviewContext_SeparatesRawAndAnalyzedChangedFiles(t *testing.T) {

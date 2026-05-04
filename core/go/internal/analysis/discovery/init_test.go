@@ -156,7 +156,7 @@ go 1.26
 `)
 	writeFile(t, root, "internal/model/project.go", `package model
 `)
-	writeFile(t, root, "internal/output/report/text.go", `package report
+	writeFile(t, root, "internal/render/report/text.go", `package report
 `)
 	writeFile(t, root, "internal/reportmodel/reportmodel.go", `package reportmodel
 `)

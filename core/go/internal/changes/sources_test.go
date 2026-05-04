@@ -8,6 +8,7 @@ import (
 
 	"github.com/orurh/patchcourt/internal/analysis/engine"
 	"github.com/orurh/patchcourt/internal/model"
+	"github.com/orurh/patchcourt/internal/state"
 	"github.com/stretchr/testify/require"
 )
 
@@ -36,7 +37,7 @@ func TestSnapshotSource_LoadsProjectModel(t *testing.T) {
 func TestStateSource_LoadsLatestState(t *testing.T) {
 	root := t.TempDir()
 
-	_, err := SaveState(SaveStateOptions{
+	_, err := state.SaveState(state.SaveStateOptions{
 		Root: root,
 		Project: &model.ProjectModel{
 			Root: root,

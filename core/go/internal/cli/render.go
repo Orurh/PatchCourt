@@ -6,7 +6,7 @@ import (
 	"io"
 
 	"github.com/orurh/patchcourt/internal/app"
-	"github.com/orurh/patchcourt/internal/output/report"
+	"github.com/orurh/patchcourt/internal/render/report"
 )
 
 // writeJSON печатает значение в формате JSON.

@@ -11,6 +11,7 @@ import (
 	"github.com/orurh/patchcourt/internal/analysis/risk"
 	"github.com/orurh/patchcourt/internal/changes"
 	"github.com/orurh/patchcourt/internal/model"
+	"github.com/orurh/patchcourt/internal/state"
 )
 
 type ReviewSummary = reportmodel.ReviewSummary
@@ -65,7 +66,7 @@ func (a *App) RunReview(ctx context.Context, req ReviewRequest) (*ReviewResult, 
 			return nil, fmt.Errorf("--update-state requires --since-last or --after-root")
 		}
 
-		if _, err := changes.SaveState(changes.SaveStateOptions{
+		if _, err := state.SaveState(state.SaveStateOptions{
 			Root:       root,
 			ConfigPath: req.ConfigPath,
 			Project:    afterProject,

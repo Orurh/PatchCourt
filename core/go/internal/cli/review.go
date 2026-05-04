@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/orurh/patchcourt/internal/app"
-	"github.com/orurh/patchcourt/internal/output/llmpack"
+	"github.com/orurh/patchcourt/internal/render/llmpack"
 	"github.com/spf13/cobra"
 )
 

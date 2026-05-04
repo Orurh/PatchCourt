@@ -67,7 +67,7 @@ func TestCompare_DetectsChangedFilesFromModelFacts(t *testing.T) {
 	before := &model.ProjectModel{
 		Files: []model.FileModel{
 			{
-				Path:     "internal/output/llmpack/pack.go",
+				Path:     "internal/render/llmpack/pack.go",
 				Language: model.LanguageGo,
 				Role:     model.FileRoleProduction,
 				Imports:  []string{"fmt"},
@@ -83,7 +83,7 @@ func TestCompare_DetectsChangedFilesFromModelFacts(t *testing.T) {
 	after := &model.ProjectModel{
 		Files: []model.FileModel{
 			{
-				Path:     "internal/output/llmpack/pack.go",
+				Path:     "internal/render/llmpack/pack.go",
 				Language: model.LanguageGo,
 				Role:     model.FileRoleProduction,
 				Imports:  []string{"fmt", "sort"},
@@ -94,7 +94,7 @@ func TestCompare_DetectsChangedFilesFromModelFacts(t *testing.T) {
 				Role:     model.FileRoleProduction,
 			},
 			{
-				Path:     "internal/output/llmpack/new_file.go",
+				Path:     "internal/render/llmpack/new_file.go",
 				Language: model.LanguageGo,
 				Role:     model.FileRoleProduction,
 			},
@@ -104,8 +104,8 @@ func TestCompare_DetectsChangedFilesFromModelFacts(t *testing.T) {
 	result := Compare(before, after)
 
 	require.Equal(t, []string{
-		"internal/output/llmpack/new_file.go",
-		"internal/output/llmpack/pack.go",
+		"internal/render/llmpack/new_file.go",
+		"internal/render/llmpack/pack.go",
 	}, result.ChangedFiles)
 }
 

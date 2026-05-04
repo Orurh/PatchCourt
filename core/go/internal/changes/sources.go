@@ -6,6 +6,7 @@ import (
 
 	"github.com/orurh/patchcourt/internal/analysis/engine"
 	"github.com/orurh/patchcourt/internal/model"
+	"github.com/orurh/patchcourt/internal/state"
 )
 
 type Analyzer interface {
@@ -77,7 +78,7 @@ func (s SnapshotSource) Load(ctx context.Context) (*model.ProjectModel, error) {
 		return nil, fmt.Errorf("snapshot path is required")
 	}
 
-	return ReadProjectModel(s.Path)
+	return state.ReadProjectModel(s.Path)
 }
 
 func (s StateSource) Label() string {
@@ -88,10 +89,10 @@ func (s StateSource) Label() string {
 
 	name := s.Name
 	if name == "" {
-		name = LatestStateName
+		name = state.LatestStateName
 	}
 
-	return "state:" + StateDir(root, name)
+	return "state:" + state.StateDir(root, name)
 }
 
 func (s StateSource) Load(ctx context.Context) (*model.ProjectModel, error) {
@@ -99,7 +100,7 @@ func (s StateSource) Load(ctx context.Context) (*model.ProjectModel, error) {
 		return nil, err
 	}
 
-	state, err := LoadState(LoadStateOptions{
+	state, err := state.LoadState(state.LoadStateOptions{
 		Root: s.Root,
 		Name: s.Name,
 	})
