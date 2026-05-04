@@ -199,3 +199,35 @@ func TestWriteReviewContext_SeparatesRawAndAnalyzedChangedFiles(t *testing.T) {
 	require.Contains(t, got, "- `src/api.cc`")
 	require.Contains(t, got, "- `src/cameras/sony.h`")
 }
+
+func TestWriteReviewContext_SummaryIncludesRawAndAnalyzedChangedFileCounts(t *testing.T) {
+	var out bytes.Buffer
+
+	WriteReviewContext(&out, ReviewContextInput{
+		MaxItems: 10,
+		Result: reportmodel.ReviewResult{
+			SchemaVersion: reportmodel.ReviewResultSchemaVersion,
+			ChangedFiles: []string{
+				"frontend/src/app/App.tsx",
+				"src/api.cc",
+			},
+			DependencyChanges: []depdiff.DependencyChange{
+				{
+					Kind: depdiff.DependencyChangeKindAdded,
+					Key:  "include|src/api.cc|src/cameras/sony.h",
+					After: &model.DependencyEdge{
+						FromFile:  "src/api.cc",
+						ToFile:    "src/cameras/sony.h",
+						FromLayer: "api",
+						ToLayer:   "cameras",
+					},
+				},
+			},
+		},
+	})
+
+	got := out.String()
+
+	require.Contains(t, got, "- Changed files: 2")
+	require.Contains(t, got, "- Analyzed changed files: 2")
+}

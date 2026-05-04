@@ -82,6 +82,8 @@ func writeSummary(w io.Writer, result reportmodel.ReviewResult) {
 	fmt.Fprintln(w)
 	fmt.Fprintf(w, "- Schema: `%s`\n", result.SchemaVersion)
 	fmt.Fprintf(w, "- Risk: `%s`, %d points\n", result.Risk.Level, result.Risk.Points)
+	fmt.Fprintf(w, "- Changed files: %d\n", len(changedFiles(result)))
+	fmt.Fprintf(w, "- Analyzed changed files: %d\n", len(analyzedChangedFiles(result)))
 	fmt.Fprintf(w, "- Contract changes: %d\n", result.Summary.ContractChanges)
 	fmt.Fprintf(w, "- Dependency changes: %d\n", result.Summary.DependencyChanges)
 	fmt.Fprintf(w, "- Layer edge changes: %d\n", result.Summary.LayerEdgeChanges)
