@@ -101,3 +101,47 @@ func TestWriteReviewText_PrintsVerdictBlock(t *testing.T) {
 	require.Contains(t, got, "Removed policy violation finding: architecture.domain.cameras")
 	require.True(t, strings.Index(got, "Verdict:") < strings.Index(got, "Summary:"))
 }
+
+func TestWriteReviewText_VerdictPrefersHighSignalItems(t *testing.T) {
+	var out bytes.Buffer
+
+	WriteReviewText(&out, ReviewTextResult{
+		Risk: risk.Score{
+			Level: risk.LevelLow,
+		},
+		Impact: reportmodel.ReviewImpactReport{
+			Better: []reportmodel.ReviewImpactItem{
+				{
+					Kind:  "finding_removed",
+					Title: "Removed policy violation finding",
+					ID:    "architecture.cli.platform",
+				},
+				{
+					Kind:   "layer_edge_removed",
+					Title:  "Removed layer dependency",
+					Detail: "cli -> platform (1)",
+				},
+				{
+					Kind:   "dependency_removed",
+					Title:  "Removed dependency",
+					ID:     "import|internal/cli/check.go|internal/platform/files/atomic.go",
+					Detail: "internal/cli/check.go -> internal/platform/files/atomic.go (cli -> platform)",
+				},
+			},
+		},
+	})
+
+	got := out.String()
+
+	verdictStart := strings.Index(got, "Verdict:")
+	require.NotEqual(t, -1, verdictStart)
+
+	summaryStart := strings.Index(got, "Summary:")
+	require.NotEqual(t, -1, summaryStart)
+
+	verdict := got[verdictStart:summaryStart]
+
+	require.Contains(t, verdict, "Removed policy violation finding: architecture.cli.platform")
+	require.Contains(t, verdict, "Removed layer dependency — cli -> platform (1)")
+	require.NotContains(t, verdict, "Removed dependency:")
+}

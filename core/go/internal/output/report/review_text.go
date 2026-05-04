@@ -56,8 +56,8 @@ func writeReviewVerdictText(w io.Writer, result ReviewTextResult) {
 	fmt.Fprintf(w, "  architecture: %s\n", architectureVerdict(result.Impact))
 	fmt.Fprintf(w, "  risk:         %s\n", result.Risk.Level)
 
-	writeVerdictItems(w, "  main concerns:", result.Impact.Worse, 3)
-	writeVerdictItems(w, "  improvements:", result.Impact.Better, 3)
+	writeVerdictItems(w, "  main concerns:", verdictItems(result.Impact.Worse), 3)
+	writeVerdictItems(w, "  improvements:", verdictItems(result.Impact.Better), 3)
 }
 
 func architectureVerdict(impact reportmodel.ReviewImpactReport) string {
@@ -73,6 +73,39 @@ func architectureVerdict(impact reportmodel.ReviewImpactReport) string {
 		return "improved"
 	default:
 		return "unchanged"
+	}
+}
+
+func verdictItems(items []reportmodel.ReviewImpactItem) []reportmodel.ReviewImpactItem {
+	highSignal := make([]reportmodel.ReviewImpactItem, 0, len(items))
+
+	for _, item := range items {
+		if isHighSignalVerdictItem(item) {
+			highSignal = append(highSignal, item)
+		}
+	}
+
+	if len(highSignal) > 0 {
+		return highSignal
+	}
+
+	return items
+}
+
+func isHighSignalVerdictItem(item reportmodel.ReviewImpactItem) bool {
+	switch item.Kind {
+	case "finding_added",
+		"finding_removed",
+		"layer_edge_added",
+		"layer_edge_removed",
+		"layer_edge_increased",
+		"layer_edge_decreased",
+		"contract_removed",
+		"contract_signature_changed",
+		"contract_modifiers_changed":
+		return true
+	default:
+		return false
 	}
 }
 
