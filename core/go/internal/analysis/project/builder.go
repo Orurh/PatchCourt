@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/orurh/patchcourt/internal/analysis/lang/cpp"
-	goanalysis "github.com/orurh/patchcourt/internal/analysis/lang/go"
+	"github.com/orurh/patchcourt/internal/analyzer/lang/cpp"
 	"github.com/orurh/patchcourt/internal/analyzer/lang/cpp/resolver"
+	goanalysis "github.com/orurh/patchcourt/internal/analyzer/lang/go"
 	"github.com/orurh/patchcourt/internal/model"
 	"github.com/orurh/patchcourt/internal/platform/pathmatch"
 )
