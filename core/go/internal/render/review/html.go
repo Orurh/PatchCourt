@@ -111,7 +111,7 @@ func writeReviewHTMLImpactColumn(b *strings.Builder, title string, class string,
 
 func writeReviewHTMLChangedFiles(b *strings.Builder, title string, files []string) {
 	fmt.Fprintln(b, `<section class="card">`)
-	fmt.Fprintf(b, `<h2>%s</h2>`, escape(title))
+	fmt.Fprintf(b, `<h2>%s</h2>\n`, escape(title))
 
 	if len(files) == 0 {
 		fmt.Fprintln(b, `<p class="muted">None.</p>`)
@@ -149,10 +149,10 @@ func writeReviewHTMLCounts(b *strings.Builder, result reportmodel.ReviewResult) 
 	fmt.Fprintln(b, `<section class="card">`)
 	fmt.Fprintln(b, `<h2>Raw diff sections</h2>`)
 	fmt.Fprintln(b, `<ul>`)
-	fmt.Fprintf(b, `<li>Contract changes: <strong>%d</strong></li>`, len(result.ContractChanges))
-	fmt.Fprintf(b, `<li>Dependency changes: <strong>%d</strong></li>`, len(result.DependencyChanges))
-	fmt.Fprintf(b, `<li>Layer edge changes: <strong>%d</strong></li>`, len(result.LayerEdgeChanges))
-	fmt.Fprintf(b, `<li>Finding changes: <strong>%d</strong></li>`, len(result.FindingChanges))
+	fmt.Fprintf(b, `<li>Contract changes: <strong>%d</strong></li>\n`, len(result.ContractChanges))
+	fmt.Fprintf(b, `<li>Dependency changes: <strong>%d</strong></li>\n`, len(result.DependencyChanges))
+	fmt.Fprintf(b, `<li>Layer edge changes: <strong>%d</strong></li>\n`, len(result.LayerEdgeChanges))
+	fmt.Fprintf(b, `<li>Finding changes: <strong>%d</strong></li>\n`, len(result.FindingChanges))
 	fmt.Fprintln(b, `</ul>`)
 	fmt.Fprintln(b, `</section>`)
 }
