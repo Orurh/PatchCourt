@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/orurh/patchcourt/internal/reportmodel"
 
-	"github.com/orurh/patchcourt/internal/analysis/contracts"
 	"github.com/orurh/patchcourt/internal/analysis/risk"
+	"github.com/orurh/patchcourt/internal/diff/contract"
 	"github.com/orurh/patchcourt/internal/diff/dep"
 	"github.com/orurh/patchcourt/internal/diff/finding"
 	projectdiff "github.com/orurh/patchcourt/internal/diff/project"

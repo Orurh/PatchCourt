@@ -5,7 +5,7 @@ import (
 	"github.com/orurh/patchcourt/internal/reportmodel"
 	"sort"
 
-	"github.com/orurh/patchcourt/internal/analysis/contracts"
+	"github.com/orurh/patchcourt/internal/diff/contract"
 	"github.com/orurh/patchcourt/internal/diff/dep"
 	"github.com/orurh/patchcourt/internal/diff/finding"
 	"github.com/orurh/patchcourt/internal/model"
