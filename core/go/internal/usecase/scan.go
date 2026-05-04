@@ -3,55 +3,25 @@ package usecase
 import (
 	"context"
 
-	"github.com/orurh/patchcourt/internal/config"
-	"github.com/orurh/patchcourt/internal/model"
+	scanusecase "github.com/orurh/patchcourt/internal/usecase/scan"
 )
 
-type ScanFormat string
+type ScanFormat = scanusecase.Format
 
 const (
-	ScanFormatText     ScanFormat = "text"
-	ScanFormatJSON     ScanFormat = "json"
-	ScanFormatMarkdown ScanFormat = "markdown"
+	ScanFormatText     = scanusecase.FormatText
+	ScanFormatJSON     = scanusecase.FormatJSON
+	ScanFormatMarkdown = scanusecase.FormatMarkdown
 )
 
-type ScanRequest struct {
-	Root       string
-	ConfigPath string
-	Format     ScanFormat
-}
-
-type ScanResult struct {
-	Project *model.ProjectModel
-	Config  *config.Config
-}
-
-type ScanService struct {
-	Projects ProjectBuilder
-}
+type ScanRequest = scanusecase.Request
+type ScanResult = scanusecase.Result
+type ScanService = scanusecase.Service
 
 func NewScanService(projects ProjectBuilder) ScanService {
-	return ScanService{
-		Projects: projects,
-	}
-}
-
-func (s ScanService) Run(ctx context.Context, req ScanRequest) (*ScanResult, error) {
-	result, err := s.Projects.Build(ctx, buildProjectRequest{
-		Operation:  "scan",
-		Root:       req.Root,
-		ConfigPath: req.ConfigPath,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return &ScanResult{
-		Project: result.Project,
-		Config:  result.Config,
-	}, nil
+	return scanusecase.NewService(projects)
 }
 
 func (a *App) RunScan(ctx context.Context, req ScanRequest) (*ScanResult, error) {
-	return NewScanService(NewProjectBuilder(a.analysis)).Run(ctx, req)
+	return a.scan.Run(ctx, req)
 }

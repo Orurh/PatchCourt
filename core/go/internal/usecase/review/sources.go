@@ -1,4 +1,4 @@
-package usecase
+package review
 
 import (
 	"context"
@@ -9,17 +9,17 @@ import (
 	"github.com/orurh/patchcourt/internal/usecase/ports"
 )
 
-type ReviewProjectLoader struct {
+type ProjectLoader struct {
 	Analysis ports.AnalysisService
 }
 
-func NewReviewProjectLoader(analysis ports.AnalysisService) ReviewProjectLoader {
-	return ReviewProjectLoader{
+func NewProjectLoader(analysis ports.AnalysisService) ProjectLoader {
+	return ProjectLoader{
 		Analysis: analysis,
 	}
 }
 
-func (l ReviewProjectLoader) LoadProjects(ctx context.Context, req ReviewRequest) (*model.ProjectModel, *model.ProjectModel, []string, error) {
+func (l ProjectLoader) LoadProjects(ctx context.Context, req Request) (*model.ProjectModel, *model.ProjectModel, []string, error) {
 	if req.Worktree {
 		if req.HeadRef != "" {
 			return nil, nil, nil, fmt.Errorf("--worktree cannot be combined with --head")
@@ -86,7 +86,7 @@ func (l ReviewProjectLoader) LoadProjects(ctx context.Context, req ReviewRequest
 	return beforeProject, afterProject, nil, nil
 }
 
-func (l ReviewProjectLoader) SourcePair(req ReviewRequest) (source.SourcePair, error) {
+func (l ProjectLoader) SourcePair(req Request) (source.SourcePair, error) {
 	if req.SinceLastRoot != "" {
 		return source.SourcePair{
 			Before: source.StateSource{

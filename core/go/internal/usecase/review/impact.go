@@ -1,4 +1,4 @@
-package usecase
+package review
 
 import (
 	"fmt"
@@ -14,7 +14,7 @@ import (
 type ReviewImpactReport = reportmodel.ReviewImpactReport
 type ReviewImpactItem = reportmodel.ReviewImpactItem
 
-func BuildReviewImpactReport(result *ReviewResult, beforeProject *model.ProjectModel, afterProject *model.ProjectModel) ReviewImpactReport {
+func BuildImpactReport(result *ReviewResult, beforeProject *model.ProjectModel, afterProject *model.ProjectModel) ReviewImpactReport {
 	if result == nil {
 		return ReviewImpactReport{}
 	}

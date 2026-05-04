@@ -2,97 +2,38 @@ package usecase
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/orurh/patchcourt/internal/model"
 	"github.com/orurh/patchcourt/internal/reportmodel"
-	"github.com/orurh/patchcourt/internal/state"
+	edgeusecase "github.com/orurh/patchcourt/internal/usecase/edge"
 )
 
 type EdgeResult = reportmodel.EdgeResult
 type EdgeUsageSummary = reportmodel.EdgeUsageSummary
 type EdgeFileCount = reportmodel.EdgeFileCount
 
-type EdgeFormat string
+type EdgeFormat = edgeusecase.Format
 
 const (
-	EdgeFormatText EdgeFormat = "text"
-	EdgeFormatJSON EdgeFormat = "json"
+	EdgeFormatText = edgeusecase.FormatText
+	EdgeFormatJSON = edgeusecase.FormatJSON
 )
 
-type EdgeRequest struct {
-	Root       string `json:"root,omitempty"`
-	ConfigPath string `json:"config_path,omitempty"`
-	ModelPath  string `json:"model_path,omitempty"`
-	FromLayer  string `json:"from_layer"`
-	ToLayer    string `json:"to_layer"`
-	Limit      int    `json:"limit,omitempty"`
-}
-
-type EdgeService struct {
-	Projects ProjectBuilder
-}
+type EdgeRequest = edgeusecase.Request
+type EdgeService = edgeusecase.Service
 
 func NewEdgeService(projects ProjectBuilder) EdgeService {
-	return EdgeService{
-		Projects: projects,
-	}
-}
-
-func (s EdgeService) Run(ctx context.Context, req EdgeRequest) (*EdgeResult, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, fmt.Errorf("edge canceled before start: %w", err)
-	}
-
-	if req.FromLayer == "" {
-		return nil, fmt.Errorf("from layer is required")
-	}
-
-	if req.ToLayer == "" {
-		return nil, fmt.Errorf("to layer is required")
-	}
-
-	project, source, err := s.loadProject(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-
-	return BuildEdgeReport(project, EdgeReportOptions{
-		Root:      project.Root,
-		Source:    source,
-		FromLayer: req.FromLayer,
-		ToLayer:   req.ToLayer,
-		Limit:     req.Limit,
-	}), nil
-}
-
-func (s EdgeService) loadProject(ctx context.Context, req EdgeRequest) (*model.ProjectModel, string, error) {
-	if req.ModelPath != "" {
-		project, err := state.ReadProjectModel(req.ModelPath)
-		if err != nil {
-			return nil, "", fmt.Errorf("read project model: %w", err)
-		}
-
-		return project, req.ModelPath, nil
-	}
-
-	root := req.Root
-	if root == "" {
-		root = "."
-	}
-
-	result, err := s.Projects.Build(ctx, buildProjectRequest{
-		Operation:  "edge",
-		Root:       root,
-		ConfigPath: req.ConfigPath,
+	return edgeusecase.NewService(projects, func(project *model.ProjectModel, opts edgeusecase.ReportOptions) *edgeusecase.Result {
+		return BuildEdgeReport(project, EdgeReportOptions{
+			Root:      opts.Root,
+			Source:    opts.Source,
+			FromLayer: opts.FromLayer,
+			ToLayer:   opts.ToLayer,
+			Limit:     opts.Limit,
+		})
 	})
-	if err != nil {
-		return nil, "", err
-	}
-
-	return result.Project, root, nil
 }
 
 func (a *App) RunEdge(ctx context.Context, req EdgeRequest) (*EdgeResult, error) {
-	return NewEdgeService(NewProjectBuilder(a.analysis)).Run(ctx, req)
+	return a.edge.Run(ctx, req)
 }

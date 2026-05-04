@@ -2,101 +2,27 @@ package usecase
 
 import (
 	"context"
-	"fmt"
 
-	"github.com/orurh/patchcourt/internal/model"
 	"github.com/orurh/patchcourt/internal/reportmodel"
-	"github.com/orurh/patchcourt/internal/state"
+	explainusecase "github.com/orurh/patchcourt/internal/usecase/explain"
 )
 
 type ExplainResult = reportmodel.ExplainResult
 
-type ExplainFormat string
+type ExplainFormat = explainusecase.Format
 
 const (
-	ExplainFormatText ExplainFormat = "text"
-	ExplainFormatJSON ExplainFormat = "json"
+	ExplainFormatText = explainusecase.FormatText
+	ExplainFormatJSON = explainusecase.FormatJSON
 )
 
-type ExplainRequest struct {
-	FindingID  string
-	Root       string
-	ConfigPath string
-	ModelPath  string
-}
-
-type ExplainService struct {
-	Projects ProjectBuilder
-}
+type ExplainRequest = explainusecase.Request
+type ExplainService = explainusecase.Service
 
 func NewExplainService(projects ProjectBuilder) ExplainService {
-	return ExplainService{
-		Projects: projects,
-	}
-}
-
-func (s ExplainService) Run(ctx context.Context, req ExplainRequest) (*ExplainResult, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, fmt.Errorf("explain canceled before start: %w", err)
-	}
-
-	if req.FindingID == "" {
-		return nil, fmt.Errorf("finding id is required")
-	}
-
-	project, source, err := s.loadProject(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-
-	finding, ok := findProjectFinding(project.Findings, req.FindingID)
-	if !ok {
-		return nil, fmt.Errorf("finding %q was not found", req.FindingID)
-	}
-
-	return &ExplainResult{
-		Finding: finding,
-		Source:  source,
-	}, nil
-}
-
-func (s ExplainService) loadProject(ctx context.Context, req ExplainRequest) (*model.ProjectModel, string, error) {
-	if req.ModelPath != "" {
-		project, err := state.ReadProjectModel(req.ModelPath)
-		if err != nil {
-			return nil, "", fmt.Errorf("read project model: %w", err)
-		}
-
-		return project, req.ModelPath, nil
-	}
-
-	root := req.Root
-	if root == "" {
-		root = "."
-	}
-
-	result, err := s.Projects.Build(ctx, buildProjectRequest{
-		Operation:  "explain",
-		Root:       root,
-		ConfigPath: req.ConfigPath,
-	})
-	if err != nil {
-		return nil, "", err
-	}
-
-	return result.Project, root, nil
+	return explainusecase.NewService(projects)
 }
 
 func (a *App) RunExplain(ctx context.Context, req ExplainRequest) (*ExplainResult, error) {
-	return NewExplainService(NewProjectBuilder(a.analysis)).Run(ctx, req)
-}
-
-func findProjectFinding(findings []model.Finding, id string) (model.Finding, bool) {
-	for _, finding := range findings {
-		if finding.ID == id {
-			return finding, true
-		}
-	}
-
-	return model.Finding{}, false
+	return a.explain.Run(ctx, req)
 }
