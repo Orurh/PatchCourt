@@ -1,28 +1,28 @@
 package model
 
 type ScanSummary struct {
-	CPPHeaders int
-	CPPSources int
-	CPPTests   int
-	GoFiles    int
-	Symbols    int
+	CPPHeaders int `json:"cpp_headers"`
+	CPPSources int `json:"cpp_sources"`
+	CPPTests   int `json:"cpp_tests"`
+	GoFiles    int `json:"go_files"`
+	Symbols    int `json:"symbols"`
 
-	ProductionFiles int
-	TestFiles       int
-	GeneratedFiles  int
-	ExternalFiles   int
-	ConfigFiles     int
-	UnknownFiles    int
+	ProductionFiles int `json:"production_files"`
+	TestFiles       int `json:"test_files"`
+	GeneratedFiles  int `json:"generated_files"`
+	ExternalFiles   int `json:"external_files"`
+	ConfigFiles     int `json:"config_files"`
+	UnknownFiles    int `json:"unknown_files"`
 
-	TotalEdges int
-	Resolved   int
-	Unresolved int
-	External   int
+	TotalEdges int `json:"total_edges"`
+	Resolved   int `json:"resolved"`
+	Unresolved int `json:"unresolved"`
+	External   int `json:"external"`
 
-	UsageUsed    int
-	UsageUnused  int
-	UsageMaybe   int
-	UsageUnknown int
+	UsageUsed    int `json:"usage_used"`
+	UsageUnused  int `json:"usage_unused"`
+	UsageMaybe   int `json:"usage_maybe"`
+	UsageUnknown int `json:"usage_unknown"`
 }
 
 func BuildScanSummary(project *ProjectModel) ScanSummary {

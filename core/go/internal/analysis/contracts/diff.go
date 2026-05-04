@@ -132,13 +132,22 @@ func isContractSymbol(symbol model.SymbolModel) bool {
 }
 
 func SymbolKey(symbol model.SymbolModel) string {
-	parts := []string{
-		string(symbol.Kind),
-		symbol.Parent,
-		symbol.Name,
+	kind := contractSymbolKind(symbol)
+
+	if symbol.Parent == "" {
+		return kind + "::" + symbol.Name
 	}
 
-	return strings.Join(parts, "::")
+	return kind + "::" + symbol.Parent + "::" + symbol.Name
+}
+
+func contractSymbolKind(symbol model.SymbolModel) string {
+	switch symbol.Kind {
+	case model.SymbolKindUsing, model.SymbolKindTypedef:
+		return "type_alias"
+	default:
+		return string(symbol.Kind)
+	}
 }
 
 func mergedSortedKeys(left map[string]model.SymbolModel, right map[string]model.SymbolModel) []string {

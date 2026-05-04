@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/orurh/patchcourt/internal/model"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDiffSymbols_DetectsAddedSymbol(t *testing.T) {
@@ -194,7 +195,7 @@ func TestDiffSymbols_IncludesSymbolsFromDomainHeaders(t *testing.T) {
 		t.Fatalf("expected domain contract symbol change, got %#v", changes)
 	}
 
-	if changes[0].SymbolKey != "class::::ICameraAdapter" {
+	if changes[0].SymbolKey != "class::ICameraAdapter" {
 		t.Fatalf("unexpected symbol key: %q", changes[0].SymbolKey)
 	}
 }
@@ -229,4 +230,41 @@ func TestDiffSymbols_IncludesSymbolsFromPublicIncludeDirectory(t *testing.T) {
 	if len(changes) != 1 {
 		t.Fatalf("expected public include contract symbol change, got %#v", changes)
 	}
+}
+
+func TestDiffSymbols_TypeAliasKeyDoesNotContainEmptyParent(t *testing.T) {
+	before := []model.SymbolModel{
+		{
+			Name:      "CameraPreflightResult",
+			Kind:      model.SymbolKindUsing,
+			Signature: "using CameraPreflightResult = bool;",
+			Exported:  true,
+		},
+	}
+
+	after := []model.SymbolModel{
+		{
+			Name:      "CameraPreflightResult",
+			Kind:      model.SymbolKindUsing,
+			Signature: "using CameraPreflightResult = std::expected<CameraPreflightReport, std::string>;",
+			Exported:  true,
+		},
+	}
+
+	changes := DiffSymbols(before, after)
+
+	require.Len(t, changes, 1)
+	require.Equal(t, ChangeKindSignatureChanged, changes[0].Kind)
+	require.Equal(t, "type_alias::CameraPreflightResult", changes[0].SymbolKey)
+	require.NotContains(t, changes[0].SymbolKey, "::::")
+}
+
+func TestSymbolKey_OmitsEmptyParentForTopLevelClass(t *testing.T) {
+	key := SymbolKey(model.SymbolModel{
+		Name: "ICameraAdapter",
+		Kind: model.SymbolKindClass,
+	})
+
+	require.Equal(t, "class::ICameraAdapter", key)
+	require.NotContains(t, key, "::::")
 }

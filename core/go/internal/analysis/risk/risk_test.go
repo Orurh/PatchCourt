@@ -114,7 +114,7 @@ func TestCalculate_DoesNotScoreAddedPublicContractSymbolByDefault(t *testing.T) 
 		ContractChanges: []contracts.SymbolChange{
 			{
 				Kind:      contracts.ChangeKindAdded,
-				SymbolKey: "class::::ICameraAdapter",
+				SymbolKey: "class::ICameraAdapter",
 			},
 		},
 	})

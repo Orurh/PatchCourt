@@ -102,4 +102,12 @@ func TestWriteCheckHTML_RendersSelfContainedReport(t *testing.T) {
 	require.Contains(t, got, "renderOverviewGraph")
 	require.Contains(t, got, "overview-edge")
 	require.Contains(t, got, "Layer graph")
+	require.Contains(t, got, "shell")
+	require.Contains(t, got, "workspace")
+	require.Contains(t, got, "edges-pane")
+	require.Contains(t, got, "graph-pane")
+	require.Contains(t, got, "details-pane")
+	require.Contains(t, got, "Select an edge from the graph or from the list.")
+	require.Contains(t, got, "overviewGraphWrap")
+	require.Contains(t, got, "Select an edge from the graph or from the list.")
 }

@@ -324,22 +324,211 @@ const checkHTMLTemplate = `<!doctype html>
       padding: 14px;
     }
 
+    .shell {
+      max-width: 100vw;
+      height: calc(100vh - 56px);
+      padding: 10px;
+      display: grid;
+      grid-template-rows: 120px minmax(0, 1fr);
+      gap: 10px;
+      overflow: hidden;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: minmax(620px, 1.2fr) minmax(460px, 0.8fr);
+      gap: 10px;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .summary-panel,
+    .filters-panel {
+      padding: 10px 12px;
+      overflow: hidden;
+    }
+
+    .summary-panel h2,
+    .filters-panel h2 {
+      margin-bottom: 8px;
+      font-size: 15px;
+    }
+
+    .summary {
+      grid-template-columns: repeat(8, minmax(88px, 1fr));
+      gap: 8px;
+    }
+
+    .stat {
+      padding: 8px 10px;
+      min-height: 54px;
+    }
+
+    .stat strong {
+      font-size: 20px;
+      line-height: 1.1;
+    }
+
+    .stat span {
+      font-size: 11px;
+    }
+
+    .compact-filters {
+      margin-top: 0;
+    }
+
+    .compact-filters .filter-row {
+      margin-bottom: 8px;
+    }
+
+    .compact-filters input[type="search"] {
+      height: 36px;
+    }
+
+    .compact-filters input[type="number"] {
+      height: 36px;
+      width: 86px;
+    }
+
+    .workspace {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 340px minmax(560px, 1fr) 420px;
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    .edges-pane,
+    .graph-pane,
+    .details-pane,
+    .findings-pane {
+      min-height: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .side-stack {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: minmax(280px, 1.05fr) minmax(180px, 0.95fr);
+      gap: 12px;
+      overflow: hidden;
+    }
+
+    .edge-list,
+    #edgeDetails,
+    #findings {
+      overflow: auto;
+      min-height: 0;
+    }
+
+    .edge-list {
+      padding-right: 4px;
+    }
+
+    .small-help {
+      margin-bottom: 10px;
+      font-size: 12px;
+    }
+
+    .dependency-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .dependency-card {
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.025);
+      border-radius: 10px;
+      padding: 9px 10px;
+      overflow-wrap: anywhere;
+    }
+
+    .dependency-card .dep-kind {
+      color: var(--muted);
+      font-size: 11px;
+      margin-bottom: 4px;
+    }
+
+    .dependency-card .dep-path {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.35;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    .details-pane,
+    #edgeDetails,
+    .dependency-list,
+    .dependency-card {
+      min-width: 0;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
+    .dependency-card .dep-arrow {
+      color: var(--accent);
+      margin: 2px 0;
+    }
+
+    .panel-heading {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: start;
+      margin-bottom: 10px;
+      flex: 0 0 auto;
+    }
+
+    .legend {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .dot {
+      display: inline-block;
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      margin-right: 5px;
+      vertical-align: middle;
+    }
+
+    .dot.normal { background: #94a3b8; }
+    .dot.warn { background: #f97316; }
+    .dot.danger { background: #dc2626; }
+
     .overview-wrap {
       border: 1px solid var(--line);
-      border-radius: 12px;
+      border-radius: 14px;
       overflow: auto;
       background: var(--svg-bg);
+      min-height: 0;
+      flex: 1 1 auto;
     }
 
     #overviewGraph {
       display: block;
       width: 100%;
-      min-height: 320px;
+      height: 100%;
+      min-width: 760px;
+      min-height: 480px;
       background: var(--svg-bg);
     }
 
     .overview-edge {
       cursor: pointer;
+    }
+
+    .overview-edge path {
+      stroke-linecap: round;
     }
 
     .overview-edge:hover path,
@@ -368,13 +557,55 @@ const checkHTMLTemplate = `<!doctype html>
     #edgeDiagram {
       display: block;
       width: 100%;
-      min-height: 240px;
+      min-height: 280px;
       background: var(--svg-bg);
     }
 
-    @media (max-width: 980px) {
-      .layout { grid-template-columns: 1fr; }
-      .columns { grid-template-columns: 1fr; }
+    @media (max-width: 1200px) {
+      .shell {
+        height: auto;
+        overflow: visible;
+      }
+
+      .topbar,
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .side-stack {
+        grid-template-rows: auto auto;
+      }
+
+      .edges-pane,
+      .graph-pane,
+      .details-pane,
+      .findings-pane {
+        max-height: none;
+        overflow: visible;
+      }
+
+      .edge-list,
+      #edgeDetails,
+      #findings {
+        max-height: 420px;
+      }
+
+      .overview-wrap {
+        height: 520px;
+      }
+
+      .columns {
+        grid-template-columns: 1fr;
+      }
+    }
+
+      .columns {
+        grid-template-columns: 1fr;
+      }
+
+      .overview-wrap {
+        max-height: none;
+      }
     }
   </style>
 </head>
@@ -384,24 +615,16 @@ const checkHTMLTemplate = `<!doctype html>
     <div class="subtitle" id="root"></div>
   </header>
 
-  <main class="layout">
-    <section class="stack">
-      <div class="panel">
+  <main class="shell">
+    <section class="topbar">
+      <div class="panel summary-panel">
         <h2>Summary</h2>
         <div class="summary" id="summary"></div>
       </div>
 
-      <div class="panel">
-        <h2>Layer graph</h2>
-        <div class="muted" style="margin-bottom: 10px;">Click an arrow to inspect exact include dependencies for that layer edge.</div>
-        <div class="overview-wrap" id="overviewGraphWrap"></div>
-      </div>
-
-      <div class="panel">
-        <h2>Layer edges</h2>
-        <div class="muted" style="margin-bottom: 10px;">Click an edge to inspect exact include dependencies.</div>
-
-        <div class="filters">
+      <div class="panel filters-panel">
+        <h2>Filters</h2>
+        <div class="filters compact-filters">
           <div class="filter-row">
             <input id="edgeSearch" type="search" placeholder="Search layer, file, finding...">
             <input id="minEdgeCount" type="number" min="0" value="0" title="Minimum edge count">
@@ -418,21 +641,42 @@ const checkHTMLTemplate = `<!doctype html>
             </label>
           </div>
         </div>
-
-        <div class="edge-list" id="edges"></div>
       </div>
     </section>
 
-    <section class="stack">
-      <div class="panel">
-        <h2>Selected edge</h2>
-        <div id="edgeDetails" class="empty">Select an edge from the list.</div>
-      </div>
+    <section class="workspace">
+      <aside class="panel edges-pane">
+        <h2>Layer edges</h2>
+        <div class="muted small-help">Click an edge. The graph and details update together.</div>
+        <div class="edge-list" id="edges"></div>
+      </aside>
 
-      <div class="panel">
-        <h2>All findings</h2>
-        <div id="findings"></div>
-      </div>
+      <section class="panel graph-pane">
+        <div class="panel-heading">
+          <div>
+            <h2>Layer graph</h2>
+            <div class="muted small-help">Click an arrow to inspect exact include/import dependencies.</div>
+          </div>
+          <div class="legend">
+            <span><b class="dot normal"></b> normal</span>
+            <span><b class="dot warn"></b> finding</span>
+            <span><b class="dot danger"></b> policy</span>
+          </div>
+        </div>
+        <div class="overview-wrap" id="overviewGraphWrap"></div>
+      </section>
+
+      <aside class="side-stack">
+        <section class="panel details-pane">
+          <h2>Selected edge</h2>
+          <div id="edgeDetails" class="empty">Select an edge from the graph or from the list.</div>
+        </section>
+
+        <section class="panel findings-pane">
+          <h2>All findings</h2>
+          <div id="findings"></div>
+        </section>
+      </aside>
     </section>
   </main>
 
@@ -681,17 +925,17 @@ const checkHTMLTemplate = `<!doctype html>
     function overviewNodePositions(nodes, width, height) {
       const positions = new Map();
       const fixed = {
-        "coroutines": [92, 88],
-        "main_cc": [92, 220],
-        "entrypoint": [92, 220],
-        "application": [250, 220],
-        "controllers": [420, 205],
-        "server": [545, 320],
-        "cameras": [570, 112],
-        "configs": [735, 82],
-        "utils": [690, 305],
-        "domain": [820, 265],
-        "session": [900, 355]
+        "coroutines": [120, 110],
+        "main_cc": [120, 280],
+        "entrypoint": [120, 280],
+        "application": [310, 280],
+        "controllers": [500, 260],
+        "server": [680, 420],
+        "cameras": [690, 140],
+        "configs": [900, 110],
+        "utils": [860, 400],
+        "domain": [1010, 320],
+        "session": [1080, 455]
       };
 
       const used = new Set();
@@ -767,8 +1011,8 @@ const checkHTMLTemplate = `<!doctype html>
 
       const width = 980;
       const height = 430;
-      const nodeWidth = 126;
-      const nodeHeight = 40;
+      const nodeWidth = 150;
+      const nodeHeight = 46;
       const pos = overviewNodePositions(rawNodes, width, height);
       const maxCount = edges.reduce(function(max, edge) {
         return Math.max(max, Number(get(edge, "count", "count", 0)));
@@ -824,10 +1068,13 @@ const checkHTMLTemplate = `<!doctype html>
             '<title>' + escapeHTML(from + " -> " + to + ": " + count + " dependencies") + '</title>' +
             '<path d="M ' + x1.toFixed(1) + ' ' + y1.toFixed(1) +
               ' Q ' + cx.toFixed(1) + ' ' + cy.toFixed(1) + ', ' + x2.toFixed(1) + ' ' + y2.toFixed(1) + '"' +
+              ' fill="none" stroke="transparent" stroke-width="22"></path>' +
+            '<path d="M ' + x1.toFixed(1) + ' ' + y1.toFixed(1) +
+              ' Q ' + cx.toFixed(1) + ' ' + cy.toFixed(1) + ', ' + x2.toFixed(1) + ' ' + y2.toFixed(1) + '"' +
               ' fill="none" stroke="' + color + '" stroke-width="' + strokeWidth.toFixed(2) + '"' +
               ' opacity="' + opacity + '" marker-end="url(#' + marker + ')"></path>' +
             '<rect x="' + (labelX - 18).toFixed(1) + '" y="' + (labelY - 15).toFixed(1) + '" width="36" height="19" rx="9" fill="#0d1528" opacity="0.86"></rect>' +
-            '<text x="' + labelX.toFixed(1) + '" y="' + labelY.toFixed(1) + '" fill="' + color + '" font-size="12" text-anchor="middle">' + escapeHTML(label) + '</text>' +
+            '<text x="' + labelX.toFixed(1) + '" y="' + labelY.toFixed(1) + '" fill="' + color + '" font-size="13" text-anchor="middle">' + escapeHTML(label) + '</text>' +
           '</g>'
         );
       });
@@ -1146,7 +1393,7 @@ const checkHTMLTemplate = `<!doctype html>
           ' fill="none" stroke="' + edgeColor + '" stroke-width="' + width.toFixed(2) + '" opacity="0.82"></path>'
         );
 
-        parts.push('<text x="' + labelX + '" y="' + labelY + '" fill="' + edgeColor + '" font-size="11" text-anchor="middle">' + link.count + '</text>');
+        parts.push('<text x="' + labelX + '" y="' + labelY + '" fill="' + edgeColor + '" font-size="12" text-anchor="middle">' + link.count + '</text>');
       }
 
       data.sources.forEach(function(node) {
@@ -1154,7 +1401,7 @@ const checkHTMLTemplate = `<!doctype html>
         const label = truncateText(node.other ? (node.label + " (+" + node.count + ")") : node.label, 34);
         parts.push('<rect x="' + pos.x + '" y="' + pos.y + '" rx="10" ry="10" width="' + nodeWidth + '" height="' + nodeHeight + '" fill="' + nodeFill + '" stroke="' + nodeStroke + '"></rect>');
         parts.push('<text x="' + (pos.x + 10) + '" y="' + (pos.y + 22) + '" fill="' + textColor + '" font-size="12">' + escapeHTML(label) + '</text>');
-        parts.push('<text x="' + (pos.x + nodeWidth - 10) + '" y="' + (pos.y + 22) + '" fill="' + mutedColor + '" font-size="11" text-anchor="end">' + node.count + '</text>');
+        parts.push('<text x="' + (pos.x + nodeWidth - 10) + '" y="' + (pos.y + 22) + '" fill="' + mutedColor + '" font-size="12" text-anchor="end">' + node.count + '</text>');
       });
 
       data.targets.forEach(function(node) {
@@ -1162,7 +1409,7 @@ const checkHTMLTemplate = `<!doctype html>
         const label = truncateText(node.other ? (node.label + " (+" + node.count + ")") : node.label, 34);
         parts.push('<rect x="' + pos.x + '" y="' + pos.y + '" rx="10" ry="10" width="' + nodeWidth + '" height="' + nodeHeight + '" fill="' + nodeFill + '" stroke="' + nodeStroke + '"></rect>');
         parts.push('<text x="' + (pos.x + 10) + '" y="' + (pos.y + 22) + '" fill="' + textColor + '" font-size="12">' + escapeHTML(label) + '</text>');
-        parts.push('<text x="' + (pos.x + nodeWidth - 10) + '" y="' + (pos.y + 22) + '" fill="' + mutedColor + '" font-size="11" text-anchor="end">' + node.count + '</text>');
+        parts.push('<text x="' + (pos.x + nodeWidth - 10) + '" y="' + (pos.y + 22) + '" fill="' + mutedColor + '" font-size="12" text-anchor="end">' + node.count + '</text>');
       });
 
       parts.push('</svg>');
@@ -1220,10 +1467,34 @@ const checkHTMLTemplate = `<!doctype html>
         "</div>" +
         "<div style=\"margin-top: 16px;\">" +
           "<h3>Dependencies</h3>" +
-          "<pre>" + escapeHTML(renderDependencies(deps)) + "</pre>" +
+          renderDependencyCards(deps) +
         "</div>";
 
       renderOverviewGraph();
+    }
+
+    function renderDependencyCards(deps) {
+      if (!deps || deps.length === 0) {
+        return "<div class=\"empty\">No dependencies.</div>";
+      }
+
+      const limit = 80;
+      const items = deps.slice(0, limit).map(function(dep) {
+        const from = get(dep, "from_file", "fromFile") || "[unknown]";
+        const to = dependencyTarget(dep) || "[unknown]";
+        const kind = get(dep, "kind", "kind", "dependency");
+        const usage = get(dep, "usage", "usage", "unknown");
+
+        return "<div class=\"dependency-card\">" +
+          "<div class=\"dep-kind\">" + escapeHTML(kind) + " / " + escapeHTML(usage) + "</div>" +
+          "<div class=\"dep-path\">" + escapeHTML(from) + "</div>" +
+          "<div class=\"dep-arrow\">→</div>" +
+          "<div class=\"dep-path\">" + escapeHTML(to) + "</div>" +
+        "</div>";
+      }).join("");
+
+      return "<div class=\"dependency-list\">" + items + "</div>" +
+        (deps.length > limit ? "<div class=\"muted\" style=\"margin-top: 8px;\">... " + (deps.length - limit) + " more dependencies</div>" : "");
     }
 
     function renderEvidenceList(evidence) {
