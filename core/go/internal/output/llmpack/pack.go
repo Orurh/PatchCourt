@@ -53,6 +53,9 @@ func WriteReviewContext(w io.Writer, input ReviewContextInput) {
 	writeChangedFiles(w, result, limit)
 	fmt.Fprintln(w)
 
+	writeAnalyzedChangedFiles(w, result, limit)
+	fmt.Fprintln(w)
+
 	writeTouchedLayers(w, result, limit)
 	fmt.Fprintln(w)
 
@@ -117,6 +120,42 @@ func writeChangedFiles(w io.Writer, result reportmodel.ReviewResult, limit int) 
 	writeMore(w, len(files), limit)
 }
 
+func writeAnalyzedChangedFiles(w io.Writer, result reportmodel.ReviewResult, limit int) {
+	files := analyzedChangedFiles(result)
+
+	fmt.Fprintln(w, "## Analyzed changed files")
+	fmt.Fprintln(w)
+
+	if len(files) == 0 {
+		fmt.Fprintln(w, "- none")
+		return
+	}
+
+	for _, file := range limited(files, limit) {
+		fmt.Fprintf(w, "- `%s`\n", file)
+	}
+
+	writeMore(w, len(files), limit)
+}
+
+func analyzedChangedFiles(result reportmodel.ReviewResult) []string {
+	seen := make(map[string]struct{})
+
+	addDependencyFiles(seen, result.DependencyChanges)
+	addFindingFiles(seen, result.FindingChanges)
+
+	for _, change := range result.ContractChanges {
+		if change.Before != nil {
+			addNonEmpty(seen, change.Before.File)
+		}
+		if change.After != nil {
+			addNonEmpty(seen, change.After.File)
+		}
+	}
+
+	return sortedKeys(seen)
+}
+
 func writeTouchedLayers(w io.Writer, result reportmodel.ReviewResult, limit int) {
 	layers := touchedLayers(result)
 
@@ -136,6 +175,14 @@ func writeTouchedLayers(w io.Writer, result reportmodel.ReviewResult, limit int)
 }
 
 func changedFiles(result reportmodel.ReviewResult) []string {
+	if len(result.ChangedFiles) > 0 {
+		seen := make(map[string]struct{}, len(result.ChangedFiles))
+		for _, file := range result.ChangedFiles {
+			addNonEmpty(seen, file)
+		}
+		return sortedKeys(seen)
+	}
+
 	seen := make(map[string]struct{})
 
 	addDependencyFiles(seen, result.DependencyChanges)
@@ -395,14 +442,81 @@ func writeFindingChanges(w io.Writer, changes []findingdiff.FindingChange, limit
 
 		if change.Before != nil {
 			fmt.Fprintf(w, "  - before: `%s/%s` %s\n", change.Before.Severity, change.Before.Kind, change.Before.Title)
+			writeFindingEvidence(w, "before evidence", change.Before.Evidence, 3)
 		}
 
 		if change.After != nil {
 			fmt.Fprintf(w, "  - after: `%s/%s` %s\n", change.After.Severity, change.After.Kind, change.After.Title)
+			writeFindingEvidence(w, "after evidence", change.After.Evidence, 3)
 		}
 	}
 
 	writeMore(w, len(changes), limit)
+}
+
+func writeFindingEvidence(w io.Writer, title string, evidence []model.Evidence, limit int) {
+	if len(evidence) == 0 {
+		return
+	}
+
+	fmt.Fprintf(w, "  - %s:\n", title)
+
+	for _, item := range limited(evidence, limit) {
+		fmt.Fprintf(w, "    - %s\n", evidenceText(item))
+	}
+
+	writeIndentedMore(w, len(evidence), limit, "    ")
+}
+
+func evidenceText(evidence model.Evidence) string {
+	location := evidence.File
+	if location == "" {
+		location = evidence.FromFile
+	}
+
+	if evidence.LineStart > 0 {
+		if evidence.LineEnd > evidence.LineStart {
+			location = fmt.Sprintf("%s:%d-%d", location, evidence.LineStart, evidence.LineEnd)
+		} else {
+			location = fmt.Sprintf("%s:%d", location, evidence.LineStart)
+		}
+	}
+
+	detail := evidence.Message
+	if detail == "" {
+		detail = evidence.Snippet
+	}
+	if detail == "" && (evidence.FromFile != "" || evidence.ToFile != "") {
+		detail = fmt.Sprintf("%s -> %s", evidence.FromFile, evidence.ToFile)
+	}
+	if detail == "" && (evidence.FromLayer != "" || evidence.ToLayer != "") {
+		detail = fmt.Sprintf("%s -> %s", evidence.FromLayer, evidence.ToLayer)
+	}
+
+	switch {
+	case location != "" && detail != "":
+		return fmt.Sprintf("`%s` — %s%s", location, detail, evidenceLayerSuffix(evidence))
+	case location != "":
+		return fmt.Sprintf("`%s`%s", location, evidenceLayerSuffix(evidence))
+	case detail != "":
+		return detail + evidenceLayerSuffix(evidence)
+	default:
+		return "evidence item"
+	}
+}
+
+func evidenceLayerSuffix(evidence model.Evidence) string {
+	if evidence.FromLayer == "" && evidence.ToLayer == "" {
+		return ""
+	}
+
+	return fmt.Sprintf(" `%s -> %s`", evidence.FromLayer, evidence.ToLayer)
+}
+
+func writeIndentedMore(w io.Writer, total int, limit int, indent string) {
+	if total > limit {
+		fmt.Fprintf(w, "%s- ... %d more\n", indent, total-limit)
+	}
 }
 
 func writeReviewQuestions(w io.Writer, result reportmodel.ReviewResult, limit int) {

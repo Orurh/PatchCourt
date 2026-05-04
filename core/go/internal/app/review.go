@@ -46,7 +46,7 @@ func (a *App) RunReview(ctx context.Context, req ReviewRequest) (*ReviewResult, 
 		return nil, fmt.Errorf("review canceled before start: %w", err)
 	}
 
-	beforeProject, afterProject, err := a.loadReviewProjects(ctx, req)
+	beforeProject, afterProject, gitChangedFiles, err := a.loadReviewProjects(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -75,6 +75,7 @@ func (a *App) RunReview(ctx context.Context, req ReviewRequest) (*ReviewResult, 
 	}
 
 	changeSet := changes.Compare(beforeProject, afterProject)
+	changeSet.ChangedFiles = changes.MergeChangedFiles(changeSet.ChangedFiles, gitChangedFiles)
 	policyIndex := buildPolicyViolationEdgeIndex(afterProject)
 	reviewRisk := risk.Calculate(risk.Input{
 		ContractChanges:   changeSet.ContractChanges,
@@ -87,6 +88,7 @@ func (a *App) RunReview(ctx context.Context, req ReviewRequest) (*ReviewResult, 
 		SchemaVersion:     reportmodel.ReviewResultSchemaVersion,
 		Summary:           buildReviewSummary(changeSet.ContractChanges, changeSet.DependencyChanges, changeSet.LayerEdgeChanges, changeSet.FindingChanges),
 		Risk:              reviewRisk,
+		ChangedFiles:      changeSet.ChangedFiles,
 		ContractChanges:   changeSet.ContractChanges,
 		DependencyChanges: changeSet.DependencyChanges,
 		LayerEdgeChanges:  changeSet.LayerEdgeChanges,

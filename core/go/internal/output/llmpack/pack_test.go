@@ -143,3 +143,59 @@ func TestWriteReviewContext_ReportsRawDependencyChangesWhenNoneReviewRelevant(t 
 	require.Contains(t, got, "## Dependency changes")
 	require.Contains(t, got, "- none review-relevant; raw dependency changes: 1")
 }
+
+func TestWriteReviewContext_UsesReviewResultChangedFiles(t *testing.T) {
+	var out bytes.Buffer
+
+	WriteReviewContext(&out, ReviewContextInput{
+		MaxItems: 10,
+		Result: reportmodel.ReviewResult{
+			SchemaVersion: reportmodel.ReviewResultSchemaVersion,
+			ChangedFiles: []string{
+				"internal/output/llmpack/pack.go",
+				"internal/app/review.go",
+			},
+		},
+	})
+
+	got := out.String()
+
+	require.Contains(t, got, "## Changed files")
+	require.Contains(t, got, "- `internal/app/review.go`")
+	require.Contains(t, got, "- `internal/output/llmpack/pack.go`")
+}
+
+func TestWriteReviewContext_SeparatesRawAndAnalyzedChangedFiles(t *testing.T) {
+	var out bytes.Buffer
+
+	WriteReviewContext(&out, ReviewContextInput{
+		MaxItems: 10,
+		Result: reportmodel.ReviewResult{
+			SchemaVersion: reportmodel.ReviewResultSchemaVersion,
+			ChangedFiles: []string{
+				"frontend/src/app/App.tsx",
+				"src/api.cc",
+			},
+			DependencyChanges: []depdiff.DependencyChange{
+				{
+					Kind: depdiff.DependencyChangeKindAdded,
+					Key:  "include|src/api.cc|src/cameras/sony.h",
+					After: &model.DependencyEdge{
+						FromFile:  "src/api.cc",
+						ToFile:    "src/cameras/sony.h",
+						FromLayer: "api",
+						ToLayer:   "cameras",
+					},
+				},
+			},
+		},
+	})
+
+	got := out.String()
+
+	require.Contains(t, got, "## Changed files")
+	require.Contains(t, got, "- `frontend/src/app/App.tsx`")
+	require.Contains(t, got, "## Analyzed changed files")
+	require.Contains(t, got, "- `src/api.cc`")
+	require.Contains(t, got, "- `src/cameras/sony.h`")
+}

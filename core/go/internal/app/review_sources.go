@@ -8,10 +8,10 @@ import (
 	"github.com/orurh/patchcourt/internal/model"
 )
 
-func (a *App) loadReviewProjects(ctx context.Context, req ReviewRequest) (*model.ProjectModel, *model.ProjectModel, error) {
+func (a *App) loadReviewProjects(ctx context.Context, req ReviewRequest) (*model.ProjectModel, *model.ProjectModel, []string, error) {
 	if req.Worktree {
 		if req.HeadRef != "" {
-			return nil, nil, fmt.Errorf("--worktree cannot be combined with --head")
+			return nil, nil, nil, fmt.Errorf("--worktree cannot be combined with --head")
 		}
 
 		gitPair, err := changes.NewGitBaseToWorktreeSourcePair(ctx, changes.GitBaseToWorktreeSourcePairOptions{
@@ -21,13 +21,18 @@ func (a *App) loadReviewProjects(ctx context.Context, req ReviewRequest) (*model
 			Analyzer:   a.analysis,
 		})
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		defer func() {
 			_ = gitPair.Cleanup(context.Background())
 		}()
 
-		return changes.LoadPair(ctx, gitPair.Pair)
+		beforeProject, afterProject, err := changes.LoadPair(ctx, gitPair.Pair)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+
+		return beforeProject, afterProject, gitPair.ChangedFiles, nil
 	}
 
 	if req.BaseRef != "" || req.HeadRef != "" {
@@ -39,30 +44,35 @@ func (a *App) loadReviewProjects(ctx context.Context, req ReviewRequest) (*model
 			Analyzer:   a.analysis,
 		})
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		defer func() {
 			_ = gitPair.Cleanup(context.Background())
 		}()
 
-		return changes.LoadPair(ctx, gitPair.Pair)
+		beforeProject, afterProject, err := changes.LoadPair(ctx, gitPair.Pair)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+
+		return beforeProject, afterProject, gitPair.ChangedFiles, nil
 	}
 
 	pair, err := a.reviewSourcePair(req)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	beforeProject, afterProject, err := changes.LoadPair(ctx, pair)
 	if err != nil {
 		if req.SinceLastRoot != "" {
-			return nil, nil, fmt.Errorf("%w. Run `patchcourt check %s --save-state` first", err, req.SinceLastRoot)
+			return nil, nil, nil, fmt.Errorf("%w. Run `patchcourt check %s --save-state` first", err, req.SinceLastRoot)
 		}
 
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
-	return beforeProject, afterProject, nil
+	return beforeProject, afterProject, nil, nil
 }
 
 func (a *App) reviewSourcePair(req ReviewRequest) (changes.SourcePair, error) {

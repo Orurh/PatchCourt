@@ -62,3 +62,85 @@ func findDependencyChange(changes []depdiff.DependencyChange, kind depdiff.Depen
 
 	return nil
 }
+
+func TestCompare_DetectsChangedFilesFromModelFacts(t *testing.T) {
+	before := &model.ProjectModel{
+		Files: []model.FileModel{
+			{
+				Path:     "internal/output/llmpack/pack.go",
+				Language: model.LanguageGo,
+				Role:     model.FileRoleProduction,
+				Imports:  []string{"fmt"},
+			},
+			{
+				Path:     "internal/app/app.go",
+				Language: model.LanguageGo,
+				Role:     model.FileRoleProduction,
+			},
+		},
+	}
+
+	after := &model.ProjectModel{
+		Files: []model.FileModel{
+			{
+				Path:     "internal/output/llmpack/pack.go",
+				Language: model.LanguageGo,
+				Role:     model.FileRoleProduction,
+				Imports:  []string{"fmt", "sort"},
+			},
+			{
+				Path:     "internal/app/app.go",
+				Language: model.LanguageGo,
+				Role:     model.FileRoleProduction,
+			},
+			{
+				Path:     "internal/output/llmpack/new_file.go",
+				Language: model.LanguageGo,
+				Role:     model.FileRoleProduction,
+			},
+		},
+	}
+
+	result := Compare(before, after)
+
+	require.Equal(t, []string{
+		"internal/output/llmpack/new_file.go",
+		"internal/output/llmpack/pack.go",
+	}, result.ChangedFiles)
+}
+
+func TestCompare_DetectsChangedFilesFromDependencyChanges(t *testing.T) {
+	before := &model.ProjectModel{
+		Files: []model.FileModel{
+			{
+				Path:     "internal/changes/compare.go",
+				Language: model.LanguageGo,
+				Role:     model.FileRoleProduction,
+			},
+		},
+	}
+
+	after := &model.ProjectModel{
+		Files: []model.FileModel{
+			{
+				Path:     "internal/changes/compare.go",
+				Language: model.LanguageGo,
+				Role:     model.FileRoleProduction,
+			},
+		},
+		Dependencies: []model.DependencyEdge{
+			{
+				FromFile: "internal/changes/compare.go",
+				Target:   "sort",
+				Kind:     model.DependencyKindImport,
+				External: true,
+			},
+		},
+	}
+
+	result := Compare(before, after)
+
+	require.Equal(t, []string{
+		"internal/changes/compare.go",
+	}, result.ChangedFiles)
+}

@@ -121,6 +121,7 @@ type ReviewResult struct {
 	Summary           ReviewSummary               `json:"summary"`
 	Risk              risk.Score                  `json:"risk"`
 	Impact            ReviewImpactReport          `json:"impact"`
+	ChangedFiles      []string                    `json:"changed_files,omitempty"`
 	ContractChanges   []contracts.SymbolChange    `json:"contract_changes"`
 	DependencyChanges []depdiff.DependencyChange  `json:"dependency_changes"`
 	LayerEdgeChanges  []depdiff.LayerEdgeChange   `json:"layer_edge_changes"`

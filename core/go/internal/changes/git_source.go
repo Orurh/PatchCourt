@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"sort"
+	"strings"
 
 	platformgit "github.com/orurh/patchcourt/internal/platform/git"
 )
@@ -24,8 +26,9 @@ type GitBaseToWorktreeSourcePairOptions struct {
 }
 
 type GitReviewSourcePair struct {
-	Pair    SourcePair
-	cleanup func(context.Context) error
+	Pair         SourcePair
+	ChangedFiles []string
+	cleanup      func(context.Context) error
 }
 
 func NewGitReviewSourcePair(ctx context.Context, opts GitReviewSourcePairOptions) (*GitReviewSourcePair, error) {
@@ -49,7 +52,14 @@ func NewGitReviewSourcePair(ctx context.Context, opts GitReviewSourcePairOptions
 		return nil, err
 	}
 
+	changedFiles, err := client.ChangedFiles(ctx, opts.BaseRef, opts.HeadRef)
+	if err != nil {
+		_ = worktrees.Cleanup(context.Background())
+		return nil, err
+	}
+
 	return &GitReviewSourcePair{
+		ChangedFiles: normalizeProjectChangedFiles(changedFiles, projectRel),
 		Pair: SourcePair{
 			Before: RootSource{
 				Root:       filepath.Join(worktrees.Before, projectRel),
@@ -85,7 +95,14 @@ func NewGitBaseToWorktreeSourcePair(ctx context.Context, opts GitBaseToWorktreeS
 		return nil, err
 	}
 
+	changedFiles, err := client.ChangedFilesToWorktree(ctx, opts.BaseRef)
+	if err != nil {
+		_ = baseWorktree.Cleanup(context.Background())
+		return nil, err
+	}
+
 	return &GitReviewSourcePair{
+		ChangedFiles: normalizeProjectChangedFiles(changedFiles, projectRel),
 		Pair: SourcePair{
 			Before: RootSource{
 				Root:       filepath.Join(baseWorktree.Path, projectRel),
@@ -137,4 +154,42 @@ func resolveGitProjectRoots(ctx context.Context, root string) (gitRoot string, p
 	}
 
 	return gitRoot, projectRel, projectRoot, nil
+}
+
+func normalizeProjectChangedFiles(files []string, projectRel string) []string {
+	projectRel = filepath.ToSlash(projectRel)
+	if projectRel == "." {
+		projectRel = ""
+	}
+
+	seen := make(map[string]struct{}, len(files))
+
+	for _, file := range files {
+		file = filepath.ToSlash(file)
+		file = strings.TrimSpace(file)
+		if file == "" {
+			continue
+		}
+
+		if projectRel != "" {
+			prefix := projectRel + "/"
+			rel, ok := strings.CutPrefix(file, prefix)
+			if !ok {
+				continue
+			}
+			file = rel
+		}
+
+		if file != "" {
+			seen[file] = struct{}{}
+		}
+	}
+
+	result := make([]string, 0, len(seen))
+	for file := range seen {
+		result = append(result, file)
+	}
+
+	sort.Strings(result)
+	return result
 }
