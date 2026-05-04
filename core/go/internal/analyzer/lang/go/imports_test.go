@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/orurh/patchcourt/internal/app"
+	"github.com/orurh/patchcourt/internal/usecase"
 )
 
 func main() {}
@@ -29,6 +29,6 @@ func main() {}
 	require.Equal(t, []string{
 		"context",
 		"fmt",
-		"github.com/orurh/patchcourt/internal/app",
+		"github.com/orurh/patchcourt/internal/usecase",
 	}, got)
 }

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/orurh/patchcourt/internal/analysis/engine"
+	"github.com/orurh/patchcourt/internal/engine"
 	"github.com/orurh/patchcourt/internal/model"
 	"github.com/orurh/patchcourt/internal/state"
 	"github.com/stretchr/testify/require"

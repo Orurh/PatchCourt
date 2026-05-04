@@ -8,13 +8,13 @@ import (
 
 func TestNormalizeProjectChangedFiles_FiltersAndTrimsProjectPrefix(t *testing.T) {
 	got := normalizeProjectChangedFiles([]string{
-		"core/go/internal/app/review.go",
-		"core/go/internal/changes/git_source.go",
+		"core/go/internal/usecase/review.go",
+		"core/go/internal/source/git.go",
 		"README.md",
 	}, "core/go")
 
 	require.Equal(t, []string{
-		"internal/app/review.go",
-		"internal/changes/git_source.go",
+		"internal/source/git.go",
+		"internal/usecase/review.go",
 	}, got)
 }

@@ -3,11 +3,11 @@ package projectdiff
 import (
 	"sort"
 
-	"github.com/orurh/patchcourt/internal/analysis/risk"
 	"github.com/orurh/patchcourt/internal/diff/contract"
 	"github.com/orurh/patchcourt/internal/diff/dep"
 	"github.com/orurh/patchcourt/internal/diff/finding"
 	"github.com/orurh/patchcourt/internal/model"
+	"github.com/orurh/patchcourt/internal/reviewrisk"
 )
 
 type Result struct {

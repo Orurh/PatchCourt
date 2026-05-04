@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/orurh/patchcourt/internal/analysis/risk"
 	"github.com/orurh/patchcourt/internal/diff/contract"
 	"github.com/orurh/patchcourt/internal/diff/dep"
 	"github.com/orurh/patchcourt/internal/model"
 	"github.com/orurh/patchcourt/internal/reportmodel"
+	"github.com/orurh/patchcourt/internal/reviewrisk"
 	"github.com/stretchr/testify/require"
 )
 
@@ -154,7 +154,7 @@ func TestWriteReviewContext_UsesReviewResultChangedFiles(t *testing.T) {
 			SchemaVersion: reportmodel.ReviewResultSchemaVersion,
 			ChangedFiles: []string{
 				"internal/render/llmpack/pack.go",
-				"internal/app/review.go",
+				"internal/usecase/review.go",
 			},
 		},
 	})
@@ -162,7 +162,7 @@ func TestWriteReviewContext_UsesReviewResultChangedFiles(t *testing.T) {
 	got := out.String()
 
 	require.Contains(t, got, "## Changed files")
-	require.Contains(t, got, "- `internal/app/review.go`")
+	require.Contains(t, got, "- `internal/usecase/review.go`")
 	require.Contains(t, got, "- `internal/render/llmpack/pack.go`")
 }
 

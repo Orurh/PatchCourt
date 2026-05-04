@@ -73,7 +73,7 @@ func TestCompare_DetectsChangedFilesFromModelFacts(t *testing.T) {
 				Imports:  []string{"fmt"},
 			},
 			{
-				Path:     "internal/app/app.go",
+				Path:     "internal/usecase/app.go",
 				Language: model.LanguageGo,
 				Role:     model.FileRoleProduction,
 			},
@@ -89,7 +89,7 @@ func TestCompare_DetectsChangedFilesFromModelFacts(t *testing.T) {
 				Imports:  []string{"fmt", "sort"},
 			},
 			{
-				Path:     "internal/app/app.go",
+				Path:     "internal/usecase/app.go",
 				Language: model.LanguageGo,
 				Role:     model.FileRoleProduction,
 			},
@@ -113,7 +113,7 @@ func TestCompare_DetectsChangedFilesFromDependencyChanges(t *testing.T) {
 	before := &model.ProjectModel{
 		Files: []model.FileModel{
 			{
-				Path:     "internal/changes/compare.go",
+				Path:     "internal/diff/project/compare.go",
 				Language: model.LanguageGo,
 				Role:     model.FileRoleProduction,
 			},
@@ -123,14 +123,14 @@ func TestCompare_DetectsChangedFilesFromDependencyChanges(t *testing.T) {
 	after := &model.ProjectModel{
 		Files: []model.FileModel{
 			{
-				Path:     "internal/changes/compare.go",
+				Path:     "internal/diff/project/compare.go",
 				Language: model.LanguageGo,
 				Role:     model.FileRoleProduction,
 			},
 		},
 		Dependencies: []model.DependencyEdge{
 			{
-				FromFile: "internal/changes/compare.go",
+				FromFile: "internal/diff/project/compare.go",
 				Target:   "sort",
 				Kind:     model.DependencyKindImport,
 				External: true,
@@ -141,6 +141,6 @@ func TestCompare_DetectsChangedFilesFromDependencyChanges(t *testing.T) {
 	result := Compare(before, after)
 
 	require.Equal(t, []string{
-		"internal/changes/compare.go",
+		"internal/diff/project/compare.go",
 	}, result.ChangedFiles)
 }

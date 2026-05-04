@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/orurh/patchcourt/internal/cli"
+	"github.com/orurh/patchcourt/internal/adapter/cli"
 )
 
 func main() {

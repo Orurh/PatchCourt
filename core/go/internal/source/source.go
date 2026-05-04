@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/orurh/patchcourt/internal/analysis/engine"
+	"github.com/orurh/patchcourt/internal/engine"
 	"github.com/orurh/patchcourt/internal/model"
 	"github.com/orurh/patchcourt/internal/state"
 )

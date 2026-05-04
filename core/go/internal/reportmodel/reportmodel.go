@@ -1,13 +1,13 @@
 package reportmodel
 
 import (
-	graphmodel "github.com/orurh/patchcourt/internal/analysis/graph"
-	"github.com/orurh/patchcourt/internal/analysis/risk"
+	graphmodel "github.com/orurh/patchcourt/internal/analyzer/graph"
 	"github.com/orurh/patchcourt/internal/config"
 	"github.com/orurh/patchcourt/internal/diff/contract"
 	"github.com/orurh/patchcourt/internal/diff/dep"
 	"github.com/orurh/patchcourt/internal/diff/finding"
 	"github.com/orurh/patchcourt/internal/model"
+	"github.com/orurh/patchcourt/internal/reviewrisk"
 )
 
 const (

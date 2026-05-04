@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	analysisproject "github.com/orurh/patchcourt/internal/analysis/project"
+	analysisproject "github.com/orurh/patchcourt/internal/analyzer/project"
 	"github.com/orurh/patchcourt/internal/model"
 )
 
