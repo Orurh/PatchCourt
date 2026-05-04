@@ -1,16 +1,13 @@
 package cli
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"github.com/orurh/patchcourt/internal/app"
 	"github.com/orurh/patchcourt/internal/output/report"
-	"github.com/orurh/patchcourt/internal/platform/files"
 	"github.com/spf13/cobra"
 )
 
@@ -41,14 +38,20 @@ func (r *Runner) newCheckCommand(ctx context.Context, rootOpts *rootOptions) *co
 				return err
 			}
 
-			artifacts, err := r.writeCheckArtifacts(result)
+			checkReport := app.BuildCheckReport(result)
+
+			artifacts, err := report.WriteCheckArtifacts(report.CheckArtifactsInput{
+				OutDir:     result.OutDir,
+				Project:    result.Project,
+				LayerGraph: result.LayerGraph,
+				Report:     checkReport,
+			})
 			if err != nil {
 				return err
 			}
 
-			result.Artifacts = artifacts
-
-			checkReport := app.BuildCheckReport(result)
+			result.Artifacts = convertCheckArtifacts(artifacts)
+			checkReport = app.BuildCheckReport(result)
 
 			switch strings.ToLower(opts.format) {
 			case "", "text":
@@ -72,97 +75,15 @@ func (r *Runner) newCheckCommand(ctx context.Context, rootOpts *rootOptions) *co
 	return cmd
 }
 
-func (r *Runner) writeCheckArtifacts(result *app.CheckResult) ([]app.CheckArtifact, error) {
-	if result == nil {
-		return nil, fmt.Errorf("check result is nil")
-	}
+func convertCheckArtifacts(artifacts []report.CheckArtifact) []app.CheckArtifact {
+	result := make([]app.CheckArtifact, 0, len(artifacts))
 
-	artifacts := make([]app.CheckArtifact, 0, 6)
-
-	writeArtifact := func(name string, filename string, render func() ([]byte, error)) error {
-		path := filepath.Join(result.OutDir, filename)
-
-		data, err := render()
-		if err != nil {
-			return fmt.Errorf("render artifact %s: %w", path, err)
-		}
-
-		if err := files.WriteFileAtomic(path, data, 0o644); err != nil {
-			return fmt.Errorf("write artifact %s: %w", path, err)
-		}
-
-		artifacts = append(artifacts, app.CheckArtifact{
-			Name: name,
-			Path: path,
+	for _, artifact := range artifacts {
+		result = append(result, app.CheckArtifact{
+			Name: artifact.Name,
+			Path: artifact.Path,
 		})
-		return nil
 	}
 
-	if err := writeArtifact("project model", "project-model.json", func() ([]byte, error) {
-		return encodeJSON(result.Project)
-	}); err != nil {
-		return nil, err
-	}
-
-	if err := writeArtifact("scan report", "scan.md", func() ([]byte, error) {
-		var buf bytes.Buffer
-		report.WriteScanMarkdown(&buf, result.Project)
-		return buf.Bytes(), nil
-	}); err != nil {
-		return nil, err
-	}
-
-	if err := writeArtifact("layer graph json", "layer-graph.json", func() ([]byte, error) {
-		return encodeJSON(result.LayerGraph)
-	}); err != nil {
-		return nil, err
-	}
-
-	if err := writeArtifact("layer graph dot", "layer-graph.dot", func() ([]byte, error) {
-		var buf bytes.Buffer
-		report.WriteLayerGraphDOT(&buf, result.LayerGraph)
-		return buf.Bytes(), nil
-	}); err != nil {
-		return nil, err
-	}
-
-	if err := writeArtifact("layer graph mermaid", "layer-graph.mmd", func() ([]byte, error) {
-		var buf bytes.Buffer
-		report.WriteLayerGraphMermaid(&buf, result.LayerGraph)
-		return buf.Bytes(), nil
-	}); err != nil {
-		return nil, err
-	}
-
-	if err := writeArtifact("html report", "report.html", func() ([]byte, error) {
-		var buf bytes.Buffer
-		checkReport := app.BuildCheckReport(result)
-
-		if err := report.WriteCheckHTML(&buf, report.CheckHTMLInput{
-			Report:     checkReport,
-			Project:    result.Project,
-			LayerGraph: result.LayerGraph,
-		}); err != nil {
-			return nil, err
-		}
-
-		return buf.Bytes(), nil
-	}); err != nil {
-		return nil, err
-	}
-
-	return artifacts, nil
-}
-
-func encodeJSON(value any) ([]byte, error) {
-	var buf bytes.Buffer
-
-	encoder := json.NewEncoder(&buf)
-	encoder.SetIndent("", "  ")
-
-	if err := encoder.Encode(value); err != nil {
-		return nil, err
-	}
-
-	return buf.Bytes(), nil
+	return result
 }

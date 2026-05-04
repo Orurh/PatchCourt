@@ -2,8 +2,11 @@ package cli
 
 import (
 	"context"
+	"fmt"
+	"path/filepath"
 
 	"github.com/orurh/patchcourt/internal/app"
+	"github.com/orurh/patchcourt/internal/output/llmpack"
 	"github.com/spf13/cobra"
 )
 
@@ -35,6 +38,9 @@ type reviewOptions struct {
 	baseRef  string
 	headRef  string
 	worktree bool
+
+	llmPack     bool
+	llmPackPath string
 
 	format string
 }
@@ -69,6 +75,12 @@ func (r *Runner) newReviewCommand(ctx context.Context, rootOpts *rootOptions) *c
 				return err
 			}
 
+			if opts.llmPack {
+				if err := r.writeReviewLLMPack(opts, result); err != nil {
+					return err
+				}
+			}
+
 			return r.renderReviewResult(format, app.ReviewRequest{
 				BeforePath:    opts.beforePath,
 				AfterPath:     opts.afterPath,
@@ -96,7 +108,41 @@ func (r *Runner) newReviewCommand(ctx context.Context, rootOpts *rootOptions) *c
 	cmd.Flags().StringVar(&opts.baseRef, "base", "", "base git ref for review, for example main or origin/main")
 	cmd.Flags().StringVar(&opts.headRef, "head", "", "head git ref for review, for example HEAD")
 	cmd.Flags().BoolVar(&opts.worktree, "worktree", false, "compare --base git ref with current working tree")
+	cmd.Flags().BoolVar(&opts.llmPack, "llm-pack", false, "write deterministic LLM review context pack")
+	cmd.Flags().StringVar(&opts.llmPackPath, "llm-pack-out", "", "path to write LLM review context pack")
 	cmd.Flags().StringVar(&opts.format, "format", string(app.ReviewFormatText), "output format: text, json, markdown")
 
 	return cmd
+}
+
+func (r *Runner) writeReviewLLMPack(opts reviewOptions, result *app.ReviewResult) error {
+	if result == nil {
+		return fmt.Errorf("review result is nil")
+	}
+
+	outPath := opts.llmPackPath
+	if outPath == "" {
+		root := opts.gitRoot
+		if root == "" {
+			root = opts.afterRoot
+		}
+		if root == "" {
+			root = "."
+		}
+
+		outPath = filepath.Join(root, ".patchcourt", "review-context.md")
+	}
+
+	if err := llmpack.WriteReviewContextFile(outPath, llmpack.ReviewContextInput{
+		Result:   *result,
+		MaxItems: 10,
+	}); err != nil {
+		return err
+	}
+
+	if r.stderr != nil {
+		fmt.Fprintf(r.stderr, "LLM context pack written: %s\n", outPath)
+	}
+
+	return nil
 }

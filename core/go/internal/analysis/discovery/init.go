@@ -365,7 +365,7 @@ func renderGoCleanPresetConfig(absRoot string, ignorePaths []string, includePath
 		{
 			Name:        "output",
 			Paths:       []string{"internal/output/**"},
-			MayDependOn: []string{"analysis", "model", "reportmodel"},
+			MayDependOn: []string{"analysis", "model", "platform", "reportmodel"},
 		},
 		{
 			Name:        "platform",
