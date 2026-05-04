@@ -10,6 +10,12 @@ import (
 	"github.com/orurh/patchcourt/internal/model"
 )
 
+const (
+	CheckReportSchemaVersion  = "patchcourt.check.v1"
+	EdgeResultSchemaVersion   = "patchcourt.edge.v1"
+	ReviewResultSchemaVersion = "patchcourt.review.v1"
+)
+
 type CheckArtifact struct {
 	Name string `json:"name"`
 	Path string `json:"path"`
@@ -28,11 +34,12 @@ type CheckResult struct {
 }
 
 type CheckReport struct {
-	Root       string            `json:"root"`
-	ConfigPath string            `json:"config_path,omitempty"`
-	OutDir     string            `json:"out_dir"`
-	StatePath  string            `json:"state_path,omitempty"`
-	Summary    model.ScanSummary `json:"summary"`
+	SchemaVersion string            `json:"schema_version"`
+	Root          string            `json:"root"`
+	ConfigPath    string            `json:"config_path,omitempty"`
+	OutDir        string            `json:"out_dir"`
+	StatePath     string            `json:"state_path,omitempty"`
+	Summary       model.ScanSummary `json:"summary"`
 
 	FindingCount   int `json:"finding_count"`
 	GraphNodeCount int `json:"graph_node_count"`
@@ -67,6 +74,7 @@ type NextStep struct {
 }
 
 type EdgeResult struct {
+	SchemaVersion string                 `json:"schema_version"`
 	Root          string                 `json:"root,omitempty"`
 	Source        string                 `json:"source"`
 	FromLayer     string                 `json:"from_layer"`
@@ -109,6 +117,7 @@ type ReviewSummary struct {
 }
 
 type ReviewResult struct {
+	SchemaVersion     string                      `json:"schema_version"`
 	Summary           ReviewSummary               `json:"summary"`
 	Risk              risk.Score                  `json:"risk"`
 	Impact            ReviewImpactReport          `json:"impact"`

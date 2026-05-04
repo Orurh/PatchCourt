@@ -1,15 +1,16 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/orurh/patchcourt/internal/app"
 	"github.com/orurh/patchcourt/internal/output/report"
+	"github.com/orurh/patchcourt/internal/platform/files"
 	"github.com/spf13/cobra"
 )
 
@@ -76,29 +77,18 @@ func (r *Runner) writeCheckArtifacts(result *app.CheckResult) ([]app.CheckArtifa
 		return nil, fmt.Errorf("check result is nil")
 	}
 
-	if err := os.MkdirAll(result.OutDir, 0o755); err != nil {
-		return nil, fmt.Errorf("create check output dir: %w", err)
-	}
-
 	artifacts := make([]app.CheckArtifact, 0, 6)
 
-	writeArtifact := func(name string, filename string, write func(*os.File) error) error {
+	writeArtifact := func(name string, filename string, render func() ([]byte, error)) error {
 		path := filepath.Join(result.OutDir, filename)
 
-		file, err := os.Create(path)
+		data, err := render()
 		if err != nil {
-			return fmt.Errorf("create artifact %s: %w", path, err)
+			return fmt.Errorf("render artifact %s: %w", path, err)
 		}
 
-		writeErr := write(file)
-		closeErr := file.Close()
-
-		if writeErr != nil {
-			return fmt.Errorf("write artifact %s: %w", path, writeErr)
-		}
-
-		if closeErr != nil {
-			return fmt.Errorf("close artifact %s: %w", path, closeErr)
+		if err := files.WriteFileAtomic(path, data, 0o644); err != nil {
+			return fmt.Errorf("write artifact %s: %w", path, err)
 		}
 
 		artifacts = append(artifacts, app.CheckArtifact{
@@ -108,50 +98,71 @@ func (r *Runner) writeCheckArtifacts(result *app.CheckResult) ([]app.CheckArtifa
 		return nil
 	}
 
-	if err := writeArtifact("project model", "project-model.json", func(file *os.File) error {
-		return writeJSON(file, result.Project)
+	if err := writeArtifact("project model", "project-model.json", func() ([]byte, error) {
+		return encodeJSON(result.Project)
 	}); err != nil {
 		return nil, err
 	}
 
-	if err := writeArtifact("scan report", "scan.md", func(file *os.File) error {
-		report.WriteScanMarkdown(file, result.Project)
-		return nil
+	if err := writeArtifact("scan report", "scan.md", func() ([]byte, error) {
+		var buf bytes.Buffer
+		report.WriteScanMarkdown(&buf, result.Project)
+		return buf.Bytes(), nil
 	}); err != nil {
 		return nil, err
 	}
 
-	if err := writeArtifact("layer graph json", "layer-graph.json", func(file *os.File) error {
-		return writeJSON(file, result.LayerGraph)
+	if err := writeArtifact("layer graph json", "layer-graph.json", func() ([]byte, error) {
+		return encodeJSON(result.LayerGraph)
 	}); err != nil {
 		return nil, err
 	}
 
-	if err := writeArtifact("layer graph dot", "layer-graph.dot", func(file *os.File) error {
-		report.WriteLayerGraphDOT(file, result.LayerGraph)
-		return nil
+	if err := writeArtifact("layer graph dot", "layer-graph.dot", func() ([]byte, error) {
+		var buf bytes.Buffer
+		report.WriteLayerGraphDOT(&buf, result.LayerGraph)
+		return buf.Bytes(), nil
 	}); err != nil {
 		return nil, err
 	}
 
-	if err := writeArtifact("layer graph mermaid", "layer-graph.mmd", func(file *os.File) error {
-		report.WriteLayerGraphMermaid(file, result.LayerGraph)
-		return nil
+	if err := writeArtifact("layer graph mermaid", "layer-graph.mmd", func() ([]byte, error) {
+		var buf bytes.Buffer
+		report.WriteLayerGraphMermaid(&buf, result.LayerGraph)
+		return buf.Bytes(), nil
 	}); err != nil {
 		return nil, err
 	}
 
-	if err := writeArtifact("html report", "report.html", func(file *os.File) error {
+	if err := writeArtifact("html report", "report.html", func() ([]byte, error) {
+		var buf bytes.Buffer
 		checkReport := app.BuildCheckReport(result)
 
-		return report.WriteCheckHTML(file, report.CheckHTMLInput{
+		if err := report.WriteCheckHTML(&buf, report.CheckHTMLInput{
 			Report:     checkReport,
 			Project:    result.Project,
 			LayerGraph: result.LayerGraph,
-		})
+		}); err != nil {
+			return nil, err
+		}
+
+		return buf.Bytes(), nil
 	}); err != nil {
 		return nil, err
 	}
 
 	return artifacts, nil
+}
+
+func encodeJSON(value any) ([]byte, error) {
+	var buf bytes.Buffer
+
+	encoder := json.NewEncoder(&buf)
+	encoder.SetIndent("", "  ")
+
+	if err := encoder.Encode(value); err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
 }

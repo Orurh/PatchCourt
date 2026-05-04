@@ -84,6 +84,7 @@ func (a *App) RunReview(ctx context.Context, req ReviewRequest) (*ReviewResult, 
 	})
 
 	result := &ReviewResult{
+		SchemaVersion:     reportmodel.ReviewResultSchemaVersion,
 		Summary:           buildReviewSummary(changeSet.ContractChanges, changeSet.DependencyChanges, changeSet.LayerEdgeChanges, changeSet.FindingChanges),
 		Risk:              reviewRisk,
 		ContractChanges:   changeSet.ContractChanges,

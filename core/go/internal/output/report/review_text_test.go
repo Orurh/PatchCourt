@@ -2,10 +2,13 @@ package report
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/orurh/patchcourt/internal/analysis/depdiff"
+	"github.com/orurh/patchcourt/internal/analysis/risk"
 	"github.com/orurh/patchcourt/internal/model"
+	"github.com/orurh/patchcourt/internal/reportmodel"
 	"github.com/stretchr/testify/require"
 )
 
@@ -60,4 +63,41 @@ func TestWriteReviewText_ShowsOnlyReviewRelevantDependencyChanges(t *testing.T) 
 	require.Contains(t, got, "include|src/cameras/a.h|src/domain/b.h")
 	require.NotContains(t, got, "include|src/domain/a.h|string")
 	require.NotContains(t, got, "include|src/domain/a.h|src/domain/b.h")
+}
+
+func TestWriteReviewText_PrintsVerdictBlock(t *testing.T) {
+	var out bytes.Buffer
+
+	WriteReviewText(&out, ReviewTextResult{
+		Risk: risk.Score{
+			Level: risk.LevelMedium,
+		},
+		Impact: reportmodel.ReviewImpactReport{
+			Worse: []reportmodel.ReviewImpactItem{
+				{
+					Kind:   "contract_removed",
+					Title:  "Removed public contract symbol",
+					Detail: "method::ICameraManagerController::GetCameraStatus",
+				},
+			},
+			Better: []reportmodel.ReviewImpactItem{
+				{
+					Kind:  "finding_removed",
+					Title: "Removed policy violation finding",
+					ID:    "architecture.domain.cameras",
+				},
+			},
+		},
+	})
+
+	got := out.String()
+
+	require.Contains(t, got, "Verdict:")
+	require.Contains(t, got, "architecture: mixed")
+	require.Contains(t, got, "risk:         medium")
+	require.Contains(t, got, "main concerns:")
+	require.Contains(t, got, "Removed public contract symbol")
+	require.Contains(t, got, "improvements:")
+	require.Contains(t, got, "Removed policy violation finding: architecture.domain.cameras")
+	require.True(t, strings.Index(got, "Verdict:") < strings.Index(got, "Summary:"))
 }

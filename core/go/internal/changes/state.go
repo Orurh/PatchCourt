@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/orurh/patchcourt/internal/model"
+	"github.com/orurh/patchcourt/internal/platform/files"
 )
 
 const (
@@ -70,12 +71,9 @@ func SaveState(opts SaveStateOptions) (StateMetadata, error) {
 	}
 
 	dir := StateDir(absRoot, name)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return StateMetadata{}, fmt.Errorf("create state dir %s: %w", dir, err)
-	}
 
 	projectPath := filepath.Join(dir, projectModelFileName)
-	if err := writeJSONFile(projectPath, opts.Project); err != nil {
+	if err := files.WriteJSONAtomic(projectPath, opts.Project); err != nil {
 		return StateMetadata{}, err
 	}
 
@@ -90,7 +88,7 @@ func SaveState(opts SaveStateOptions) (StateMetadata, error) {
 	}
 
 	metadataPath := filepath.Join(dir, metadataFileName)
-	if err := writeJSONFile(metadataPath, metadata); err != nil {
+	if err := files.WriteJSONAtomic(metadataPath, metadata); err != nil {
 		return StateMetadata{}, err
 	}
 
@@ -149,28 +147,6 @@ func ReadProjectModel(path string) (*model.ProjectModel, error) {
 	}
 
 	return &project, nil
-}
-
-func writeJSONFile(path string, value any) error {
-	file, err := os.Create(path)
-	if err != nil {
-		return fmt.Errorf("create %s: %w", path, err)
-	}
-
-	encoder := json.NewEncoder(file)
-	encoder.SetIndent("", "  ")
-	writeErr := encoder.Encode(value)
-	closeErr := file.Close()
-
-	if writeErr != nil {
-		return fmt.Errorf("write %s: %w", path, writeErr)
-	}
-
-	if closeErr != nil {
-		return fmt.Errorf("close %s: %w", path, closeErr)
-	}
-
-	return nil
 }
 
 func readJSONFile(path string, value any) error {

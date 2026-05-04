@@ -6,6 +6,7 @@ import (
 
 	analysisproject "github.com/orurh/patchcourt/internal/analysis/project"
 	"github.com/orurh/patchcourt/internal/model"
+	"github.com/orurh/patchcourt/internal/reportmodel"
 )
 
 const defaultEdgeDependencyLimit = 50
@@ -28,15 +29,16 @@ func BuildEdgeReport(project *model.ProjectModel, opts EdgeReportOptions) *EdgeR
 	sortEdgeDependencies(deps)
 
 	result := &EdgeResult{
-		Root:         opts.Root,
-		Source:       opts.Source,
-		FromLayer:    opts.FromLayer,
-		ToLayer:      opts.ToLayer,
-		Count:        len(deps),
-		Usage:        summarizeEdgeUsage(deps),
-		Findings:     findEdgeFindings(edgeProjectFindings(project), opts.FromLayer, opts.ToLayer),
-		TopFromFiles: topEdgeFiles(deps, true),
-		TopToFiles:   topEdgeFiles(deps, false),
+		SchemaVersion: reportmodel.EdgeResultSchemaVersion,
+		Root:          opts.Root,
+		Source:        opts.Source,
+		FromLayer:     opts.FromLayer,
+		ToLayer:       opts.ToLayer,
+		Count:         len(deps),
+		Usage:         summarizeEdgeUsage(deps),
+		Findings:      findEdgeFindings(edgeProjectFindings(project), opts.FromLayer, opts.ToLayer),
+		TopFromFiles:  topEdgeFiles(deps, true),
+		TopToFiles:    topEdgeFiles(deps, false),
 	}
 
 	if project != nil && result.Root == "" {

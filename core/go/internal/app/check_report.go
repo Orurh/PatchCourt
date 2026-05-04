@@ -34,6 +34,7 @@ func BuildCheckReport(result *CheckResult) CheckReport {
 	}
 
 	report := CheckReport{
+		SchemaVersion:  reportmodel.CheckReportSchemaVersion,
 		Root:           result.Root,
 		ConfigPath:     result.ConfigPath,
 		OutDir:         result.OutDir,

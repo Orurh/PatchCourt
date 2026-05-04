@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/orurh/patchcourt/internal/analysis/discovery"
+	"github.com/orurh/patchcourt/internal/platform/files"
 	"github.com/orurh/patchcourt/internal/platform/logx"
 )
 
@@ -84,11 +85,7 @@ func (a *App) RunInit(ctx context.Context, req InitRequest) (*InitResult, error)
 		}
 	}
 
-	if err := os.MkdirAll(filepath.Dir(absOutputPath), 0o755); err != nil {
-		return nil, fmt.Errorf("create config dir: %w", err)
-	}
-
-	if err := os.WriteFile(absOutputPath, []byte(result.ConfigYAML), 0o644); err != nil {
+	if err := files.WriteFileAtomic(absOutputPath, []byte(result.ConfigYAML), 0o644); err != nil {
 		return nil, fmt.Errorf("write config %s: %w", absOutputPath, err)
 	}
 

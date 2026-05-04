@@ -17,6 +17,9 @@ func WriteReviewText(w io.Writer, result ReviewTextResult) {
 	fmt.Fprintln(w, "PatchCourt review")
 	fmt.Fprintln(w)
 
+	writeReviewVerdictText(w, result)
+	fmt.Fprintln(w)
+
 	writeReviewSummaryText(w, result.Summary)
 	fmt.Fprintln(w)
 
@@ -46,6 +49,65 @@ type ReviewTextResult struct {
 	DependencyChanges []depdiff.DependencyChange
 	LayerEdgeChanges  []depdiff.LayerEdgeChange
 	FindingChanges    []findingdiff.FindingChange
+}
+
+func writeReviewVerdictText(w io.Writer, result ReviewTextResult) {
+	fmt.Fprintln(w, "Verdict:")
+	fmt.Fprintf(w, "  architecture: %s\n", architectureVerdict(result.Impact))
+	fmt.Fprintf(w, "  risk:         %s\n", result.Risk.Level)
+
+	writeVerdictItems(w, "  main concerns:", result.Impact.Worse, 3)
+	writeVerdictItems(w, "  improvements:", result.Impact.Better, 3)
+}
+
+func architectureVerdict(impact reportmodel.ReviewImpactReport) string {
+	hasWorse := len(impact.Worse) > 0
+	hasBetter := len(impact.Better) > 0
+
+	switch {
+	case hasWorse && hasBetter:
+		return "mixed"
+	case hasWorse:
+		return "worsened"
+	case hasBetter:
+		return "improved"
+	default:
+		return "unchanged"
+	}
+}
+
+func writeVerdictItems(w io.Writer, title string, items []reportmodel.ReviewImpactItem, limit int) {
+	fmt.Fprintln(w, title)
+
+	if len(items) == 0 {
+		fmt.Fprintln(w, "    none")
+		return
+	}
+
+	if limit <= 0 || limit > len(items) {
+		limit = len(items)
+	}
+
+	for i := 0; i < limit; i++ {
+		fmt.Fprintf(w, "    - %s\n", verdictItemText(items[i]))
+	}
+
+	if hidden := len(items) - limit; hidden > 0 {
+		fmt.Fprintf(w, "    ... %d more\n", hidden)
+	}
+}
+
+func verdictItemText(item reportmodel.ReviewImpactItem) string {
+	switch {
+	case item.ID != "" && item.Detail != "":
+		return fmt.Sprintf("%s: %s — %s", item.Title, item.ID, item.Detail)
+	case item.ID != "":
+		return fmt.Sprintf("%s: %s", item.Title, item.ID)
+	case item.Detail != "":
+		return fmt.Sprintf("%s — %s", item.Title, item.Detail)
+	default:
+		return item.Title
+	}
 }
 
 func writeReviewSummaryText(w io.Writer, summary reportmodel.ReviewSummary) {
