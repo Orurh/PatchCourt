@@ -111,7 +111,8 @@ func TestWriteReviewContext_RendersDeterministicContextPack(t *testing.T) {
 	require.Contains(t, got, "src/api.cc -> src/cameras/sony.h")
 	require.NotContains(t, got, "`import|src/api.cc|testing`")
 	require.Contains(t, got, "## Review questions")
-	require.Contains(t, got, "Verify callers and tests for public contract change")
+	require.Contains(t, got, "Public contract changed `method::ICamera::Status`, but no test-like files changed")
+	require.Contains(t, got, "Verify callers and add or update tests")
 }
 
 func TestWriteReviewContext_ReportsRawDependencyChangesWhenNoneReviewRelevant(t *testing.T) {
@@ -230,4 +231,71 @@ func TestWriteReviewContext_SummaryIncludesRawAndAnalyzedChangedFileCounts(t *te
 
 	require.Contains(t, got, "- Changed files: 2")
 	require.Contains(t, got, "- Analyzed changed files: 2")
+}
+
+func TestWriteReviewContext_AsksForTestsWhenPublicContractChangedWithoutRelatedTests(t *testing.T) {
+	var out bytes.Buffer
+
+	WriteReviewContext(&out, ReviewContextInput{
+		MaxItems: 10,
+		Result: reportmodel.ReviewResult{
+			SchemaVersion: reportmodel.ReviewResultSchemaVersion,
+			ChangedFiles: []string{
+				"src/domain/interfaces/i_camera_manager_controller.h",
+				"frontend/src/app/App.tsx",
+			},
+			ContractChanges: []contracts.SymbolChange{
+				{
+					Kind:      contracts.ChangeKindSignatureChanged,
+					SymbolKey: "method::ICameraManagerController::GetCameraStatus",
+					Before: &model.SymbolModel{
+						File:   "src/domain/interfaces/i_camera_manager_controller.h",
+						Name:   "GetCameraStatus",
+						Parent: "ICameraManagerController",
+					},
+					After: &model.SymbolModel{
+						File:   "src/domain/interfaces/i_camera_manager_controller.h",
+						Name:   "GetCameraStatus",
+						Parent: "ICameraManagerController",
+					},
+				},
+			},
+		},
+	})
+
+	got := out.String()
+
+	require.Contains(t, got, "Public contract changed `method::ICameraManagerController::GetCameraStatus`, but no test-like files changed")
+	require.Contains(t, got, "Verify callers and add or update tests")
+}
+
+func TestWriteReviewContext_RecognizesRelatedChangedTestsForPublicContractChange(t *testing.T) {
+	var out bytes.Buffer
+
+	WriteReviewContext(&out, ReviewContextInput{
+		MaxItems: 10,
+		Result: reportmodel.ReviewResult{
+			SchemaVersion: reportmodel.ReviewResultSchemaVersion,
+			ChangedFiles: []string{
+				"test/unit/mocks/mock_camera_manager_controller.h",
+				"test/unit/camera_manager_controller_test.cc",
+			},
+			ContractChanges: []contracts.SymbolChange{
+				{
+					Kind:      contracts.ChangeKindRemoved,
+					SymbolKey: "method::ICameraManagerController::GetCameraStatus",
+					Before: &model.SymbolModel{
+						File:   "src/domain/interfaces/i_camera_manager_controller.h",
+						Name:   "GetCameraStatus",
+						Parent: "ICameraManagerController",
+					},
+				},
+			},
+		},
+	})
+
+	got := out.String()
+
+	require.Contains(t, got, "test-like files changed in this patch")
+	require.NotContains(t, got, "but no test-like files changed")
 }
