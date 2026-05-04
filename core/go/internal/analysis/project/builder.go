@@ -8,7 +8,7 @@ import (
 
 	"github.com/orurh/patchcourt/internal/analysis/lang/cpp"
 	goanalysis "github.com/orurh/patchcourt/internal/analysis/lang/go"
-	"github.com/orurh/patchcourt/internal/analysis/resolver"
+	"github.com/orurh/patchcourt/internal/analyzer/lang/cpp/resolver"
 	"github.com/orurh/patchcourt/internal/model"
 	"github.com/orurh/patchcourt/internal/platform/pathmatch"
 )

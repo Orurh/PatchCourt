@@ -1,4 +1,4 @@
-package cppusage
+package usage
 
 import (
 	"os"

@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/orurh/patchcourt/internal/analysis/project"
-	"github.com/orurh/patchcourt/internal/analysis/resolver"
+	"github.com/orurh/patchcourt/internal/analyzer/lang/cpp/resolver"
 	"github.com/orurh/patchcourt/internal/config"
 	"github.com/orurh/patchcourt/internal/model"
 	"github.com/orurh/patchcourt/internal/platform/pathmatch"

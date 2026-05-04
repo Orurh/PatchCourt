@@ -6,13 +6,13 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/orurh/patchcourt/internal/analysis/cppusage"
 	"github.com/orurh/patchcourt/internal/analysis/discovery"
 	"github.com/orurh/patchcourt/internal/analysis/project"
-	"github.com/orurh/patchcourt/internal/analysis/resolver"
 	"github.com/orurh/patchcourt/internal/analysis/rules"
 	"github.com/orurh/patchcourt/internal/analysis/suppressions"
 	"github.com/orurh/patchcourt/internal/analyzer/lang/cpp/compilecmds"
+	"github.com/orurh/patchcourt/internal/analyzer/lang/cpp/resolver"
+	"github.com/orurh/patchcourt/internal/analyzer/lang/cpp/usage"
 	"github.com/orurh/patchcourt/internal/config"
 	"github.com/orurh/patchcourt/internal/model"
 	"github.com/orurh/patchcourt/internal/platform/logx"
@@ -97,7 +97,7 @@ func (e *Engine) Analyze(ctx context.Context, req AnalyzeRequest) (*AnalyzeResul
 	}
 
 	logger.Debug("analyzing C++ include usage")
-	cppusage.Analyze(projectModel)
+	usage.Analyze(projectModel)
 
 	if len(cfg.Layers) == 0 {
 		logger.Debug("assigning discovered layers")
