@@ -12,6 +12,7 @@ import (
 	"github.com/orurh/patchcourt/internal/diff/finding"
 	"github.com/orurh/patchcourt/internal/model"
 	"github.com/orurh/patchcourt/internal/platform/files"
+	"github.com/orurh/patchcourt/internal/render/reviewquestions"
 	"github.com/orurh/patchcourt/internal/reportmodel"
 )
 
@@ -526,48 +527,8 @@ func writeReviewQuestions(w io.Writer, result reportmodel.ReviewResult, limit in
 	fmt.Fprintln(w, "## Review questions")
 	fmt.Fprintln(w)
 
-	if len(result.Impact.Worse) == 0 && len(result.ContractChanges) == 0 {
-		fmt.Fprintln(w, "- No specific high-signal questions generated from the current facts.")
-		return
-	}
-
-	count := 0
-
-	for _, item := range result.Impact.Worse {
-		if count >= limit {
-			writeMore(w, len(result.Impact.Worse), limit)
-			return
-		}
-
-		fmt.Fprintf(w, "- Check whether this regression is intentional: %s", item.Title)
-		if item.ID != "" {
-			fmt.Fprintf(w, " `%s`", item.ID)
-		}
-		if item.Detail != "" {
-			fmt.Fprintf(w, " — %s", item.Detail)
-		}
-		fmt.Fprintln(w)
-		count++
-	}
-
-	for _, change := range result.ContractChanges {
-		if count >= limit {
-			return
-		}
-
-		switch change.Kind {
-		case contracts.ChangeKindRemoved, contracts.ChangeKindSignatureChanged, contracts.ChangeKindModifiersChanged:
-			if hasRelatedChangedTest(result.ChangedFiles, change) {
-				fmt.Fprintf(w, "- Public contract changed `%s`; test-like files changed in this patch. Verify they actually cover this contract migration.\n", change.SymbolKey)
-			} else {
-				fmt.Fprintf(w, "- Public contract changed `%s`, but no test-like files changed. Verify callers and add or update tests.\n", change.SymbolKey)
-			}
-			count++
-		}
-	}
-
-	if count == 0 {
-		fmt.Fprintln(w, "- No specific high-signal questions generated from the current facts.")
+	for _, question := range reviewquestions.Build(result, limit) {
+		fmt.Fprintf(w, "- %s\n", question.Text)
 	}
 }
 
