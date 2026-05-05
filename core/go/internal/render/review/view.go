@@ -373,3 +373,50 @@ func mermaidNodeID(value string) string {
 
 	return b.String()
 }
+
+func visibleChangedFiles(files []string) []string {
+	visible := make([]string, 0, len(files))
+
+	for _, file := range files {
+		if isGeneratedReviewArtifact(file) {
+			continue
+		}
+
+		visible = append(visible, file)
+	}
+
+	return visible
+}
+
+func hiddenChangedFilesCount(files []string) int {
+	hidden := 0
+
+	for _, file := range files {
+		if isGeneratedReviewArtifact(file) {
+			hidden++
+		}
+	}
+
+	return hidden
+}
+
+func isGeneratedReviewArtifact(file string) bool {
+	normalized := strings.ToLower(strings.ReplaceAll(file, "\\", "/"))
+
+	if strings.HasPrefix(normalized, ".patchcourt/out/") ||
+		strings.HasPrefix(normalized, ".patchcourt/state/") ||
+		strings.HasPrefix(normalized, "patchcourt/out/") ||
+		strings.HasPrefix(normalized, "patchcourt/state/") ||
+		strings.HasPrefix(normalized, "out/") ||
+		strings.HasPrefix(normalized, "build/") ||
+		strings.HasPrefix(normalized, "cmake-build/") ||
+		strings.HasPrefix(normalized, "bin/") {
+		return true
+	}
+
+	return strings.Contains(normalized, "/.patchcourt/out/") ||
+		strings.Contains(normalized, "/.patchcourt/state/") ||
+		strings.Contains(normalized, "/patchcourt/out/") ||
+		strings.Contains(normalized, "/patchcourt/state/") ||
+		strings.Contains(normalized, "/cmake-build/")
+}

@@ -108,7 +108,7 @@ func TestWriteReviewHTML_RendersRiskImpactAndChangedFiles(t *testing.T) {
 	require.Contains(t, got, `cameras`)
 	require.Contains(t, got, "Worse")
 	require.Contains(t, got, "Better")
-	require.Contains(t, got, "Unchanged debt")
+	require.Contains(t, got, "Existing unchanged debt")
 	require.Contains(t, got, "Added forbidden dependency")
 	require.Contains(t, got, "architecture.api.cameras")
 	require.Contains(t, got, "src/api/router.cc")
