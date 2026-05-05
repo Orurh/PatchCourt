@@ -45,9 +45,12 @@ func WriteReviewHTML(w io.Writer, result reportmodel.ReviewResult) error {
 	writeReviewHTMLImpact(&b, view.Impact)
 	writeReviewHTMLLayerImpactGraph(&b, view.LayerGraph)
 	writeReviewHTMLChangedFiles(&b, "Changed files", view.ChangedFiles)
+	writeReviewHTMLContractChanges(&b, view.ContractRows)
 	writeReviewHTMLDependencyChanges(&b, view.DependencyRows)
 	writeReviewHTMLLayerEdgeChanges(&b, view.LayerEdgeRows)
+	writeReviewHTMLFindingChanges(&b, view.FindingRows)
 	writeReviewHTMLRiskReasons(&b, view.RiskReasons)
+	writeReviewHTMLReviewQuestions(&b, view.ReviewQuestions)
 	writeReviewHTMLCounts(&b, view.RawCounts)
 
 	fmt.Fprintln(&b, "</main>")
@@ -161,6 +164,49 @@ func writeReviewHTMLChangedFiles(b *strings.Builder, title string, files []strin
 	fmt.Fprintln(b, `</section>`)
 }
 
+func writeReviewHTMLContractChanges(b *strings.Builder, rows []ReviewContractRow) {
+	fmt.Fprintln(b, `<section class="card">`)
+	fmt.Fprintln(b, `<h2>Contract changes</h2>`)
+
+	if len(rows) == 0 {
+		fmt.Fprintln(b, `<p class="muted">No contract changes.</p>`)
+		fmt.Fprintln(b, `</section>`)
+		return
+	}
+
+	fmt.Fprintln(b, `<div class="table-wrap">`)
+	fmt.Fprintln(b, `<table>`)
+	fmt.Fprintln(b, `<thead><tr><th>Kind</th><th>Symbol</th><th>File</th><th>Before</th><th>After</th><th>Modifiers</th></tr></thead>`)
+	fmt.Fprintln(b, `<tbody>`)
+
+	for _, row := range rows {
+		modifiers := ""
+		if row.AddedModifiers != "" {
+			modifiers += "added: " + row.AddedModifiers
+		}
+		if row.RemovedModifiers != "" {
+			if modifiers != "" {
+				modifiers += "; "
+			}
+			modifiers += "removed: " + row.RemovedModifiers
+		}
+
+		fmt.Fprintln(b, `<tr>`)
+		fmt.Fprintf(b, `<td><span class="tag">%s</span></td>`, escape(row.Kind))
+		fmt.Fprintf(b, `<td><code>%s</code></td>`, escape(row.SymbolKey))
+		fmt.Fprintf(b, `<td><code>%s</code></td>`, escape(row.File))
+		fmt.Fprintf(b, `<td><code>%s</code></td>`, escape(row.BeforeSignature))
+		fmt.Fprintf(b, `<td><code>%s</code></td>`, escape(row.AfterSignature))
+		fmt.Fprintf(b, `<td>%s</td>`, escape(modifiers))
+		fmt.Fprintln(b, `</tr>`)
+	}
+
+	fmt.Fprintln(b, `</tbody>`)
+	fmt.Fprintln(b, `</table>`)
+	fmt.Fprintln(b, `</div>`)
+	fmt.Fprintln(b, `</section>`)
+}
+
 func writeReviewHTMLDependencyChanges(b *strings.Builder, rows []ReviewDependencyRow) {
 	fmt.Fprintln(b, `<section class="card">`)
 	fmt.Fprintln(b, `<h2>Dependency changes</h2>`)
@@ -227,6 +273,36 @@ func writeReviewHTMLLayerEdgeChanges(b *strings.Builder, rows []ReviewLayerEdgeR
 	fmt.Fprintln(b, `</section>`)
 }
 
+func writeReviewHTMLFindingChanges(b *strings.Builder, rows []ReviewFindingRow) {
+	fmt.Fprintln(b, `<section class="card">`)
+	fmt.Fprintln(b, `<h2>Finding changes</h2>`)
+
+	if len(rows) == 0 {
+		fmt.Fprintln(b, `<p class="muted">No finding changes.</p>`)
+		fmt.Fprintln(b, `</section>`)
+		return
+	}
+
+	fmt.Fprintln(b, `<div class="table-wrap">`)
+	fmt.Fprintln(b, `<table>`)
+	fmt.Fprintln(b, `<thead><tr><th>Kind</th><th>ID</th><th>Severity</th><th>Title</th></tr></thead>`)
+	fmt.Fprintln(b, `<tbody>`)
+
+	for _, row := range rows {
+		fmt.Fprintln(b, `<tr>`)
+		fmt.Fprintf(b, `<td><span class="tag">%s</span></td>`, escape(row.Kind))
+		fmt.Fprintf(b, `<td><code>%s</code></td>`, escape(row.ID))
+		fmt.Fprintf(b, `<td>%s</td>`, escape(row.Severity))
+		fmt.Fprintf(b, `<td>%s</td>`, escape(row.Title))
+		fmt.Fprintln(b, `</tr>`)
+	}
+
+	fmt.Fprintln(b, `</tbody>`)
+	fmt.Fprintln(b, `</table>`)
+	fmt.Fprintln(b, `</div>`)
+	fmt.Fprintln(b, `</section>`)
+}
+
 func writeReviewHTMLRiskReasons(b *strings.Builder, reasons []ReviewRiskReason) {
 	fmt.Fprintln(b, `<section class="card">`)
 	fmt.Fprintln(b, `<h2>Risk reasons</h2>`)
@@ -240,6 +316,25 @@ func writeReviewHTMLRiskReasons(b *strings.Builder, reasons []ReviewRiskReason) 
 	fmt.Fprintln(b, `<ul>`)
 	for _, reason := range reasons {
 		fmt.Fprintf(b, `<li><strong>+%d</strong> %s</li>`, reason.Points, escape(reason.Message))
+	}
+	fmt.Fprintln(b, `</ul>`)
+	fmt.Fprintln(b, `</section>`)
+}
+
+func writeReviewHTMLReviewQuestions(b *strings.Builder, questions []ReviewQuestion) {
+	fmt.Fprintln(b, `<section class="card">`)
+	fmt.Fprintln(b, `<h2>Review questions</h2>`)
+
+	if len(questions) == 0 {
+		fmt.Fprintln(b, `<p class="muted">No review questions.</p>`)
+		fmt.Fprintln(b, `</section>`)
+		return
+	}
+
+	fmt.Fprintln(b, `<ul>`)
+	for _, question := range questions {
+		fmt.Fprintf(b, `<li>%s</li>`, escape(question.Text))
+		fmt.Fprintln(b)
 	}
 	fmt.Fprintln(b, `</ul>`)
 	fmt.Fprintln(b, `</section>`)
