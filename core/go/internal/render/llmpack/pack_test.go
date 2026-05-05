@@ -6,6 +6,7 @@ import (
 
 	"github.com/orurh/patchcourt/internal/diff/contract"
 	"github.com/orurh/patchcourt/internal/diff/dep"
+	findingdiff "github.com/orurh/patchcourt/internal/diff/finding"
 	"github.com/orurh/patchcourt/internal/model"
 	"github.com/orurh/patchcourt/internal/reportmodel"
 	"github.com/orurh/patchcourt/internal/reviewrisk"
@@ -298,4 +299,47 @@ func TestWriteReviewContext_RecognizesRelatedChangedTestsForPublicContractChange
 
 	require.Contains(t, got, "test-like files changed in this patch")
 	require.NotContains(t, got, "but no test-like files changed")
+}
+
+func TestWriteReviewContext_IncludesFindingRiskAndSuggestion(t *testing.T) {
+	var out bytes.Buffer
+
+	WriteReviewContext(&out, ReviewContextInput{
+		MaxItems: 10,
+		Result: reportmodel.ReviewResult{
+			FindingChanges: []findingdiff.FindingChange{
+				{
+					Kind: findingdiff.FindingChangeKindAdded,
+					ID:   "architecture.api.cameras",
+					After: &model.Finding{
+						ID:         "architecture.api.cameras",
+						Severity:   model.SeverityHigh,
+						Kind:       model.FindingKindPolicyViolation,
+						Title:      "Include-level architecture boundary violation",
+						Risk:       `Layer "api" includes a header from layer "cameras", which is not allowed by .patchcourt.yaml.`,
+						Suggestion: "Keep delivery/API code from depending directly on concrete infrastructure or vendor implementations. Route the call through an application/usecase boundary and depend on a domain/application port instead.",
+						Evidence: []model.Evidence{
+							{
+								File:      "src/api/camera_routes.cc",
+								Message:   "includes src/infrastructure/cameras/sony/sony_camera_manager.h",
+								FromLayer: "api",
+								ToLayer:   "cameras",
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+
+	got := out.String()
+
+	require.Contains(t, got, "## Finding changes")
+	require.Contains(t, got, "architecture.api.cameras")
+	require.Contains(t, got, "after risk:")
+	require.Contains(t, got, `Layer "api" includes a header`)
+	require.Contains(t, got, "after suggestion:")
+	require.Contains(t, got, "Keep delivery/API code")
+	require.Contains(t, got, "application/usecase")
+	require.Contains(t, got, "domain/application port")
 }

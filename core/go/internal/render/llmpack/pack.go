@@ -451,16 +451,28 @@ func writeFindingChanges(w io.Writer, changes []findingdiff.FindingChange, limit
 
 		if change.Before != nil {
 			fmt.Fprintf(w, "  - before: `%s/%s` %s\n", change.Before.Severity, change.Before.Kind, change.Before.Title)
+			writeFindingGuidance(w, "before", *change.Before)
 			writeFindingEvidence(w, "before evidence", change.Before.Evidence, 3)
 		}
 
 		if change.After != nil {
 			fmt.Fprintf(w, "  - after: `%s/%s` %s\n", change.After.Severity, change.After.Kind, change.After.Title)
+			writeFindingGuidance(w, "after", *change.After)
 			writeFindingEvidence(w, "after evidence", change.After.Evidence, 3)
 		}
 	}
 
 	writeMore(w, len(changes), limit)
+}
+
+func writeFindingGuidance(w io.Writer, prefix string, finding model.Finding) {
+	if finding.Risk != "" {
+		fmt.Fprintf(w, "  - %s risk: %s\n", prefix, finding.Risk)
+	}
+
+	if finding.Suggestion != "" {
+		fmt.Fprintf(w, "  - %s suggestion: %s\n", prefix, finding.Suggestion)
+	}
 }
 
 func writeFindingEvidence(w io.Writer, title string, evidence []model.Evidence, limit int) {
