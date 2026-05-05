@@ -45,6 +45,8 @@ func WriteReviewHTML(w io.Writer, result reportmodel.ReviewResult) error {
 	writeReviewHTMLImpact(&b, view.Impact)
 	writeReviewHTMLLayerImpactGraph(&b, view.LayerGraph)
 	writeReviewHTMLChangedFiles(&b, "Changed files", view.ChangedFiles)
+	writeReviewHTMLDependencyChanges(&b, view.DependencyRows)
+	writeReviewHTMLLayerEdgeChanges(&b, view.LayerEdgeRows)
 	writeReviewHTMLRiskReasons(&b, view.RiskReasons)
 	writeReviewHTMLCounts(&b, view.RawCounts)
 
@@ -159,6 +161,72 @@ func writeReviewHTMLChangedFiles(b *strings.Builder, title string, files []strin
 	fmt.Fprintln(b, `</section>`)
 }
 
+func writeReviewHTMLDependencyChanges(b *strings.Builder, rows []ReviewDependencyRow) {
+	fmt.Fprintln(b, `<section class="card">`)
+	fmt.Fprintln(b, `<h2>Dependency changes</h2>`)
+
+	if len(rows) == 0 {
+		fmt.Fprintln(b, `<p class="muted">No dependency changes.</p>`)
+		fmt.Fprintln(b, `</section>`)
+		return
+	}
+
+	fmt.Fprintln(b, `<div class="table-wrap">`)
+	fmt.Fprintln(b, `<table>`)
+	fmt.Fprintln(b, `<thead><tr><th>Kind</th><th>From</th><th>To</th><th>Layer</th><th>Usage</th></tr></thead>`)
+	fmt.Fprintln(b, `<tbody>`)
+
+	for _, row := range rows {
+		layer := ""
+		if row.FromLayer != "" || row.ToLayer != "" {
+			layer = row.FromLayer + " → " + row.ToLayer
+		}
+
+		fmt.Fprintln(b, `<tr>`)
+		fmt.Fprintf(b, `<td><span class="tag">%s</span></td>`, escape(row.Kind))
+		fmt.Fprintf(b, `<td><code>%s</code></td>`, escape(row.From))
+		fmt.Fprintf(b, `<td><code>%s</code></td>`, escape(row.To))
+		fmt.Fprintf(b, `<td>%s</td>`, escape(layer))
+		fmt.Fprintf(b, `<td>%s</td>`, escape(row.Usage))
+		fmt.Fprintln(b, `</tr>`)
+	}
+
+	fmt.Fprintln(b, `</tbody>`)
+	fmt.Fprintln(b, `</table>`)
+	fmt.Fprintln(b, `</div>`)
+	fmt.Fprintln(b, `</section>`)
+}
+
+func writeReviewHTMLLayerEdgeChanges(b *strings.Builder, rows []ReviewLayerEdgeRow) {
+	fmt.Fprintln(b, `<section class="card">`)
+	fmt.Fprintln(b, `<h2>Layer edge changes</h2>`)
+
+	if len(rows) == 0 {
+		fmt.Fprintln(b, `<p class="muted">No layer edge changes.</p>`)
+		fmt.Fprintln(b, `</section>`)
+		return
+	}
+
+	fmt.Fprintln(b, `<div class="table-wrap">`)
+	fmt.Fprintln(b, `<table>`)
+	fmt.Fprintln(b, `<thead><tr><th>Kind</th><th>Edge</th><th>Before</th><th>After</th></tr></thead>`)
+	fmt.Fprintln(b, `<tbody>`)
+
+	for _, row := range rows {
+		fmt.Fprintln(b, `<tr>`)
+		fmt.Fprintf(b, `<td><span class="tag">%s</span></td>`, escape(row.Kind))
+		fmt.Fprintf(b, `<td><code>%s → %s</code></td>`, escape(row.FromLayer), escape(row.ToLayer))
+		fmt.Fprintf(b, `<td>%d</td>`, row.BeforeCount)
+		fmt.Fprintf(b, `<td>%d</td>`, row.AfterCount)
+		fmt.Fprintln(b, `</tr>`)
+	}
+
+	fmt.Fprintln(b, `</tbody>`)
+	fmt.Fprintln(b, `</table>`)
+	fmt.Fprintln(b, `</div>`)
+	fmt.Fprintln(b, `</section>`)
+}
+
 func writeReviewHTMLRiskReasons(b *strings.Builder, reasons []ReviewRiskReason) {
 	fmt.Fprintln(b, `<section class="card">`)
 	fmt.Fprintln(b, `<h2>Risk reasons</h2>`)
@@ -182,7 +250,8 @@ func writeReviewHTMLCounts(b *strings.Builder, cards []ReviewMetricCard) {
 	fmt.Fprintln(b, `<h2>Raw diff sections</h2>`)
 	fmt.Fprintln(b, `<ul>`)
 	for _, card := range cards {
-		fmt.Fprintf(b, `<li>%s: <strong>%d</strong></li>\n`, escape(card.Title), card.Value)
+		fmt.Fprintf(b, `<li>%s: <strong>%d</strong></li>`, escape(card.Title), card.Value)
+		fmt.Fprintln(b)
 	}
 	fmt.Fprintln(b, `</ul>`)
 	fmt.Fprintln(b, `</section>`)
@@ -353,6 +422,29 @@ code {
 }
 .file-list {
   columns: 2;
+}
+.table-wrap {
+  overflow: auto;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+th,
+td {
+  border-bottom: 1px solid var(--line);
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+th {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+td code {
+  word-break: break-word;
 }
 @media (max-width: 900px) {
   .hero,

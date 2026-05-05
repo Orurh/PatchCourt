@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	depdiff "github.com/orurh/patchcourt/internal/diff/dep"
+	"github.com/orurh/patchcourt/internal/model"
 	"github.com/orurh/patchcourt/internal/reportmodel"
 	"github.com/stretchr/testify/require"
 )
@@ -24,6 +25,19 @@ func TestWriteReviewHTML_RendersRiskImpactAndChangedFiles(t *testing.T) {
 		ChangedFiles: []string{
 			"src/api/router.cc",
 			"src/cameras/sony.h",
+		},
+		DependencyChanges: []depdiff.DependencyChange{
+			{
+				Kind: depdiff.DependencyChangeKindAdded,
+				Key:  "import|src/api/router.cc|src/cameras/sony.h",
+				After: &model.DependencyEdge{
+					FromFile:  "src/api/router.cc",
+					ToFile:    "src/cameras/sony.h",
+					FromLayer: "api",
+					ToLayer:   "cameras",
+					Usage:     model.DependencyUsageUnknown,
+				},
+			},
 		},
 		LayerEdgeChanges: []depdiff.LayerEdgeChange{
 			{
@@ -77,6 +91,19 @@ func TestWriteReviewHTML_EscapesHTML(t *testing.T) {
 
 	err := WriteReviewHTML(&out, reportmodel.ReviewResult{
 		ChangedFiles: []string{`src/<script>.cc`},
+		DependencyChanges: []depdiff.DependencyChange{
+			{
+				Kind: depdiff.DependencyChangeKindAdded,
+				Key:  "import|src/api/router.cc|src/cameras/sony.h",
+				After: &model.DependencyEdge{
+					FromFile:  "src/api/router.cc",
+					ToFile:    "src/cameras/sony.h",
+					FromLayer: "api",
+					ToLayer:   "cameras",
+					Usage:     model.DependencyUsageUnknown,
+				},
+			},
+		},
 		LayerEdgeChanges: []depdiff.LayerEdgeChange{
 			{
 				Kind:       depdiff.DependencyChangeKindAdded,

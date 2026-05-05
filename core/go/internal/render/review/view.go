@@ -13,12 +13,14 @@ type ReviewView struct {
 	RiskLevel  string
 	RiskPoints int
 
-	SummaryCards []ReviewMetricCard
-	Impact       []ReviewImpactColumn
-	LayerGraph   ReviewLayerGraph
-	ChangedFiles []string
-	RiskReasons  []ReviewRiskReason
-	RawCounts    []ReviewMetricCard
+	SummaryCards   []ReviewMetricCard
+	Impact         []ReviewImpactColumn
+	LayerGraph     ReviewLayerGraph
+	ChangedFiles   []string
+	RiskReasons    []ReviewRiskReason
+	DependencyRows []ReviewDependencyRow
+	LayerEdgeRows  []ReviewLayerEdgeRow
+	RawCounts      []ReviewMetricCard
 }
 
 type ReviewMetricCard struct {
@@ -51,6 +53,24 @@ type ReviewRiskReason struct {
 	Message string
 }
 
+type ReviewDependencyRow struct {
+	Kind      string
+	Key       string
+	From      string
+	To        string
+	FromLayer string
+	ToLayer   string
+	Usage     string
+}
+
+type ReviewLayerEdgeRow struct {
+	Kind        string
+	FromLayer   string
+	ToLayer     string
+	BeforeCount int
+	AfterCount  int
+}
+
 func BuildReviewView(result reportmodel.ReviewResult) ReviewView {
 	return ReviewView{
 		Title:       "Review report",
@@ -75,8 +95,10 @@ func BuildReviewView(result reportmodel.ReviewResult) ReviewView {
 			Description: "Mermaid graph of layer edges touched by this review.",
 			Rows:        buildLayerGraphRows(result),
 		},
-		ChangedFiles: result.ChangedFiles,
-		RiskReasons:  buildRiskReasons(result),
+		ChangedFiles:   result.ChangedFiles,
+		RiskReasons:    buildRiskReasons(result),
+		DependencyRows: buildDependencyRows(result),
+		LayerEdgeRows:  buildLayerEdgeRows(result),
 		RawCounts: []ReviewMetricCard{
 			{Title: "Contract changes", Value: len(result.ContractChanges)},
 			{Title: "Dependency changes", Value: len(result.DependencyChanges)},
@@ -117,6 +139,54 @@ func buildRiskReasons(result reportmodel.ReviewResult) []ReviewRiskReason {
 	}
 
 	return reasons
+}
+
+func buildDependencyRows(result reportmodel.ReviewResult) []ReviewDependencyRow {
+	rows := make([]ReviewDependencyRow, 0, len(result.DependencyChanges))
+
+	for _, change := range result.DependencyChanges {
+		dep := change.After
+		if dep == nil {
+			dep = change.Before
+		}
+
+		if dep == nil {
+			continue
+		}
+
+		to := dep.ToFile
+		if to == "" {
+			to = dep.Target
+		}
+
+		rows = append(rows, ReviewDependencyRow{
+			Kind:      string(change.Kind),
+			Key:       change.Key,
+			From:      dep.FromFile,
+			To:        to,
+			FromLayer: dep.FromLayer,
+			ToLayer:   dep.ToLayer,
+			Usage:     string(dep.Usage),
+		})
+	}
+
+	return rows
+}
+
+func buildLayerEdgeRows(result reportmodel.ReviewResult) []ReviewLayerEdgeRow {
+	rows := make([]ReviewLayerEdgeRow, 0, len(result.LayerEdgeChanges))
+
+	for _, change := range result.LayerEdgeChanges {
+		rows = append(rows, ReviewLayerEdgeRow{
+			Kind:        string(change.Kind),
+			FromLayer:   change.FromLayer,
+			ToLayer:     change.ToLayer,
+			BeforeCount: change.BeforeCount,
+			AfterCount:  change.AfterCount,
+		})
+	}
+
+	return rows
 }
 
 func mermaidNodeID(value string) string {
