@@ -716,4 +716,4 @@ Core/usecase/analyzer packages return structured results and must not write dire
 
 ## License
 
-TBD.
+Apache-2.0.
