@@ -23,6 +23,7 @@ REVIEW_JSON ?= $(OUT)/review.json
 REVIEW_HTML ?= $(OUT)/review.html
 LLM_PACK ?= $(OUT)/review-context.md
 SELF_OUT ?= ./.patchcourt/out/self-review
+CAMERA_DEMO_OUT ?= ./.patchcourt/out/examples/camera-service
 DOT_FILE ?= $(OUT)/layer-graph.dot
 SVG_FILE ?= $(OUT)/layer-graph.svg
 
@@ -110,6 +111,14 @@ help:
 	@echo ""
 	@echo "  make ci"
 	@echo "      Format, test, and build PatchCourt itself."
+	@echo ""
+	@echo "Demo targets:"
+	@echo ""
+	@echo "  make camera-demo"
+	@echo "      Generate the camera-service demo and write bad/better review artifacts."
+	@echo ""
+	@echo "  make open-camera-demo"
+	@echo "      Open bad and better camera-service review HTML reports."
 	@echo ""
 	@echo "Optional overrides:"
 	@echo "  CONFIG=/path/.patchcourt.yaml"
@@ -279,3 +288,63 @@ explain: build require-project require-finding require-model
 
 .PHONY: smoke
 smoke: fmt test build state review
+
+.PHONY: camera-demo
+camera-demo: build
+	python3 scripts/generate_camera_service_demo.py
+	mkdir -p "$(CAMERA_DEMO_OUT)"
+	$(BIN) review \
+		--before-root examples/camera-service/before \
+		--after-root examples/camera-service/after-bad \
+		--config examples/camera-service/.patchcourt.yaml \
+		--format text \
+		--llm-pack \
+		--llm-pack-out "$(CAMERA_DEMO_OUT)/bad-context.md" \
+		--html-out "$(CAMERA_DEMO_OUT)/bad-review.html" \
+		> "$(CAMERA_DEMO_OUT)/bad-review.txt"
+	$(BIN) review \
+		--before-root examples/camera-service/before \
+		--after-root examples/camera-service/after-bad \
+		--config examples/camera-service/.patchcourt.yaml \
+		--format markdown \
+		> "$(CAMERA_DEMO_OUT)/bad-review.md"
+	$(BIN) review \
+		--before-root examples/camera-service/before \
+		--after-root examples/camera-service/after-bad \
+		--config examples/camera-service/.patchcourt.yaml \
+		--format json \
+		> "$(CAMERA_DEMO_OUT)/bad-review.json"
+	$(BIN) review \
+		--before-root examples/camera-service/before \
+		--after-root examples/camera-service/after-better \
+		--config examples/camera-service/.patchcourt.yaml \
+		--format text \
+		--llm-pack \
+		--llm-pack-out "$(CAMERA_DEMO_OUT)/better-context.md" \
+		--html-out "$(CAMERA_DEMO_OUT)/better-review.html" \
+		> "$(CAMERA_DEMO_OUT)/better-review.txt"
+	$(BIN) review \
+		--before-root examples/camera-service/before \
+		--after-root examples/camera-service/after-better \
+		--config examples/camera-service/.patchcourt.yaml \
+		--format markdown \
+		> "$(CAMERA_DEMO_OUT)/better-review.md"
+	$(BIN) review \
+		--before-root examples/camera-service/before \
+		--after-root examples/camera-service/after-better \
+		--config examples/camera-service/.patchcourt.yaml \
+		--format json \
+		> "$(CAMERA_DEMO_OUT)/better-review.json"
+	@echo "Camera demo artifacts:"
+	@echo "  $(CAMERA_DEMO_OUT)/bad-review.html"
+	@echo "  $(CAMERA_DEMO_OUT)/better-review.html"
+	@echo "  $(CAMERA_DEMO_OUT)/bad-context.md"
+	@echo "  $(CAMERA_DEMO_OUT)/better-context.md"
+
+.PHONY: open-camera-demo
+open-camera-demo:
+	@test -f "$(CAMERA_DEMO_OUT)/bad-review.html" || (echo "Bad review HTML not found. Run: make camera-demo" && exit 2)
+	@test -f "$(CAMERA_DEMO_OUT)/better-review.html" || (echo "Better review HTML not found. Run: make camera-demo" && exit 2)
+	$(OPEN) "$(CAMERA_DEMO_OUT)/bad-review.html" >/dev/null 2>&1 &
+	$(OPEN) "$(CAMERA_DEMO_OUT)/better-review.html" >/dev/null 2>&1 &
+
