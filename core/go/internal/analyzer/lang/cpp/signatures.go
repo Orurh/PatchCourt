@@ -16,14 +16,16 @@ func ExtractDeclaredSymbols(path string) ([]DeclaredSymbol, error) {
 	var currentClass *classContext
 
 	scanner := bufio.NewScanner(file)
+	lineNo := 0
 	for scanner.Scan() {
+		lineNo++
 		line := normalizeDeclarationLine(scanner.Text())
 		if line == "" {
 			continue
 		}
 
 		if currentClass != nil {
-			classSymbols, shouldContinue := processClassLine(line, currentClass)
+			classSymbols, shouldContinue := processClassLine(line, lineNo, currentClass)
 			symbols = append(symbols, classSymbols...)
 
 			if currentClass.braceDepth <= 0 {
@@ -40,6 +42,7 @@ func ExtractDeclaredSymbols(path string) ([]DeclaredSymbol, error) {
 			continue
 		}
 
+		symbol.Line = lineNo
 		symbols = append(symbols, symbol)
 
 		if classCtx := classContextFromSymbolLine(symbol, line); classCtx != nil {
@@ -61,7 +64,7 @@ func ExtractDeclaredSymbols(path string) ([]DeclaredSymbol, error) {
 	return symbols, nil
 }
 
-func processClassLine(line string, currentClass *classContext) ([]DeclaredSymbol, bool) {
+func processClassLine(line string, lineNo int, currentClass *classContext) ([]DeclaredSymbol, bool) {
 	if visibility, ok := parseVisibilityLabel(line); ok {
 		currentClass.visibility = visibility
 		currentClass.braceDepth += braceDelta(line)
@@ -71,6 +74,7 @@ func processClassLine(line string, currentClass *classContext) ([]DeclaredSymbol
 	symbols := make([]DeclaredSymbol, 0, 2)
 
 	if symbol, ok := extractFriendFromLine(line, currentClass.name, currentClass.visibility); ok {
+		symbol.Line = lineNo
 		symbols = append(symbols, symbol)
 	}
 
@@ -79,6 +83,7 @@ func processClassLine(line string, currentClass *classContext) ([]DeclaredSymbol
 	}
 
 	if symbol, ok := extractMethodFromLine(line, currentClass.name); ok {
+		symbol.Line = lineNo
 		symbols = append(symbols, symbol)
 	}
 

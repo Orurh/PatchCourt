@@ -17,6 +17,7 @@ type SymbolModel struct {
 	Name       string     `json:"name"`
 	Kind       SymbolKind `json:"kind"`
 	File       string     `json:"file,omitempty"`
+	Line       int        `json:"line,omitempty"`
 	Parent     string     `json:"parent,omitempty"`
 	Signature  string     `json:"signature,omitempty"`
 	Modifiers  []string   `json:"modifiers,omitempty"`

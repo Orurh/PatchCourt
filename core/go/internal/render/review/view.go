@@ -79,6 +79,8 @@ type ReviewContractRow struct {
 	Kind             string
 	SymbolKey        string
 	File             string
+	BeforeLine       int
+	AfterLine        int
 	BeforeSignature  string
 	AfterSignature   string
 	AddedModifiers   string
@@ -229,13 +231,17 @@ func buildContractRows(result reportmodel.ReviewResult) []ReviewContractRow {
 			file = change.Before.File
 		}
 
+		beforeLine := 0
 		beforeSignature := ""
 		if change.Before != nil {
+			beforeLine = change.Before.Line
 			beforeSignature = change.Before.Signature
 		}
 
+		afterLine := 0
 		afterSignature := ""
 		if change.After != nil {
+			afterLine = change.After.Line
 			afterSignature = change.After.Signature
 		}
 
@@ -243,6 +249,8 @@ func buildContractRows(result reportmodel.ReviewResult) []ReviewContractRow {
 			Kind:             string(change.Kind),
 			SymbolKey:        change.SymbolKey,
 			File:             file,
+			BeforeLine:       beforeLine,
+			AfterLine:        afterLine,
 			BeforeSignature:  beforeSignature,
 			AfterSignature:   afterSignature,
 			AddedModifiers:   strings.Join(change.AddedMods, ", "),

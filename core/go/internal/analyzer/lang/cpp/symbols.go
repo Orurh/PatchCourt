@@ -5,6 +5,7 @@ import "github.com/orurh/patchcourt/internal/model"
 type DeclaredSymbol struct {
 	Name       string
 	Kind       model.SymbolKind
+	Line       int
 	Parent     string
 	Signature  string
 	Modifiers  []string
@@ -18,6 +19,7 @@ func (s DeclaredSymbol) ToModel(filePath string) model.SymbolModel {
 		Name:       s.Name,
 		Kind:       s.Kind,
 		File:       filePath,
+		Line:       s.Line,
 		Parent:     s.Parent,
 		Signature:  s.Signature,
 		Modifiers:  s.Modifiers,

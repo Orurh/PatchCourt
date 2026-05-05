@@ -34,10 +34,12 @@ func TestWriteReviewHTML_RendersRiskImpactAndChangedFiles(t *testing.T) {
 				SymbolKey: "method::ICameraAdapter::RunPreflight",
 				Before: &model.SymbolModel{
 					File:      "src/domain/interfaces/i_camera_adapter.h",
+					Line:      12,
 					Signature: "RunPreflight() const",
 				},
 				After: &model.SymbolModel{
 					File:      "src/domain/interfaces/i_camera_adapter.h",
+					Line:      14,
 					Signature: "RunPreflight(int camera_index) const",
 				},
 			},
@@ -112,6 +114,7 @@ func TestWriteReviewHTML_RendersRiskImpactAndChangedFiles(t *testing.T) {
 	require.Contains(t, got, "src/api/router.cc")
 	require.Contains(t, got, "Contract changes")
 	require.Contains(t, got, "method::ICameraAdapter::RunPreflight")
+	require.Contains(t, got, "src/domain/interfaces/i_camera_adapter.h:12 → 14")
 	require.Contains(t, got, "RunPreflight() const")
 	require.Contains(t, got, "RunPreflight(int camera_index) const")
 	require.Contains(t, got, "Dependency changes")

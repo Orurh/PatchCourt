@@ -262,3 +262,45 @@ func assertFriend(t *testing.T, symbols []DeclaredSymbol, parent string, name st
 
 	t.Fatalf("expected friend %s::%s in %#v", parent, name, symbols)
 }
+
+func TestExtractDeclaredSymbols_LineNumbers(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "camera_adapter.h")
+
+	content := `#pragma once
+
+class ICameraAdapter {
+public:
+	virtual bool RunPreflight() const = 0;
+	bool StartSession(int count) noexcept;
+};
+`
+
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write header: %v", err)
+	}
+
+	symbols, err := ExtractDeclaredSymbols(path)
+	if err != nil {
+		t.Fatalf("ExtractDeclaredSymbols failed: %v", err)
+	}
+
+	assertSymbolLine(t, symbols, model.SymbolKindClass, "", "ICameraAdapter", 3)
+	assertSymbolLine(t, symbols, model.SymbolKindMethod, "ICameraAdapter", "RunPreflight", 5)
+	assertSymbolLine(t, symbols, model.SymbolKindMethod, "ICameraAdapter", "StartSession", 6)
+}
+
+func assertSymbolLine(t *testing.T, symbols []DeclaredSymbol, kind model.SymbolKind, parent string, name string, wantLine int) {
+	t.Helper()
+
+	for _, symbol := range symbols {
+		if symbol.Kind == kind && symbol.Parent == parent && symbol.Name == name {
+			if symbol.Line != wantLine {
+				t.Fatalf("expected %s/%s line %d, got %d in %#v", parent, name, wantLine, symbol.Line, symbol)
+			}
+			return
+		}
+	}
+
+	t.Fatalf("expected symbol %s/%s in %#v", parent, name, symbols)
+}

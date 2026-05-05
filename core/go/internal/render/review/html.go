@@ -176,7 +176,7 @@ func writeReviewHTMLContractChanges(b *strings.Builder, rows []ReviewContractRow
 
 	fmt.Fprintln(b, `<div class="table-wrap">`)
 	fmt.Fprintln(b, `<table>`)
-	fmt.Fprintln(b, `<thead><tr><th>Kind</th><th>Symbol</th><th>File</th><th>Before</th><th>After</th><th>Modifiers</th></tr></thead>`)
+	fmt.Fprintln(b, `<thead><tr><th>Kind</th><th>Symbol</th><th>Location</th><th>Before</th><th>After</th><th>Modifiers</th></tr></thead>`)
 	fmt.Fprintln(b, `<tbody>`)
 
 	for _, row := range rows {
@@ -191,10 +191,12 @@ func writeReviewHTMLContractChanges(b *strings.Builder, rows []ReviewContractRow
 			modifiers += "removed: " + row.RemovedModifiers
 		}
 
+		location := contractLocation(row)
+
 		fmt.Fprintln(b, `<tr>`)
 		fmt.Fprintf(b, `<td><span class="tag">%s</span></td>`, escape(row.Kind))
 		fmt.Fprintf(b, `<td><code>%s</code></td>`, escape(row.SymbolKey))
-		fmt.Fprintf(b, `<td><code>%s</code></td>`, escape(row.File))
+		fmt.Fprintf(b, `<td><code>%s</code></td>`, escape(location))
 		fmt.Fprintf(b, `<td><code>%s</code></td>`, escape(row.BeforeSignature))
 		fmt.Fprintf(b, `<td><code>%s</code></td>`, escape(row.AfterSignature))
 		fmt.Fprintf(b, `<td>%s</td>`, escape(modifiers))
@@ -205,6 +207,23 @@ func writeReviewHTMLContractChanges(b *strings.Builder, rows []ReviewContractRow
 	fmt.Fprintln(b, `</table>`)
 	fmt.Fprintln(b, `</div>`)
 	fmt.Fprintln(b, `</section>`)
+}
+
+func contractLocation(row ReviewContractRow) string {
+	if row.File == "" {
+		return ""
+	}
+
+	switch {
+	case row.BeforeLine > 0 && row.AfterLine > 0 && row.BeforeLine != row.AfterLine:
+		return fmt.Sprintf("%s:%d → %d", row.File, row.BeforeLine, row.AfterLine)
+	case row.AfterLine > 0:
+		return fmt.Sprintf("%s:%d", row.File, row.AfterLine)
+	case row.BeforeLine > 0:
+		return fmt.Sprintf("%s:%d", row.File, row.BeforeLine)
+	default:
+		return row.File
+	}
 }
 
 func writeReviewHTMLDependencyChanges(b *strings.Builder, rows []ReviewDependencyRow) {
