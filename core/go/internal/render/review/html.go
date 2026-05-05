@@ -176,11 +176,7 @@ func writeReviewHTMLContractChanges(b *strings.Builder, rows []ReviewContractRow
 		return
 	}
 
-	fmt.Fprintln(b, `<div class="table-wrap">`)
-	fmt.Fprintln(b, `<table>`)
-	fmt.Fprintln(b, `<thead><tr><th>Impact</th><th>Kind</th><th>Symbol</th><th>Location</th><th>Before</th><th>After</th><th>Modifiers</th></tr></thead>`)
-	fmt.Fprintln(b, `<tbody>`)
-
+	fmt.Fprintln(b, `<div class="contract-change-list">`)
 	for _, row := range rows {
 		modifiers := ""
 		if row.AddedModifiers != "" {
@@ -193,23 +189,59 @@ func writeReviewHTMLContractChanges(b *strings.Builder, rows []ReviewContractRow
 			modifiers += "removed: " + row.RemovedModifiers
 		}
 
-		location := row.Location
+		location := contractLocation(row)
 
-		fmt.Fprintln(b, `<tr>`)
-		fmt.Fprintf(b, `<td><span class="tag impact-%s">%s</span></td>`, htmlClass(row.Impact), escape(row.Impact))
-		fmt.Fprintf(b, `<td><span class="tag">%s</span></td>`, escape(row.Kind))
-		fmt.Fprintf(b, `<td><code>%s</code></td>`, escape(row.SymbolKey))
-		fmt.Fprintf(b, `<td><code>%s</code></td>`, escape(location))
-		fmt.Fprintf(b, `<td><code>%s</code></td>`, escape(row.BeforeSignature))
-		fmt.Fprintf(b, `<td><code>%s</code></td>`, escape(row.AfterSignature))
-		fmt.Fprintf(b, `<td>%s</td>`, escape(modifiers))
-		fmt.Fprintln(b, `</tr>`)
+		fmt.Fprintln(b, `<article class="contract-change-card">`)
+		fmt.Fprintf(b, `<div><span class="tag impact-%s">%s</span> <span class="tag">%s</span></div>`,
+			htmlClass(row.Impact),
+			escape(row.Impact),
+			escape(row.Kind),
+		)
+		fmt.Fprintf(b, `<h3><code>%s</code></h3>`, escape(row.SymbolKey))
+
+		if location != "" {
+			fmt.Fprintf(b, `<p class="detail">Location: <code>%s</code></p>`, escape(location))
+		}
+
+		if row.BeforeSignature != "" {
+			fmt.Fprintln(b, `<div class="code-diff-block">`)
+			fmt.Fprintln(b, `<div class="code-diff-title">Before</div>`)
+			fmt.Fprintf(b, `<pre><code>%s</code></pre>`, escape(row.BeforeSignature))
+			fmt.Fprintln(b, `</div>`)
+		}
+
+		if row.AfterSignature != "" {
+			fmt.Fprintln(b, `<div class="code-diff-block">`)
+			fmt.Fprintln(b, `<div class="code-diff-title">After</div>`)
+			fmt.Fprintf(b, `<pre><code>%s</code></pre>`, escape(row.AfterSignature))
+			fmt.Fprintln(b, `</div>`)
+		}
+
+		if modifiers != "" {
+			fmt.Fprintf(b, `<p class="detail">Modifiers: %s</p>`, escape(modifiers))
+		}
+
+		fmt.Fprintln(b, `</article>`)
 	}
-
-	fmt.Fprintln(b, `</tbody>`)
-	fmt.Fprintln(b, `</table>`)
 	fmt.Fprintln(b, `</div>`)
 	fmt.Fprintln(b, `</section>`)
+}
+
+func contractLocation(row ReviewContractRow) string {
+	if row.File == "" {
+		return ""
+	}
+
+	switch {
+	case row.BeforeLine > 0 && row.AfterLine > 0 && row.BeforeLine != row.AfterLine:
+		return fmt.Sprintf("%s:%d → %d", row.File, row.BeforeLine, row.AfterLine)
+	case row.AfterLine > 0:
+		return fmt.Sprintf("%s:%d", row.File, row.AfterLine)
+	case row.BeforeLine > 0:
+		return fmt.Sprintf("%s:%d", row.File, row.BeforeLine)
+	default:
+		return row.File
+	}
 }
 
 func writeReviewHTMLContractImpacts(b *strings.Builder, rows []ReviewContractImpactRow) {
@@ -582,18 +614,45 @@ li + li {
   color: var(--muted);
   margin-top: 4px;
 }
+.contract-change-list,
 .contract-impact-list {
   display: grid;
   gap: 14px;
 }
+.contract-change-card,
 .contract-impact-card {
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 16px;
   background: #ffffff;
 }
+.contract-change-card h3,
 .contract-impact-card h3 {
   margin-top: 10px;
+}
+.code-diff-block {
+  margin-top: 12px;
+}
+.code-diff-title {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.code-diff-block pre {
+  margin: 0;
+  overflow: auto;
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.code-diff-block code {
+  background: transparent;
+  padding: 0;
+  white-space: pre;
 }
 .compact-list {
   margin: 10px 0 12px;
