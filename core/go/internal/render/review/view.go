@@ -21,6 +21,7 @@ type ReviewView struct {
 	ChangedFiles    []string
 	RiskReasons     []ReviewRiskReason
 	ContractRows    []ReviewContractRow
+	ContractImpacts []ReviewContractImpactRow
 	DependencyRows  []ReviewDependencyRow
 	LayerEdgeRows   []ReviewLayerEdgeRow
 	FindingRows     []ReviewFindingRow
@@ -90,6 +91,26 @@ type ReviewContractRow struct {
 	RemovedModifiers string
 }
 
+type ReviewContractImpactRow struct {
+	SymbolKey        string
+	ChangeKind       string
+	Impact           string
+	Location         string
+	ParentName       string
+	MethodName       string
+	TestsChanged     bool
+	DeliveryImpacted bool
+	Confidence       string
+	ImpactedFiles    []ReviewContractImpactedFileRow
+}
+
+type ReviewContractImpactedFileRow struct {
+	File   string
+	Layer  string
+	Reason string
+	Line   int
+}
+
 type ReviewFindingRow struct {
 	Kind     string
 	ID       string
@@ -128,6 +149,7 @@ func BuildReviewView(result reportmodel.ReviewResult) ReviewView {
 		ChangedFiles:    result.ChangedFiles,
 		RiskReasons:     buildRiskReasons(result),
 		ContractRows:    buildContractRows(result),
+		ContractImpacts: buildContractImpactRows(result),
 		DependencyRows:  buildDependencyRows(result),
 		LayerEdgeRows:   buildLayerEdgeRows(result),
 		FindingRows:     buildFindingRows(result),
@@ -260,6 +282,37 @@ func buildContractRows(result reportmodel.ReviewResult) []ReviewContractRow {
 			AfterSignature:   afterSignature,
 			AddedModifiers:   strings.Join(change.AddedMods, ", "),
 			RemovedModifiers: strings.Join(change.RemovedMods, ", "),
+		})
+	}
+
+	return rows
+}
+
+func buildContractImpactRows(result reportmodel.ReviewResult) []ReviewContractImpactRow {
+	rows := make([]ReviewContractImpactRow, 0, len(result.ContractImpacts))
+
+	for _, impact := range result.ContractImpacts {
+		files := make([]ReviewContractImpactedFileRow, 0, len(impact.ImpactedFiles))
+		for _, file := range impact.ImpactedFiles {
+			files = append(files, ReviewContractImpactedFileRow{
+				File:   file.File,
+				Layer:  file.Layer,
+				Reason: file.Reason,
+				Line:   file.Line,
+			})
+		}
+
+		rows = append(rows, ReviewContractImpactRow{
+			SymbolKey:        impact.SymbolKey,
+			ChangeKind:       impact.ChangeKind,
+			Impact:           impact.Impact,
+			Location:         impact.Location,
+			ParentName:       impact.ParentName,
+			MethodName:       impact.MethodName,
+			TestsChanged:     impact.TestsChanged,
+			DeliveryImpacted: impact.DeliveryImpacted,
+			Confidence:       impact.Confidence,
+			ImpactedFiles:    files,
 		})
 	}
 

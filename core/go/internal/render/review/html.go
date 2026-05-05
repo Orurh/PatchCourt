@@ -46,6 +46,7 @@ func WriteReviewHTML(w io.Writer, result reportmodel.ReviewResult) error {
 	writeReviewHTMLLayerImpactGraph(&b, view.LayerGraph)
 	writeReviewHTMLChangedFiles(&b, "Changed files", view.ChangedFiles)
 	writeReviewHTMLContractChanges(&b, view.ContractRows)
+	writeReviewHTMLContractImpacts(&b, view.ContractImpacts)
 	writeReviewHTMLDependencyChanges(&b, view.DependencyRows)
 	writeReviewHTMLLayerEdgeChanges(&b, view.LayerEdgeRows)
 	writeReviewHTMLFindingChanges(&b, view.FindingRows)
@@ -207,6 +208,66 @@ func writeReviewHTMLContractChanges(b *strings.Builder, rows []ReviewContractRow
 
 	fmt.Fprintln(b, `</tbody>`)
 	fmt.Fprintln(b, `</table>`)
+	fmt.Fprintln(b, `</div>`)
+	fmt.Fprintln(b, `</section>`)
+}
+
+func writeReviewHTMLContractImpacts(b *strings.Builder, rows []ReviewContractImpactRow) {
+	fmt.Fprintln(b, `<section class="card">`)
+	fmt.Fprintln(b, `<h2>Contract impact</h2>`)
+
+	if len(rows) == 0 {
+		fmt.Fprintln(b, `<p class="muted">No contract impact detected.</p>`)
+		fmt.Fprintln(b, `</section>`)
+		return
+	}
+
+	fmt.Fprintln(b, `<div class="contract-impact-list">`)
+	for _, row := range rows {
+		fmt.Fprintln(b, `<article class="contract-impact-card">`)
+		fmt.Fprintf(b, `<div><span class="tag impact-%s">%s</span> <span class="tag">%s</span></div>`,
+			htmlClass(row.Impact),
+			escape(row.Impact),
+			escape(row.ChangeKind),
+		)
+		fmt.Fprintf(b, `<h3><code>%s</code></h3>`, escape(row.SymbolKey))
+
+		if row.Location != "" {
+			fmt.Fprintf(b, `<p class="detail">Location: <code>%s</code></p>`, escape(row.Location))
+		}
+
+		fmt.Fprintln(b, `<ul class="compact-list">`)
+		fmt.Fprintf(b, `<li>Delivery/API impacted: <strong>%t</strong></li>`, row.DeliveryImpacted)
+		fmt.Fprintf(b, `<li>Test-like files changed: <strong>%t</strong></li>`, row.TestsChanged)
+		if row.Confidence != "" {
+			fmt.Fprintf(b, `<li>Confidence: <strong>%s</strong></li>`, escape(row.Confidence))
+		}
+		fmt.Fprintln(b, `</ul>`)
+
+		if len(row.ImpactedFiles) > 0 {
+			fmt.Fprintln(b, `<div class="table-wrap">`)
+			fmt.Fprintln(b, `<table>`)
+			fmt.Fprintln(b, `<thead><tr><th>File</th><th>Layer</th><th>Reason</th><th>Line</th></tr></thead>`)
+			fmt.Fprintln(b, `<tbody>`)
+			for _, file := range row.ImpactedFiles {
+				fmt.Fprintln(b, `<tr>`)
+				fmt.Fprintf(b, `<td><code>%s</code></td>`, escape(file.File))
+				fmt.Fprintf(b, `<td>%s</td>`, escape(file.Layer))
+				fmt.Fprintf(b, `<td>%s</td>`, escape(file.Reason))
+				if file.Line > 0 {
+					fmt.Fprintf(b, `<td>%d</td>`, file.Line)
+				} else {
+					fmt.Fprintln(b, `<td></td>`)
+				}
+				fmt.Fprintln(b, `</tr>`)
+			}
+			fmt.Fprintln(b, `</tbody>`)
+			fmt.Fprintln(b, `</table>`)
+			fmt.Fprintln(b, `</div>`)
+		}
+
+		fmt.Fprintln(b, `</article>`)
+	}
 	fmt.Fprintln(b, `</div>`)
 	fmt.Fprintln(b, `</section>`)
 }
@@ -520,6 +581,22 @@ li + li {
 .detail {
   color: var(--muted);
   margin-top: 4px;
+}
+.contract-impact-list {
+  display: grid;
+  gap: 14px;
+}
+.contract-impact-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+  background: #ffffff;
+}
+.contract-impact-card h3 {
+  margin-top: 10px;
+}
+.compact-list {
+  margin: 10px 0 12px;
 }
 code {
   background: #f1f5f9;

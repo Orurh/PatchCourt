@@ -118,6 +118,7 @@ func TestWriteReviewHTML_RendersRiskImpactAndChangedFiles(t *testing.T) {
 	require.Contains(t, got, "src/domain/interfaces/i_camera_adapter.h:12 → 14")
 	require.Contains(t, got, "RunPreflight() const")
 	require.Contains(t, got, "RunPreflight(int camera_index) const")
+	require.Contains(t, got, "src/api/router.cc")
 	require.Contains(t, got, "Dependency changes")
 	require.Contains(t, got, "Layer edge changes")
 	require.Contains(t, got, "Finding changes")
@@ -192,4 +193,44 @@ func TestWriteReviewHTML_EscapesHTML(t *testing.T) {
 	require.Contains(t, got, "method::&lt;script&gt;")
 	require.Contains(t, got, "Run(&lt;bad&gt;)")
 	require.NotContains(t, got, "<script>alert(1)</script>")
+}
+
+func TestWriteReviewHTML_RendersContractImpacts(t *testing.T) {
+	var out bytes.Buffer
+
+	err := WriteReviewHTML(&out, reportmodel.ReviewResult{
+		ContractImpacts: []reportmodel.ContractImpact{
+			{
+				SymbolKey:        "method::ICameraAdapter::RunPreflight",
+				ChangeKind:       "signature_changed",
+				Impact:           "breaking",
+				Location:         "src/domain/interfaces/i_camera_adapter.h:12 → 14",
+				ParentName:       "ICameraAdapter",
+				MethodName:       "RunPreflight",
+				DeliveryImpacted: true,
+				TestsChanged:     false,
+				Confidence:       "medium",
+				ImpactedFiles: []reportmodel.ContractImpactedFile{
+					{
+						File:   "src/api/router.cc",
+						Layer:  "api",
+						Reason: "likely_method_reference",
+						Line:   42,
+					},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	got := out.String()
+
+	require.Contains(t, got, "Contract impact")
+	require.Contains(t, got, "method::ICameraAdapter::RunPreflight")
+	require.Contains(t, got, "Delivery/API impacted")
+	require.Contains(t, got, "Test-like files changed")
+	require.Contains(t, got, "medium")
+	require.Contains(t, got, "src/api/router.cc")
+	require.Contains(t, got, "likely_method_reference")
+	require.Contains(t, got, "42")
 }

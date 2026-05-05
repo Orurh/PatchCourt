@@ -68,6 +68,9 @@ func WriteReviewContext(w io.Writer, input ReviewContextInput) {
 	writeContractChanges(w, result.ContractChanges, limit)
 	fmt.Fprintln(w)
 
+	writeContractImpacts(w, result.ContractImpacts, limit)
+	fmt.Fprintln(w)
+
 	writeDependencyChanges(w, result.DependencyChanges, limit)
 	fmt.Fprintln(w)
 
@@ -369,6 +372,57 @@ func writeContractChanges(w io.Writer, changes []contracts.SymbolChange, limit i
 	}
 
 	writeMore(w, len(changes), limit)
+}
+
+func writeContractImpacts(w io.Writer, impacts []reportmodel.ContractImpact, limit int) {
+	fmt.Fprintln(w, "## Contract impact")
+	fmt.Fprintln(w)
+
+	if len(impacts) == 0 {
+		fmt.Fprintln(w, "- none")
+		return
+	}
+
+	for _, impact := range limited(impacts, limit) {
+		fmt.Fprintf(w, "- `%s` `%s` `%s`\n", impact.ChangeKind, impact.Impact, impact.SymbolKey)
+
+		if impact.Location != "" {
+			fmt.Fprintf(w, "  - location: `%s`\n", impact.Location)
+		}
+
+		if impact.ParentName != "" || impact.MethodName != "" {
+			fmt.Fprintf(w, "  - symbol: `%s::%s`\n", impact.ParentName, impact.MethodName)
+		}
+
+		fmt.Fprintf(w, "  - delivery impacted: `%t`\n", impact.DeliveryImpacted)
+		fmt.Fprintf(w, "  - tests changed: `%t`\n", impact.TestsChanged)
+
+		if impact.Confidence != "" {
+			fmt.Fprintf(w, "  - confidence: `%s`\n", impact.Confidence)
+		}
+
+		if len(impact.ImpactedFiles) == 0 {
+			continue
+		}
+
+		fmt.Fprintln(w, "  - impacted files:")
+		for _, file := range limited(impact.ImpactedFiles, 5) {
+			layer := file.Layer
+			if layer == "" {
+				layer = "unknown"
+			}
+
+			if file.Line > 0 {
+				fmt.Fprintf(w, "    - `%s:%d` `%s` %s\n", file.File, file.Line, layer, file.Reason)
+			} else {
+				fmt.Fprintf(w, "    - `%s` `%s` %s\n", file.File, layer, file.Reason)
+			}
+		}
+
+		writeIndentedMore(w, len(impact.ImpactedFiles), 5, "    ")
+	}
+
+	writeMore(w, len(impacts), limit)
 }
 
 func writeDependencyChanges(w io.Writer, changes []depdiff.DependencyChange, limit int) {

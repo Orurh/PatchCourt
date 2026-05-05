@@ -40,6 +40,9 @@ func WriteReviewText(w io.Writer, result ReviewTextResult) {
 	fmt.Fprintln(w)
 
 	writeContractChangesText(w, result.ContractChanges)
+	fmt.Fprintln(w)
+
+	writeContractImpactsText(w, result.ContractImpacts)
 }
 
 type ReviewTextResult struct {
@@ -47,6 +50,7 @@ type ReviewTextResult struct {
 	Risk              risk.Score
 	Impact            reportmodel.ReviewImpactReport
 	ContractChanges   []contracts.SymbolChange
+	ContractImpacts   []reportmodel.ContractImpact
 	DependencyChanges []depdiff.DependencyChange
 	LayerEdgeChanges  []depdiff.LayerEdgeChange
 	FindingChanges    []findingdiff.FindingChange
@@ -396,5 +400,47 @@ func writeReviewImpactSectionText(w io.Writer, title string, items []reportmodel
 		}
 
 		fmt.Fprintf(w, "    - [%s] %s\n", item.Kind, item.Title)
+	}
+}
+
+func writeContractImpactsText(w io.Writer, impacts []reportmodel.ContractImpact) {
+	fmt.Fprintln(w, "Contract impact:")
+	fmt.Fprintf(w, "  total: %d\n", len(impacts))
+
+	for _, impact := range impacts {
+		fmt.Fprintln(w)
+		fmt.Fprintf(w, "  [%s] %s\n", impact.Impact, impact.SymbolKey)
+		if impact.ChangeKind != "" {
+			fmt.Fprintf(w, "    change: %s\n", impact.ChangeKind)
+		}
+		if impact.Location != "" {
+			fmt.Fprintf(w, "    location: %s\n", impact.Location)
+		}
+		if impact.ParentName != "" || impact.MethodName != "" {
+			fmt.Fprintf(w, "    symbol: %s::%s\n", impact.ParentName, impact.MethodName)
+		}
+		fmt.Fprintf(w, "    delivery impacted: %t\n", impact.DeliveryImpacted)
+		fmt.Fprintf(w, "    tests changed:     %t\n", impact.TestsChanged)
+		if impact.Confidence != "" {
+			fmt.Fprintf(w, "    confidence:        %s\n", impact.Confidence)
+		}
+
+		if len(impact.ImpactedFiles) == 0 {
+			continue
+		}
+
+		fmt.Fprintln(w, "    impacted files:")
+		for _, file := range impact.ImpactedFiles {
+			layer := file.Layer
+			if layer == "" {
+				layer = "unknown"
+			}
+
+			if file.Line > 0 {
+				fmt.Fprintf(w, "      - %s [%s] %s:%d\n", file.File, layer, file.Reason, file.Line)
+			} else {
+				fmt.Fprintf(w, "      - %s [%s] %s\n", file.File, layer, file.Reason)
+			}
+		}
 	}
 }
