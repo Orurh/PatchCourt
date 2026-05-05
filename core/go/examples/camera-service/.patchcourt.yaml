@@ -1,0 +1,38 @@
+ignore:
+  paths:
+    - build/**
+    - .patchcourt/**
+
+layers:
+  api:
+    paths:
+      - src/api/**
+    may_depend_on:
+      - application
+      - domain
+
+  application:
+    paths:
+      - src/application/**
+    may_depend_on:
+      - domain
+
+  domain:
+    paths:
+      - src/domain/**
+    may_depend_on: []
+
+  cameras:
+    paths:
+      - src/infrastructure/cameras/**
+    may_depend_on:
+      - domain
+
+  tests:
+    paths:
+      - tests/**
+    may_depend_on:
+      - api
+      - application
+      - domain
+      - cameras
