@@ -37,7 +37,7 @@ func TestFindRootAndReviewWorktrees(t *testing.T) {
 	require.NoError(t, os.Mkdir(filepath.Join(repo, "subdir"), 0o755))
 	root, err = FindRoot(ctx, filepath.Join(repo, "subdir"))
 	require.NoError(t, err)
-	require.Equal(t, repo, root)
+	requireSamePath(t, repo, root)
 
 	client := NewClient(root)
 
@@ -86,4 +86,16 @@ func stringsTrim(value string) string {
 	}
 
 	return value
+}
+
+func requireSamePath(t *testing.T, expected string, actual string) {
+	t.Helper()
+
+	expectedClean, err := filepath.EvalSymlinks(expected)
+	require.NoError(t, err)
+
+	actualClean, err := filepath.EvalSymlinks(actual)
+	require.NoError(t, err)
+
+	require.Equal(t, expectedClean, actualClean)
 }
