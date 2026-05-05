@@ -22,7 +22,9 @@ REVIEW_MD ?= $(OUT)/review.md
 REVIEW_JSON ?= $(OUT)/review.json
 REVIEW_HTML ?= $(OUT)/review.html
 LLM_PACK ?= $(OUT)/review-context.md
+SARIF ?= $(OUT)/patchcourt.sarif
 SELF_OUT ?= ./.patchcourt/out/self-review
+SELF_SARIF ?= $(SELF_OUT)/patchcourt.sarif
 CAMERA_DEMO_OUT ?= ./.patchcourt/out/examples/camera-service
 DOT_FILE ?= $(OUT)/layer-graph.dot
 SVG_FILE ?= $(OUT)/layer-graph.svg
@@ -111,6 +113,9 @@ help:
 	@echo ""
 	@echo "  make ci"
 	@echo "      Format, test, and build PatchCourt itself."
+	@echo ""
+	@echo "  make release-check"
+	@echo "      Run CI, camera demo, self-review, and verify release artifacts."
 	@echo ""
 	@echo "Demo targets:"
 	@echo ""
@@ -218,6 +223,7 @@ review-html: build require-project
 		--llm-pack \
 		--llm-pack-out "$(LLM_PACK)" \
 		--html-out "$(REVIEW_HTML)" \
+		--sarif-out "$(SARIF)" \
 		> "$(REVIEW_TEXT)"
 
 .PHONY: worktree-review-html
@@ -232,6 +238,7 @@ worktree-review-html: build require-project
 		--llm-pack \
 		--llm-pack-out "$(LLM_PACK)" \
 		--html-out "$(REVIEW_HTML)" \
+		--sarif-out "$(SARIF)" \
 		> "$(REVIEW_TEXT)"
 
 .PHONY: self-review
@@ -245,6 +252,7 @@ self-review: build
 		--llm-pack \
 		--llm-pack-out "$(SELF_OUT)/review-context.md" \
 		--html-out "$(SELF_OUT)/review.html" \
+		--sarif-out "$(SELF_SARIF)" \
 		> "$(SELF_OUT)/review.txt"
 	$(BIN) review \
 		--base "$(BASE)" \
@@ -301,6 +309,7 @@ camera-demo: build
 		--llm-pack \
 		--llm-pack-out "$(CAMERA_DEMO_OUT)/bad-context.md" \
 		--html-out "$(CAMERA_DEMO_OUT)/bad-review.html" \
+		--sarif-out "$(CAMERA_DEMO_OUT)/bad.sarif" \
 		> "$(CAMERA_DEMO_OUT)/bad-review.txt"
 	$(BIN) review \
 		--before-root examples/camera-service/before \
@@ -322,6 +331,7 @@ camera-demo: build
 		--llm-pack \
 		--llm-pack-out "$(CAMERA_DEMO_OUT)/better-context.md" \
 		--html-out "$(CAMERA_DEMO_OUT)/better-review.html" \
+		--sarif-out "$(CAMERA_DEMO_OUT)/better.sarif" \
 		> "$(CAMERA_DEMO_OUT)/better-review.txt"
 	$(BIN) review \
 		--before-root examples/camera-service/before \
@@ -340,6 +350,8 @@ camera-demo: build
 	@echo "  $(CAMERA_DEMO_OUT)/better-review.html"
 	@echo "  $(CAMERA_DEMO_OUT)/bad-context.md"
 	@echo "  $(CAMERA_DEMO_OUT)/better-context.md"
+	@echo "  $(CAMERA_DEMO_OUT)/bad.sarif"
+	@echo "  $(CAMERA_DEMO_OUT)/better.sarif"
 
 .PHONY: open-camera-demo
 open-camera-demo:
@@ -348,3 +360,24 @@ open-camera-demo:
 	$(OPEN) "$(CAMERA_DEMO_OUT)/bad-review.html" >/dev/null 2>&1 &
 	$(OPEN) "$(CAMERA_DEMO_OUT)/better-review.html" >/dev/null 2>&1 &
 
+.PHONY: release-check
+release-check: ci camera-demo self-review
+	@test -f "$(CAMERA_DEMO_OUT)/bad-review.html" || (echo "missing $(CAMERA_DEMO_OUT)/bad-review.html" && exit 2)
+	@test -f "$(CAMERA_DEMO_OUT)/bad-review.json" || (echo "missing $(CAMERA_DEMO_OUT)/bad-review.json" && exit 2)
+	@test -f "$(CAMERA_DEMO_OUT)/bad-review.md" || (echo "missing $(CAMERA_DEMO_OUT)/bad-review.md" && exit 2)
+	@test -f "$(CAMERA_DEMO_OUT)/bad-review.txt" || (echo "missing $(CAMERA_DEMO_OUT)/bad-review.txt" && exit 2)
+	@test -f "$(CAMERA_DEMO_OUT)/bad-context.md" || (echo "missing $(CAMERA_DEMO_OUT)/bad-context.md" && exit 2)
+	@test -f "$(CAMERA_DEMO_OUT)/bad.sarif" || (echo "missing $(CAMERA_DEMO_OUT)/bad.sarif" && exit 2)
+	@test -f "$(CAMERA_DEMO_OUT)/better-review.html" || (echo "missing $(CAMERA_DEMO_OUT)/better-review.html" && exit 2)
+	@test -f "$(CAMERA_DEMO_OUT)/better-review.json" || (echo "missing $(CAMERA_DEMO_OUT)/better-review.json" && exit 2)
+	@test -f "$(CAMERA_DEMO_OUT)/better-review.md" || (echo "missing $(CAMERA_DEMO_OUT)/better-review.md" && exit 2)
+	@test -f "$(CAMERA_DEMO_OUT)/better-review.txt" || (echo "missing $(CAMERA_DEMO_OUT)/better-review.txt" && exit 2)
+	@test -f "$(CAMERA_DEMO_OUT)/better-context.md" || (echo "missing $(CAMERA_DEMO_OUT)/better-context.md" && exit 2)
+	@test -f "$(CAMERA_DEMO_OUT)/better.sarif" || (echo "missing $(CAMERA_DEMO_OUT)/better.sarif" && exit 2)
+	@test -f "$(SELF_OUT)/review.html" || (echo "missing $(SELF_OUT)/review.html" && exit 2)
+	@test -f "$(SELF_OUT)/review.json" || (echo "missing $(SELF_OUT)/review.json" && exit 2)
+	@test -f "$(SELF_OUT)/review.md" || (echo "missing $(SELF_OUT)/review.md" && exit 2)
+	@test -f "$(SELF_OUT)/review.txt" || (echo "missing $(SELF_OUT)/review.txt" && exit 2)
+	@test -f "$(SELF_OUT)/review-context.md" || (echo "missing $(SELF_OUT)/review-context.md" && exit 2)
+	@test -f "$(SELF_SARIF)" || (echo "missing $(SELF_SARIF)" && exit 2)
+	@echo "PatchCourt release-check passed."
