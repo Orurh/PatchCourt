@@ -3,6 +3,7 @@ package review
 import (
 	"strings"
 
+	contracts "github.com/orurh/patchcourt/internal/diff/contract"
 	"github.com/orurh/patchcourt/internal/render/reviewquestions"
 	"github.com/orurh/patchcourt/internal/reportmodel"
 )
@@ -77,6 +78,7 @@ type ReviewLayerEdgeRow struct {
 
 type ReviewContractRow struct {
 	Kind             string
+	Impact           string
 	SymbolKey        string
 	File             string
 	BeforeLine       int
@@ -247,6 +249,7 @@ func buildContractRows(result reportmodel.ReviewResult) []ReviewContractRow {
 
 		rows = append(rows, ReviewContractRow{
 			Kind:             string(change.Kind),
+			Impact:           contractChangeImpact(change),
 			SymbolKey:        change.SymbolKey,
 			File:             file,
 			BeforeLine:       beforeLine,
@@ -259,6 +262,68 @@ func buildContractRows(result reportmodel.ReviewResult) []ReviewContractRow {
 	}
 
 	return rows
+}
+
+func contractChangeImpact(change contracts.SymbolChange) string {
+	switch change.Kind {
+	case contracts.ChangeKindRemoved:
+		return "breaking"
+
+	case contracts.ChangeKindSignatureChanged:
+		return "breaking"
+
+	case contracts.ChangeKindAdded:
+		return "additive"
+
+	case contracts.ChangeKindModifiersChanged:
+		if containsString(change.AddedMods, "pure_virtual") {
+			return "breaking"
+		}
+
+		if containsAnyString(change.RemovedMods, []string{
+			"virtual",
+			"const",
+			"noexcept",
+			"override",
+			"final",
+			"pure_virtual",
+		}) {
+			return "risky"
+		}
+
+		if containsAnyString(change.AddedMods, []string{
+			"final",
+			"override",
+			"noexcept",
+		}) {
+			return "risky"
+		}
+
+		return "informational"
+
+	default:
+		return "informational"
+	}
+}
+
+func containsAnyString(values []string, targets []string) bool {
+	for _, target := range targets {
+		if containsString(values, target) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func containsString(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+
+	return false
 }
 
 func buildFindingRows(result reportmodel.ReviewResult) []ReviewFindingRow {

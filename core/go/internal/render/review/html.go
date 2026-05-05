@@ -176,7 +176,7 @@ func writeReviewHTMLContractChanges(b *strings.Builder, rows []ReviewContractRow
 
 	fmt.Fprintln(b, `<div class="table-wrap">`)
 	fmt.Fprintln(b, `<table>`)
-	fmt.Fprintln(b, `<thead><tr><th>Kind</th><th>Symbol</th><th>Location</th><th>Before</th><th>After</th><th>Modifiers</th></tr></thead>`)
+	fmt.Fprintln(b, `<thead><tr><th>Impact</th><th>Kind</th><th>Symbol</th><th>Location</th><th>Before</th><th>After</th><th>Modifiers</th></tr></thead>`)
 	fmt.Fprintln(b, `<tbody>`)
 
 	for _, row := range rows {
@@ -194,6 +194,7 @@ func writeReviewHTMLContractChanges(b *strings.Builder, rows []ReviewContractRow
 		location := contractLocation(row)
 
 		fmt.Fprintln(b, `<tr>`)
+		fmt.Fprintf(b, `<td><span class="tag impact-%s">%s</span></td>`, htmlClass(row.Impact), escape(row.Impact))
 		fmt.Fprintf(b, `<td><span class="tag">%s</span></td>`, escape(row.Kind))
 		fmt.Fprintf(b, `<td><code>%s</code></td>`, escape(row.SymbolKey))
 		fmt.Fprintf(b, `<td><code>%s</code></td>`, escape(location))
@@ -498,6 +499,24 @@ h3 {
 .impact-bad h3 { color: var(--bad); }
 .impact-good h3 { color: var(--good); }
 .impact-neutral h3 { color: var(--neutral); }
+.impact-breaking {
+  color: var(--bad);
+  border-color: rgb(185 28 28 / 0.35);
+  background: rgb(185 28 28 / 0.06);
+}
+.impact-risky {
+  color: #b45309;
+  border-color: rgb(180 83 9 / 0.35);
+  background: rgb(180 83 9 / 0.06);
+}
+.impact-additive {
+  color: var(--good);
+  border-color: rgb(4 120 87 / 0.35);
+  background: rgb(4 120 87 / 0.06);
+}
+.impact-informational {
+  color: var(--neutral);
+}
 ul {
   padding-left: 20px;
   margin: 0;
