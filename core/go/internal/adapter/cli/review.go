@@ -9,6 +9,7 @@ import (
 	"github.com/orurh/patchcourt/internal/platform/files"
 	"github.com/orurh/patchcourt/internal/render/llmpack"
 	renderreview "github.com/orurh/patchcourt/internal/render/review"
+	rendersarif "github.com/orurh/patchcourt/internal/render/sarif"
 	"github.com/orurh/patchcourt/internal/usecase"
 	"github.com/spf13/cobra"
 )
@@ -45,7 +46,8 @@ type reviewOptions struct {
 	llmPack     bool
 	llmPackPath string
 
-	htmlOut string
+	htmlOut  string
+	sarifOut string
 
 	format string
 }
@@ -92,6 +94,12 @@ func (r *Runner) newReviewCommand(ctx context.Context, rootOpts *rootOptions) *c
 				}
 			}
 
+			if opts.sarifOut != "" {
+				if err := r.writeReviewSARIF(opts.sarifOut, result); err != nil {
+					return err
+				}
+			}
+
 			return r.renderReviewResult(format, usecase.ReviewRequest{
 				BeforePath:    opts.beforePath,
 				AfterPath:     opts.afterPath,
@@ -122,6 +130,7 @@ func (r *Runner) newReviewCommand(ctx context.Context, rootOpts *rootOptions) *c
 	cmd.Flags().BoolVar(&opts.llmPack, "llm-pack", false, "write deterministic LLM review context pack")
 	cmd.Flags().StringVar(&opts.llmPackPath, "llm-pack-out", "", "path to write LLM review context pack")
 	cmd.Flags().StringVar(&opts.htmlOut, "html-out", "", "path to write the static review HTML report")
+	cmd.Flags().StringVar(&opts.sarifOut, "sarif-out", "", "path to write the SARIF report")
 	cmd.Flags().StringVar(&opts.format, "format", string(usecase.ReviewFormatText), "output format: text, json, markdown")
 
 	return cmd
@@ -147,6 +156,26 @@ func (r *Runner) writeReviewHTML(outPath string, result *usecase.ReviewResult) e
 
 	if r.stderr != nil {
 		fmt.Fprintf(r.stderr, "Review HTML written: %s\n", outPath)
+	}
+
+	return nil
+}
+
+func (r *Runner) writeReviewSARIF(outPath string, result *usecase.ReviewResult) error {
+	if result == nil {
+		return fmt.Errorf("review result is nil")
+	}
+
+	if outPath == "" {
+		return fmt.Errorf("SARIF output path is required")
+	}
+
+	if err := rendersarif.WriteReviewSARIFFile(outPath, *result); err != nil {
+		return err
+	}
+
+	if r.stderr != nil {
+		fmt.Fprintf(r.stderr, "SARIF report written: %s\n", outPath)
 	}
 
 	return nil
