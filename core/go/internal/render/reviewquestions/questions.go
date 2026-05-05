@@ -36,6 +36,8 @@ func Build(result reportmodel.ReviewResult, limit int) []Question {
 		questions = append(questions, Question{Text: text})
 	}
 
+	askedContracts := make(map[string]struct{})
+
 	for _, change := range result.ContractChanges {
 		if len(questions) >= limit {
 			return questions
@@ -43,6 +45,15 @@ func Build(result reportmodel.ReviewResult, limit int) []Question {
 
 		switch change.Kind {
 		case contracts.ChangeKindRemoved, contracts.ChangeKindSignatureChanged, contracts.ChangeKindModifiersChanged:
+			if change.SymbolKey == "" {
+				continue
+			}
+
+			if _, ok := askedContracts[change.SymbolKey]; ok {
+				continue
+			}
+			askedContracts[change.SymbolKey] = struct{}{}
+
 			if hasRelatedChangedTest(result.ChangedFiles, change) {
 				questions = append(questions, Question{
 					Text: fmt.Sprintf("Public contract changed `%s`; test-like files changed in this patch. Verify they actually cover this contract migration.", change.SymbolKey),

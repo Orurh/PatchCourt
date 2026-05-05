@@ -73,3 +73,21 @@ func TestBuild_AsksToVerifyChangedTests(t *testing.T) {
 	require.Len(t, got, 1)
 	require.Contains(t, got[0].Text, "test-like files changed")
 }
+
+func TestBuild_DeduplicatesContractQuestionsBySymbolKey(t *testing.T) {
+	got := Build(reportmodel.ReviewResult{
+		ContractChanges: []contracts.SymbolChange{
+			{
+				Kind:      contracts.ChangeKindSignatureChanged,
+				SymbolKey: "method::ICameraAdapter::StartSession",
+			},
+			{
+				Kind:      contracts.ChangeKindModifiersChanged,
+				SymbolKey: "method::ICameraAdapter::StartSession",
+			},
+		},
+	}, 10)
+
+	require.Len(t, got, 1)
+	require.Contains(t, got[0].Text, "method::ICameraAdapter::StartSession")
+}
