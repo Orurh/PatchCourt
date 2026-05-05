@@ -10,6 +10,7 @@ import (
 	"github.com/orurh/patchcourt/internal/diff/contract"
 	"github.com/orurh/patchcourt/internal/diff/dep"
 	"github.com/orurh/patchcourt/internal/model"
+	"github.com/orurh/patchcourt/internal/reportmodel"
 )
 
 func TestApp_RunReviewDiffsProjectModelSnapshots(t *testing.T) {
@@ -388,4 +389,166 @@ func requireStringSliceContains(t *testing.T, values []string, want string) {
 	}
 
 	t.Fatalf("expected %q in %#v", want, values)
+}
+
+func TestApp_RunReviewBuildsContractBlastRadius(t *testing.T) {
+	root := t.TempDir()
+
+	beforeRoot := filepath.Join(root, "before")
+	afterRoot := filepath.Join(root, "after")
+	configPath := filepath.Join(root, ".patchcourt.yaml")
+
+	writeReviewTestFile(t, root, ".patchcourt.yaml", `
+ignore:
+  paths:
+    - build/**
+layers:
+  api:
+    paths:
+      - src/api/**
+    may_depend_on:
+      - application
+      - domain
+  application:
+    paths:
+      - src/application/**
+    may_depend_on:
+      - domain
+  domain:
+    paths:
+      - src/domain/**
+    may_depend_on: []
+  cameras:
+    paths:
+      - src/infrastructure/cameras/**
+    may_depend_on:
+      - domain
+`)
+
+	writeReviewTestFile(t, beforeRoot, "src/domain/interfaces/i_camera_adapter.h", `#pragma once
+
+class ICameraAdapter {
+public:
+    virtual bool RunPreflight() const = 0;
+};
+`)
+
+	writeReviewTestFile(t, beforeRoot, "src/application/camera_service.cc", `#include "domain/interfaces/i_camera_adapter.h"
+
+bool Preflight(ICameraAdapter& camera) {
+    return camera.RunPreflight();
+}
+`)
+
+	writeReviewTestFile(t, afterRoot, "src/domain/interfaces/i_camera_adapter.h", `#pragma once
+
+class ICameraAdapter {
+public:
+    virtual bool RunPreflight(int camera_index) const = 0;
+};
+`)
+
+	writeReviewTestFile(t, afterRoot, "src/application/camera_service.cc", `#include "domain/interfaces/i_camera_adapter.h"
+
+bool Preflight(ICameraAdapter& camera) {
+    return camera.RunPreflight(0);
+}
+`)
+
+	writeReviewTestFile(t, afterRoot, "src/api/camera_routes.cc", `#include "application/camera_service.h"
+#include "domain/interfaces/i_camera_adapter.h"
+
+bool HandlePreflight(ICameraAdapter& camera) {
+    return camera.RunPreflight(0);
+}
+`)
+
+	writeReviewTestFile(t, afterRoot, "src/infrastructure/cameras/sony/sony_camera_manager.h", `#pragma once
+
+#include "domain/interfaces/i_camera_adapter.h"
+
+class SonyCameraManager final : public ICameraAdapter {
+public:
+    bool RunPreflight(int camera_index) const override;
+};
+`)
+
+	result, err := New(nil).RunReview(context.Background(), ReviewRequest{
+		BeforeRoot: beforeRoot,
+		AfterRoot:  afterRoot,
+		ConfigPath: configPath,
+	})
+	if err != nil {
+		t.Fatalf("RunReview failed: %v", err)
+	}
+
+	impact := findContractImpact(
+		result.ContractImpacts,
+		contracts.ChangeKindSignatureChanged,
+		"method::ICameraAdapter::RunPreflight",
+	)
+	if impact == nil {
+		t.Fatalf("expected RunPreflight contract impact in %#v", result.ContractImpacts)
+	}
+
+	if impact.Impact != "breaking" {
+		t.Fatalf("expected breaking impact, got %#v", impact)
+	}
+
+	if !impact.DeliveryImpacted {
+		t.Fatalf("expected delivery impact, got %#v", impact)
+	}
+
+	if impact.TestsChanged {
+		t.Fatalf("expected no test-like files changed, got %#v", impact)
+	}
+
+	requireContractImpactedFile(t, impact.ImpactedFiles, "src/application/camera_service.cc", "likely_method_reference")
+	requireContractImpactedFile(t, impact.ImpactedFiles, "src/api/camera_routes.cc", "likely_method_reference")
+	requireContractImpactedFile(t, impact.ImpactedFiles, "src/infrastructure/cameras/sony/sony_camera_manager.h", "likely_implementation")
+
+	if findImpactItem(result.Impact.Worse, "contract_signature_changed") == nil {
+		t.Fatalf("expected signature change with impacted callers in Worse: %#v", result.Impact.Worse)
+	}
+}
+
+func findContractImpact(
+	impacts []reportmodel.ContractImpact,
+	kind contracts.ChangeKind,
+	symbolKey string,
+) *reportmodel.ContractImpact {
+	for i := range impacts {
+		if impacts[i].ChangeKind == string(kind) && impacts[i].SymbolKey == symbolKey {
+			return &impacts[i]
+		}
+	}
+
+	return nil
+}
+
+func requireContractImpactedFile(
+	t *testing.T,
+	files []reportmodel.ContractImpactedFile,
+	file string,
+	reason string,
+) {
+	t.Helper()
+
+	for _, item := range files {
+		if item.File == file && item.Reason == reason {
+			return
+		}
+	}
+
+	t.Fatalf("expected impacted file %s with reason %s in %#v", file, reason, files)
+}
+
+func findImpactItem(items []reportmodel.ReviewImpactItem, kind string) *reportmodel.ReviewImpactItem {
+	for i := range items {
+		if items[i].Kind == kind {
+			return &items[i]
+		}
+	}
+
+	return nil
 }

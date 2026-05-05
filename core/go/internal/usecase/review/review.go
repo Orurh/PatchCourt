@@ -102,6 +102,7 @@ func (s Service) Run(ctx context.Context, req Request) (*ReviewResult, error) {
 		Risk:              reviewRisk,
 		ChangedFiles:      changeSet.ChangedFiles,
 		ContractChanges:   changeSet.ContractChanges,
+		ContractImpacts:   BuildContractImpacts(changeSet.ContractChanges, afterProject, changeSet.ChangedFiles),
 		DependencyChanges: changeSet.DependencyChanges,
 		LayerEdgeChanges:  changeSet.LayerEdgeChanges,
 		FindingChanges:    changeSet.FindingChanges,

@@ -123,6 +123,7 @@ type ReviewResult struct {
 	Impact            ReviewImpactReport          `json:"impact"`
 	ChangedFiles      []string                    `json:"changed_files,omitempty"`
 	ContractChanges   []contracts.SymbolChange    `json:"contract_changes"`
+	ContractImpacts   []ContractImpact            `json:"contract_impacts,omitempty"`
 	DependencyChanges []depdiff.DependencyChange  `json:"dependency_changes"`
 	LayerEdgeChanges  []depdiff.LayerEdgeChange   `json:"layer_edge_changes"`
 	FindingChanges    []findingdiff.FindingChange `json:"finding_changes"`
@@ -140,6 +141,26 @@ type ReviewImpactItem struct {
 	Title    string `json:"title"`
 	Detail   string `json:"detail,omitempty"`
 	ID       string `json:"id,omitempty"`
+}
+
+type ContractImpact struct {
+	SymbolKey        string                 `json:"symbol_key"`
+	ChangeKind       string                 `json:"change_kind"`
+	Impact           string                 `json:"impact"`
+	Location         string                 `json:"location,omitempty"`
+	ParentName       string                 `json:"parent_name,omitempty"`
+	MethodName       string                 `json:"method_name,omitempty"`
+	TestsChanged     bool                   `json:"tests_changed"`
+	DeliveryImpacted bool                   `json:"delivery_impacted"`
+	Confidence       string                 `json:"confidence"`
+	ImpactedFiles    []ContractImpactedFile `json:"impacted_files,omitempty"`
+}
+
+type ContractImpactedFile struct {
+	File   string `json:"file"`
+	Layer  string `json:"layer,omitempty"`
+	Reason string `json:"reason"`
+	Line   int    `json:"line,omitempty"`
 }
 
 func (result *CheckResult) ArtifactPathByName(name string) string {
