@@ -191,7 +191,7 @@ func writeReviewHTMLContractChanges(b *strings.Builder, rows []ReviewContractRow
 			modifiers += "removed: " + row.RemovedModifiers
 		}
 
-		location := contractLocation(row)
+		location := row.Location
 
 		fmt.Fprintln(b, `<tr>`)
 		fmt.Fprintf(b, `<td><span class="tag impact-%s">%s</span></td>`, htmlClass(row.Impact), escape(row.Impact))
@@ -208,23 +208,6 @@ func writeReviewHTMLContractChanges(b *strings.Builder, rows []ReviewContractRow
 	fmt.Fprintln(b, `</table>`)
 	fmt.Fprintln(b, `</div>`)
 	fmt.Fprintln(b, `</section>`)
-}
-
-func contractLocation(row ReviewContractRow) string {
-	if row.File == "" {
-		return ""
-	}
-
-	switch {
-	case row.BeforeLine > 0 && row.AfterLine > 0 && row.BeforeLine != row.AfterLine:
-		return fmt.Sprintf("%s:%d → %d", row.File, row.BeforeLine, row.AfterLine)
-	case row.AfterLine > 0:
-		return fmt.Sprintf("%s:%d", row.File, row.AfterLine)
-	case row.BeforeLine > 0:
-		return fmt.Sprintf("%s:%d", row.File, row.BeforeLine)
-	default:
-		return row.File
-	}
 }
 
 func writeReviewHTMLDependencyChanges(b *strings.Builder, rows []ReviewDependencyRow) {

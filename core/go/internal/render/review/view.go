@@ -3,7 +3,7 @@ package review
 import (
 	"strings"
 
-	contracts "github.com/orurh/patchcourt/internal/diff/contract"
+	"github.com/orurh/patchcourt/internal/render/reviewcontract"
 	"github.com/orurh/patchcourt/internal/render/reviewquestions"
 	"github.com/orurh/patchcourt/internal/reportmodel"
 )
@@ -81,6 +81,7 @@ type ReviewContractRow struct {
 	Impact           string
 	SymbolKey        string
 	File             string
+	Location         string
 	BeforeLine       int
 	AfterLine        int
 	BeforeSignature  string
@@ -249,9 +250,10 @@ func buildContractRows(result reportmodel.ReviewResult) []ReviewContractRow {
 
 		rows = append(rows, ReviewContractRow{
 			Kind:             string(change.Kind),
-			Impact:           contractChangeImpact(change),
+			Impact:           string(reviewcontract.ClassifyImpact(change)),
 			SymbolKey:        change.SymbolKey,
 			File:             file,
+			Location:         reviewcontract.Location(change),
 			BeforeLine:       beforeLine,
 			AfterLine:        afterLine,
 			BeforeSignature:  beforeSignature,
@@ -262,68 +264,6 @@ func buildContractRows(result reportmodel.ReviewResult) []ReviewContractRow {
 	}
 
 	return rows
-}
-
-func contractChangeImpact(change contracts.SymbolChange) string {
-	switch change.Kind {
-	case contracts.ChangeKindRemoved:
-		return "breaking"
-
-	case contracts.ChangeKindSignatureChanged:
-		return "breaking"
-
-	case contracts.ChangeKindAdded:
-		return "additive"
-
-	case contracts.ChangeKindModifiersChanged:
-		if containsString(change.AddedMods, "pure_virtual") {
-			return "breaking"
-		}
-
-		if containsAnyString(change.RemovedMods, []string{
-			"virtual",
-			"const",
-			"noexcept",
-			"override",
-			"final",
-			"pure_virtual",
-		}) {
-			return "risky"
-		}
-
-		if containsAnyString(change.AddedMods, []string{
-			"final",
-			"override",
-			"noexcept",
-		}) {
-			return "risky"
-		}
-
-		return "informational"
-
-	default:
-		return "informational"
-	}
-}
-
-func containsAnyString(values []string, targets []string) bool {
-	for _, target := range targets {
-		if containsString(values, target) {
-			return true
-		}
-	}
-
-	return false
-}
-
-func containsString(values []string, target string) bool {
-	for _, value := range values {
-		if value == target {
-			return true
-		}
-	}
-
-	return false
 }
 
 func buildFindingRows(result reportmodel.ReviewResult) []ReviewFindingRow {

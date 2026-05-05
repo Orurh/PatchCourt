@@ -9,6 +9,7 @@ import (
 	"github.com/orurh/patchcourt/internal/diff/dep"
 	"github.com/orurh/patchcourt/internal/diff/finding"
 	"github.com/orurh/patchcourt/internal/model"
+	"github.com/orurh/patchcourt/internal/render/reviewcontract"
 	"github.com/orurh/patchcourt/internal/reportmodel"
 	"github.com/orurh/patchcourt/internal/reviewrisk"
 )
@@ -301,6 +302,11 @@ func writeMarkdownContractChanges(w io.Writer, changes []contracts.SymbolChange)
 	for _, change := range changes {
 		fmt.Fprintf(w, "### `%s` `%s`\n", markdownTextEscape(change.SymbolKey), change.Kind)
 		fmt.Fprintln(w)
+		fmt.Fprintf(w, "**Impact:** `%s`  \n", reviewcontract.ClassifyImpact(change))
+
+		if location := reviewcontract.Location(change); location != "" {
+			fmt.Fprintf(w, "**Location:** `%s`  \n", markdownTextEscape(location))
+		}
 
 		if change.Before != nil && change.Before.Signature != "" {
 			fmt.Fprintln(w, "**Before:**")

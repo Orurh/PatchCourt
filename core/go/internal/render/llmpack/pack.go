@@ -12,6 +12,7 @@ import (
 	"github.com/orurh/patchcourt/internal/diff/finding"
 	"github.com/orurh/patchcourt/internal/model"
 	"github.com/orurh/patchcourt/internal/platform/files"
+	"github.com/orurh/patchcourt/internal/render/reviewcontract"
 	"github.com/orurh/patchcourt/internal/render/reviewquestions"
 	"github.com/orurh/patchcourt/internal/reportmodel"
 )
@@ -352,7 +353,11 @@ func writeContractChanges(w io.Writer, changes []contracts.SymbolChange, limit i
 	}
 
 	for _, change := range limited(changes, limit) {
-		fmt.Fprintf(w, "- `%s` `%s`\n", change.Kind, change.SymbolKey)
+		fmt.Fprintf(w, "- `%s` `%s` `%s`\n", change.Kind, reviewcontract.ClassifyImpact(change), change.SymbolKey)
+
+		if location := reviewcontract.Location(change); location != "" {
+			fmt.Fprintf(w, "  - location: `%s`\n", location)
+		}
 
 		if change.Before != nil && change.Before.Signature != "" {
 			fmt.Fprintf(w, "  - before: `%s`\n", change.Before.Signature)
