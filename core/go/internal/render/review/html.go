@@ -923,31 +923,3 @@ td code {
 }
 `
 }
-
-func writeImpactColumn(b *strings.Builder, title string, className string, items []reportmodel.ReviewImpactItem) {
-	fmt.Fprintf(b, `<div class="impact %s"><h3>%s</h3>`, escape(className), escape(title))
-	if len(items) == 0 {
-		fmt.Fprintln(b, `<p class="muted">None.</p>`)
-		fmt.Fprintln(b, `</div>`)
-		return
-	}
-
-	writeImpactItems(b, items)
-	fmt.Fprintln(b, `</div>`)
-}
-
-func writeImpactItems(b *strings.Builder, items []reportmodel.ReviewImpactItem) {
-	fmt.Fprintln(b, `<ul>`)
-	for _, item := range items {
-		fmt.Fprintln(b, `<li>`)
-		fmt.Fprintf(b, `<span class="tag">%s</span> <strong>%s</strong>`, escape(item.Kind), escape(item.Title))
-		if item.ID != "" {
-			fmt.Fprintf(b, ` <code>%s</code>`, escape(item.ID))
-		}
-		if item.Detail != "" {
-			fmt.Fprintf(b, `<div class="detail">%s</div>`, escape(item.Detail))
-		}
-		fmt.Fprintln(b, `</li>`)
-	}
-	fmt.Fprintln(b, `</ul>`)
-}
