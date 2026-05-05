@@ -10,6 +10,8 @@ import (
 )
 
 func WriteReviewHTML(w io.Writer, result reportmodel.ReviewResult) error {
+	view := BuildReviewView(result)
+
 	var b strings.Builder
 
 	fmt.Fprintln(&b, "<!doctype html>")
@@ -28,21 +30,23 @@ func WriteReviewHTML(w io.Writer, result reportmodel.ReviewResult) error {
 	fmt.Fprintln(&b, `<section class="hero">`)
 	fmt.Fprintln(&b, `<div>`)
 	fmt.Fprintln(&b, `<p class="eyebrow">PatchCourt</p>`)
-	fmt.Fprintln(&b, `<h1>Review report</h1>`)
-	fmt.Fprintln(&b, `<p class="muted">Diff-aware architecture review generated from deterministic project facts.</p>`)
+	fmt.Fprintf(&b, `<h1>%s</h1>`, escape(view.Title))
+	fmt.Fprintln(&b)
+	fmt.Fprintf(&b, `<p class="muted">%s</p>`, escape(view.Description))
+	fmt.Fprintln(&b)
 	fmt.Fprintln(&b, `</div>`)
-	fmt.Fprintf(&b, `<div class="risk risk-%s">`, htmlClass(string(result.Risk.Level)))
-	fmt.Fprintf(&b, `<div class="risk-label">%s</div>`, escape(string(result.Risk.Level)))
-	fmt.Fprintf(&b, `<div class="risk-points">%d points</div>`, result.Risk.Points)
+	fmt.Fprintf(&b, `<div class="risk risk-%s">`, htmlClass(view.RiskLevel))
+	fmt.Fprintf(&b, `<div class="risk-label">%s</div>`, escape(view.RiskLevel))
+	fmt.Fprintf(&b, `<div class="risk-points">%d points</div>`, view.RiskPoints)
 	fmt.Fprintln(&b, `</div>`)
 	fmt.Fprintln(&b, `</section>`)
 
-	writeReviewHTMLSummary(&b, result)
-	writeReviewHTMLImpact(&b, result.Impact)
-	writeReviewHTMLLayerImpactGraph(&b, result)
-	writeReviewHTMLChangedFiles(&b, "Changed files", result.ChangedFiles)
-	writeReviewHTMLRiskReasons(&b, result)
-	writeReviewHTMLCounts(&b, result)
+	writeReviewHTMLSummary(&b, view.SummaryCards)
+	writeReviewHTMLImpact(&b, view.Impact)
+	writeReviewHTMLLayerImpactGraph(&b, view.LayerGraph)
+	writeReviewHTMLChangedFiles(&b, "Changed files", view.ChangedFiles)
+	writeReviewHTMLRiskReasons(&b, view.RiskReasons)
+	writeReviewHTMLCounts(&b, view.RawCounts)
 
 	fmt.Fprintln(&b, "</main>")
 	fmt.Fprintln(&b, "</body>")
@@ -52,14 +56,11 @@ func WriteReviewHTML(w io.Writer, result reportmodel.ReviewResult) error {
 	return err
 }
 
-func writeReviewHTMLSummary(b *strings.Builder, result reportmodel.ReviewResult) {
+func writeReviewHTMLSummary(b *strings.Builder, cards []ReviewMetricCard) {
 	fmt.Fprintln(b, `<section class="grid">`)
-	writeMetricCard(b, "Contract changes", result.Summary.ContractChanges)
-	writeMetricCard(b, "Dependency changes", result.Summary.DependencyChanges)
-	writeMetricCard(b, "Layer edge changes", result.Summary.LayerEdgeChanges)
-	writeMetricCard(b, "Finding changes", result.Summary.FindingChanges)
-	writeMetricCard(b, "Added findings", result.Summary.AddedFindings)
-	writeMetricCard(b, "Removed findings", result.Summary.RemovedFindings)
+	for _, card := range cards {
+		writeMetricCard(b, card.Title, card.Value)
+	}
 	fmt.Fprintln(b, `</section>`)
 }
 
@@ -70,13 +71,13 @@ func writeMetricCard(b *strings.Builder, title string, value int) {
 	fmt.Fprintln(b, `</article>`)
 }
 
-func writeReviewHTMLImpact(b *strings.Builder, impact reportmodel.ReviewImpactReport) {
+func writeReviewHTMLImpact(b *strings.Builder, columns []ReviewImpactColumn) {
 	fmt.Fprintln(b, `<section class="card">`)
 	fmt.Fprintln(b, `<h2>Architecture impact</h2>`)
 	fmt.Fprintln(b, `<div class="columns">`)
-	writeReviewHTMLImpactColumn(b, "Worse", "bad", impact.Worse)
-	writeReviewHTMLImpactColumn(b, "Better", "good", impact.Better)
-	writeReviewHTMLImpactColumn(b, "Unchanged debt", "neutral", impact.UnchangedDebt)
+	for _, column := range columns {
+		writeReviewHTMLImpactColumn(b, column.Title, column.Class, column.Items)
+	}
 	fmt.Fprintln(b, `</div>`)
 	fmt.Fprintln(b, `</section>`)
 }
@@ -110,31 +111,26 @@ func writeReviewHTMLImpactColumn(b *strings.Builder, title string, class string,
 	fmt.Fprintln(b, `</div>`)
 }
 
-func writeReviewHTMLLayerImpactGraph(b *strings.Builder, result reportmodel.ReviewResult) {
+func writeReviewHTMLLayerImpactGraph(b *strings.Builder, graph ReviewLayerGraph) {
 	fmt.Fprintln(b, `<section class="card">`)
-	fmt.Fprintln(b, `<h2>Layer impact graph</h2>`)
+	fmt.Fprintf(b, `<h2>%s</h2>`, escape(graph.Title))
+	fmt.Fprintln(b)
 
-	if len(result.LayerEdgeChanges) == 0 {
+	if len(graph.Rows) == 0 {
 		fmt.Fprintln(b, `<p class="muted">No layer edge changes.</p>`)
 		fmt.Fprintln(b, `</section>`)
 		return
 	}
 
-	fmt.Fprintln(b, `<p class="muted">Mermaid graph of layer edges touched by this review.</p>`)
+	fmt.Fprintf(b, `<p class="muted">%s</p>`, escape(graph.Description))
+	fmt.Fprintln(b)
 	fmt.Fprintln(b, `<pre class="graph-block"><code>graph LR`)
 
-	for _, change := range result.LayerEdgeChanges {
-		if change.FromLayer == "" || change.ToLayer == "" {
-			continue
-		}
+	for _, row := range graph.Rows {
+		fmt.Fprintf(b, `  %s["%s"] --> %s["%s"]`, row.FromID, escape(row.FromLayer), row.ToID, escape(row.ToLayer))
 
-		from := mermaidNodeID(change.FromLayer)
-		to := mermaidNodeID(change.ToLayer)
-
-		fmt.Fprintf(b, `  %s["%s"] --> %s["%s"]`, from, escape(change.FromLayer), to, escape(change.ToLayer))
-
-		if string(change.Kind) != "" {
-			fmt.Fprintf(b, `:::edge_%s`, htmlClass(string(change.Kind)))
+		if row.Kind != "" {
+			fmt.Fprintf(b, `:::edge_%s`, htmlClass(row.Kind))
 		}
 
 		fmt.Fprintln(b)
@@ -144,25 +140,10 @@ func writeReviewHTMLLayerImpactGraph(b *strings.Builder, result reportmodel.Revi
 	fmt.Fprintln(b, `</section>`)
 }
 
-func mermaidNodeID(value string) string {
-	var b strings.Builder
-	b.WriteString("n_")
-
-	for _, r := range value {
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
-			b.WriteRune(r)
-			continue
-		}
-
-		b.WriteRune('_')
-	}
-
-	return b.String()
-}
-
 func writeReviewHTMLChangedFiles(b *strings.Builder, title string, files []string) {
 	fmt.Fprintln(b, `<section class="card">`)
-	fmt.Fprintf(b, `<h2>%s</h2>\n`, escape(title))
+	fmt.Fprintf(b, `<h2>%s</h2>`, escape(title))
+	fmt.Fprintln(b)
 
 	if len(files) == 0 {
 		fmt.Fprintln(b, `<p class="muted">None.</p>`)
@@ -178,32 +159,31 @@ func writeReviewHTMLChangedFiles(b *strings.Builder, title string, files []strin
 	fmt.Fprintln(b, `</section>`)
 }
 
-func writeReviewHTMLRiskReasons(b *strings.Builder, result reportmodel.ReviewResult) {
+func writeReviewHTMLRiskReasons(b *strings.Builder, reasons []ReviewRiskReason) {
 	fmt.Fprintln(b, `<section class="card">`)
 	fmt.Fprintln(b, `<h2>Risk reasons</h2>`)
 
-	if len(result.Risk.Reasons) == 0 {
+	if len(reasons) == 0 {
 		fmt.Fprintln(b, `<p class="muted">No risk reasons.</p>`)
 		fmt.Fprintln(b, `</section>`)
 		return
 	}
 
 	fmt.Fprintln(b, `<ul>`)
-	for _, reason := range result.Risk.Reasons {
+	for _, reason := range reasons {
 		fmt.Fprintf(b, `<li><strong>+%d</strong> %s</li>`, reason.Points, escape(reason.Message))
 	}
 	fmt.Fprintln(b, `</ul>`)
 	fmt.Fprintln(b, `</section>`)
 }
 
-func writeReviewHTMLCounts(b *strings.Builder, result reportmodel.ReviewResult) {
+func writeReviewHTMLCounts(b *strings.Builder, cards []ReviewMetricCard) {
 	fmt.Fprintln(b, `<section class="card">`)
 	fmt.Fprintln(b, `<h2>Raw diff sections</h2>`)
 	fmt.Fprintln(b, `<ul>`)
-	fmt.Fprintf(b, `<li>Contract changes: <strong>%d</strong></li>\n`, len(result.ContractChanges))
-	fmt.Fprintf(b, `<li>Dependency changes: <strong>%d</strong></li>\n`, len(result.DependencyChanges))
-	fmt.Fprintf(b, `<li>Layer edge changes: <strong>%d</strong></li>\n`, len(result.LayerEdgeChanges))
-	fmt.Fprintf(b, `<li>Finding changes: <strong>%d</strong></li>\n`, len(result.FindingChanges))
+	for _, card := range cards {
+		fmt.Fprintf(b, `<li>%s: <strong>%d</strong></li>\n`, escape(card.Title), card.Value)
+	}
 	fmt.Fprintln(b, `</ul>`)
 	fmt.Fprintln(b, `</section>`)
 }
