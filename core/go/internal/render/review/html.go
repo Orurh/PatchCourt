@@ -159,6 +159,7 @@ func writeReviewHTMLChangedFiles(b *strings.Builder, title string, files []strin
 	fmt.Fprintln(b, `<ul class="file-list">`)
 	for _, file := range files {
 		fmt.Fprintf(b, `<li><code>%s</code></li>`, escape(file))
+		fmt.Fprintln(b)
 	}
 	fmt.Fprintln(b, `</ul>`)
 	fmt.Fprintln(b, `</section>`)
@@ -319,6 +320,7 @@ func writeReviewHTMLRiskReasons(b *strings.Builder, reasons []ReviewRiskReason) 
 	fmt.Fprintln(b, `<ul>`)
 	for _, reason := range reasons {
 		fmt.Fprintf(b, `<li><strong>+%d</strong> %s</li>`, reason.Points, escape(reason.Message))
+		fmt.Fprintln(b)
 	}
 	fmt.Fprintln(b, `</ul>`)
 	fmt.Fprintln(b, `</section>`)
