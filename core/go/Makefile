@@ -7,7 +7,7 @@ CMD := ./cmd/patchcourt
 #
 # Example:
 #   make state PROJECT=/home/user/work/my_repo
-PROJECT ?=
+PROJECT ?= /Users/ardislor/Documents/work/photon_universal
 
 # PatchCourt project config.
 # By default we expect it inside the analyzed project.
@@ -17,6 +17,12 @@ CONFIG ?= $(PROJECT)/.patchcourt.yaml
 OUT ?= $(PROJECT)/.patchcourt/out
 MODEL ?= $(OUT)/project-model.json
 REPORT ?= $(OUT)/report.html
+REVIEW_TEXT ?= $(OUT)/review.txt
+REVIEW_MD ?= $(OUT)/review.md
+REVIEW_JSON ?= $(OUT)/review.json
+REVIEW_HTML ?= $(OUT)/review.html
+LLM_PACK ?= $(OUT)/review-context.md
+SELF_OUT ?= ./.patchcourt/out/self-review
 DOT_FILE ?= $(OUT)/layer-graph.dot
 SVG_FILE ?= $(OUT)/layer-graph.svg
 
@@ -71,10 +77,22 @@ help:
 	@echo "  make worktree-review PROJECT=/path/repo BASE=origin/main"
 	@echo "      Compare BASE git ref with current dirty working tree."
 	@echo ""
+	@echo "  make worktree-review-html PROJECT=/path/repo BASE=origin/main"
+	@echo "      Compare BASE with current working tree and write text, HTML, and LLM context pack."
+	@echo ""
+	@echo "  make review-html PROJECT=/path/repo"
+	@echo "      Compare saved state/latest with current tree and write text, HTML, and LLM context pack."
+	@echo ""
+	@echo "  make self-review BASE=HEAD"
+	@echo "      Review PatchCourt's own dirty worktree and write artifacts into ./.patchcourt/out/self-review."
+	@echo ""
 	@echo "Report/navigation targets:"
 	@echo ""
 	@echo "  make html PROJECT=/path/repo"
 	@echo "      Open generated HTML report."
+	@echo ""
+	@echo "  make open-review PROJECT=/path/repo"
+	@echo "      Open generated review HTML report."
 	@echo ""
 	@echo "  make svg PROJECT=/path/repo"
 	@echo "      Render DOT layer graph to SVG and open it."
@@ -179,6 +197,63 @@ worktree-review: build require-project
 		--worktree \
 		--root "$(PROJECT)" \
 		--config "$(CONFIG)"
+
+
+.PHONY: review-html
+review-html: build require-project
+	mkdir -p "$(OUT)"
+	$(BIN) review \
+		--since-last "$(PROJECT)" \
+		--config "$(CONFIG)" \
+		--format text \
+		--llm-pack \
+		--llm-pack-out "$(LLM_PACK)" \
+		--html-out "$(REVIEW_HTML)" \
+		> "$(REVIEW_TEXT)"
+
+.PHONY: worktree-review-html
+worktree-review-html: build require-project
+	mkdir -p "$(OUT)"
+	$(BIN) review \
+		--base "$(BASE)" \
+		--worktree \
+		--root "$(PROJECT)" \
+		--config "$(CONFIG)" \
+		--format text \
+		--llm-pack \
+		--llm-pack-out "$(LLM_PACK)" \
+		--html-out "$(REVIEW_HTML)" \
+		> "$(REVIEW_TEXT)"
+
+.PHONY: self-review
+self-review: build
+	mkdir -p "$(SELF_OUT)"
+	$(BIN) review \
+		--base "$(BASE)" \
+		--worktree \
+		--root "." \
+		--format text \
+		--llm-pack \
+		--llm-pack-out "$(SELF_OUT)/review-context.md" \
+		--html-out "$(SELF_OUT)/review.html" \
+		> "$(SELF_OUT)/review.txt"
+	$(BIN) review \
+		--base "$(BASE)" \
+		--worktree \
+		--root "." \
+		--format markdown \
+		> "$(SELF_OUT)/review.md"
+	$(BIN) review \
+		--base "$(BASE)" \
+		--worktree \
+		--root "." \
+		--format json \
+		> "$(SELF_OUT)/review.json"
+
+.PHONY: open-review
+open-review: require-project
+	@test -f "$(REVIEW_HTML)" || (echo "Review HTML not found: $(REVIEW_HTML). Run: make worktree-review-html PROJECT=$(PROJECT)" && exit 2)
+	$(OPEN) "$(REVIEW_HTML)" >/dev/null 2>&1 &
 
 .PHONY: html
 html: require-project
