@@ -282,3 +282,110 @@ func TestApp_RunReviewDiffsFindingsAndCalculatesRisk(t *testing.T) {
 		t.Fatalf("expected non-zero risk score")
 	}
 }
+
+func TestApp_RunReviewDetectsCppContractDiffWithLineNumbers(t *testing.T) {
+	root := t.TempDir()
+
+	beforeRoot := filepath.Join(root, "before")
+	afterRoot := filepath.Join(root, "after")
+
+	writeFile(t, beforeRoot, "src/domain/interfaces/i_camera_adapter.h", `#pragma once
+
+class ICameraAdapter {
+public:
+    virtual bool RunPreflight() const = 0;
+    virtual bool StartSession(int count) const = 0;
+};
+`)
+
+	writeFile(t, afterRoot, "src/domain/interfaces/i_camera_adapter.h", `#pragma once
+
+class ICameraAdapter {
+public:
+    virtual bool RunPreflight(int camera_index) const = 0;
+    bool StartSession(int count);
+    virtual bool StopSession() const = 0;
+};
+`)
+
+	result, err := New(nil).RunReview(context.Background(), ReviewRequest{
+		BeforeRoot: beforeRoot,
+		AfterRoot:  afterRoot,
+	})
+	if err != nil {
+		t.Fatalf("RunReview failed: %v", err)
+	}
+
+	if len(result.ContractChanges) != 4 {
+		t.Fatalf("expected 4 contract changes, got %d: %#v", len(result.ContractChanges), result.ContractChanges)
+	}
+
+	runPreflightSignature := findContractChangeByKeyAndKind(
+		result.ContractChanges,
+		"method::ICameraAdapter::RunPreflight",
+		contracts.ChangeKindSignatureChanged,
+	)
+	if runPreflightSignature == nil {
+		t.Fatalf("expected RunPreflight signature change in %#v", result.ContractChanges)
+	}
+
+	if runPreflightSignature.Before == nil || runPreflightSignature.Before.Line != 5 {
+		t.Fatalf("expected RunPreflight before line 5, got %#v", runPreflightSignature.Before)
+	}
+
+	if runPreflightSignature.After == nil || runPreflightSignature.After.Line != 5 {
+		t.Fatalf("expected RunPreflight after line 5, got %#v", runPreflightSignature.After)
+	}
+
+	startSessionModifiers := findContractChangeByKeyAndKind(
+		result.ContractChanges,
+		"method::ICameraAdapter::StartSession",
+		contracts.ChangeKindModifiersChanged,
+	)
+	if startSessionModifiers == nil {
+		t.Fatalf("expected StartSession modifier change in %#v", result.ContractChanges)
+	}
+
+	requireStringSliceContains(t, startSessionModifiers.RemovedMods, "virtual")
+	requireStringSliceContains(t, startSessionModifiers.RemovedMods, "const")
+	requireStringSliceContains(t, startSessionModifiers.RemovedMods, "pure_virtual")
+
+	stopSessionAdded := findContractChangeByKeyAndKind(
+		result.ContractChanges,
+		"method::ICameraAdapter::StopSession",
+		contracts.ChangeKindAdded,
+	)
+	if stopSessionAdded == nil {
+		t.Fatalf("expected StopSession added change in %#v", result.ContractChanges)
+	}
+
+	if stopSessionAdded.After == nil || stopSessionAdded.After.Line != 7 {
+		t.Fatalf("expected StopSession after line 7, got %#v", stopSessionAdded.After)
+	}
+}
+
+func findContractChangeByKeyAndKind(
+	changes []contracts.SymbolChange,
+	key string,
+	kind contracts.ChangeKind,
+) *contracts.SymbolChange {
+	for i := range changes {
+		if changes[i].SymbolKey == key && changes[i].Kind == kind {
+			return &changes[i]
+		}
+	}
+
+	return nil
+}
+
+func requireStringSliceContains(t *testing.T, values []string, want string) {
+	t.Helper()
+
+	for _, value := range values {
+		if value == want {
+			return
+		}
+	}
+
+	t.Fatalf("expected %q in %#v", want, values)
+}
