@@ -31,11 +31,11 @@ func TestFindRootAndReviewWorktrees(t *testing.T) {
 	runTestGit(t, repo, "commit", "-am", "head")
 	headSHA := stringsTrim(runTestGitOutput(t, repo, "rev-parse", "HEAD"))
 
-	root, err := FindRoot(ctx, filepath.Join(repo, "subdir"))
+	_, err := FindRoot(ctx, filepath.Join(repo, "subdir"))
 	require.Error(t, err)
 
 	require.NoError(t, os.Mkdir(filepath.Join(repo, "subdir"), 0o755))
-	root, err = FindRoot(ctx, filepath.Join(repo, "subdir"))
+	root, err := FindRoot(ctx, filepath.Join(repo, "subdir"))
 	require.NoError(t, err)
 	requireSamePath(t, repo, root)
 

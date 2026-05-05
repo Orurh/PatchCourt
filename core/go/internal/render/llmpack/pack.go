@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"sort"
-	"strings"
 
 	"github.com/orurh/patchcourt/internal/diff/contract"
 	"github.com/orurh/patchcourt/internal/diff/dep"
@@ -663,92 +662,4 @@ func limited[T any](values []T, limit int) []T {
 	}
 
 	return values[:limit]
-}
-
-func hasRelatedChangedTest(changedFiles []string, change contracts.SymbolChange) bool {
-	symbolHints := contractSymbolHints(change)
-
-	for _, file := range changedFiles {
-		if !isTestPath(file) {
-			continue
-		}
-
-		if len(symbolHints) == 0 {
-			return true
-		}
-
-		normalizedFile := normalizeReviewToken(file)
-		for _, hint := range symbolHints {
-			if hint != "" && strings.Contains(normalizedFile, hint) {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
-func contractSymbolHints(change contracts.SymbolChange) []string {
-	seen := make(map[string]struct{})
-
-	addContractSymbolHints(seen, change.SymbolKey)
-
-	if change.Before != nil {
-		addContractSymbolHints(seen, change.Before.File)
-		addContractSymbolHints(seen, change.Before.Name)
-		addContractSymbolHints(seen, change.Before.Parent)
-	}
-
-	if change.After != nil {
-		addContractSymbolHints(seen, change.After.File)
-		addContractSymbolHints(seen, change.After.Name)
-		addContractSymbolHints(seen, change.After.Parent)
-	}
-
-	hints := make([]string, 0, len(seen))
-	for hint := range seen {
-		hints = append(hints, hint)
-	}
-
-	sort.Strings(hints)
-	return hints
-}
-
-func addContractSymbolHints(seen map[string]struct{}, value string) {
-	for _, token := range strings.FieldsFunc(value, func(r rune) bool {
-		switch r {
-		case ':', '/', '\\', '.', '_', '-', ' ', '\t', '(', ')', '<', '>', ',', ';':
-			return true
-		default:
-			return false
-		}
-	}) {
-		token = normalizeReviewToken(token)
-		if len(token) < 4 {
-			continue
-		}
-
-		switch token {
-		case "method", "class", "struct", "using", "typedef", "const", "virtual":
-			continue
-		}
-
-		seen[token] = struct{}{}
-	}
-}
-
-func isTestPath(path string) bool {
-	normalized := normalizeReviewToken(path)
-
-	return strings.Contains(normalized, "test") ||
-		strings.Contains(normalized, "tests") ||
-		strings.Contains(normalized, "mock") ||
-		strings.Contains(normalized, "mocks") ||
-		strings.Contains(normalized, "spec")
-}
-
-func normalizeReviewToken(value string) string {
-	value = strings.ToLower(value)
-	value = strings.ReplaceAll(value, "\\", "/")
-	return value
 }

@@ -136,11 +136,14 @@ type ReviewImpactReport struct {
 }
 
 type ReviewImpactItem struct {
-	Kind     string `json:"kind"`
-	Severity string `json:"severity,omitempty"`
-	Title    string `json:"title"`
-	Detail   string `json:"detail,omitempty"`
-	ID       string `json:"id,omitempty"`
+	Kind       string           `json:"kind"`
+	Severity   string           `json:"severity,omitempty"`
+	Title      string           `json:"title"`
+	Detail     string           `json:"detail,omitempty"`
+	ID         string           `json:"id,omitempty"`
+	Risk       string           `json:"risk,omitempty"`
+	Suggestion string           `json:"suggestion,omitempty"`
+	Evidence   []model.Evidence `json:"evidence,omitempty"`
 }
 
 type ContractImpact struct {

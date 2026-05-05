@@ -404,11 +404,14 @@ func unchangedDebtImpact(beforeProject *model.ProjectModel, afterProject *model.
 		}
 
 		items = append(items, ReviewImpactItem{
-			Kind:     "unchanged_finding",
-			Severity: string(after.Severity),
-			Title:    fmt.Sprintf("Existing %s finding", model.HumanFindingKind(after.Kind)),
-			Detail:   after.Title,
-			ID:       after.ID,
+			Kind:       "unchanged_finding",
+			Severity:   string(after.Severity),
+			Title:      fmt.Sprintf("Existing %s finding", model.HumanFindingKind(after.Kind)),
+			Detail:     after.Title,
+			ID:         after.ID,
+			Risk:       after.Risk,
+			Suggestion: after.Suggestion,
+			Evidence:   append([]model.Evidence(nil), after.Evidence...),
 		})
 	}
 

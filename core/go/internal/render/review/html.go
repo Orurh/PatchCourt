@@ -6,6 +6,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/orurh/patchcourt/internal/model"
 	"github.com/orurh/patchcourt/internal/reportmodel"
 )
 
@@ -128,19 +129,104 @@ func writeReviewHTMLImpact(b *strings.Builder, columns []ReviewImpactColumn) {
 }
 
 func writeReviewHTMLImpactList(b *strings.Builder, items []reportmodel.ReviewImpactItem) {
-	fmt.Fprintln(b, `<ul>`)
+	fmt.Fprintln(b, `<div class="debt-list">`)
 	for _, item := range items {
-		fmt.Fprintln(b, `<li>`)
-		fmt.Fprintf(b, `<span class="tag">%s</span> <strong>%s</strong>`, escape(item.Kind), escape(item.Title))
+		fmt.Fprintln(b, `<details class="debt-item">`)
+		fmt.Fprintln(b, `<summary>`)
+		fmt.Fprintf(b, `<span class="tag">%s</span> `, escape(item.Kind))
+		fmt.Fprintf(b, `<strong>%s</strong>`, escape(item.Title))
 		if item.ID != "" {
 			fmt.Fprintf(b, ` <code>%s</code>`, escape(item.ID))
 		}
+		fmt.Fprintln(b, `</summary>`)
+
+		fmt.Fprintln(b, `<div class="debt-body">`)
+		fmt.Fprintln(b, `<p class="muted">Status: existing debt, not introduced by this patch.</p>`)
+
+		if item.Severity != "" {
+			fmt.Fprintf(b, `<p><strong>Severity:</strong> <span class="tag">%s</span></p>`, escape(item.Severity))
+		}
 		if item.Detail != "" {
-			fmt.Fprintf(b, `<div class="detail">%s</div>`, escape(item.Detail))
+			fmt.Fprintf(b, `<p><strong>Finding:</strong> %s</p>`, escape(item.Detail))
+		}
+		if item.Risk != "" {
+			fmt.Fprintf(b, `<p><strong>Risk:</strong> %s</p>`, escape(item.Risk))
+		}
+		if item.Suggestion != "" {
+			fmt.Fprintf(b, `<p><strong>Suggestion:</strong> %s</p>`, escape(item.Suggestion))
+		}
+
+		writeReviewHTMLEvidenceList(b, item.Evidence, 5)
+
+		fmt.Fprintln(b, `</div>`)
+		fmt.Fprintln(b, `</details>`)
+	}
+	fmt.Fprintln(b, `</div>`)
+}
+
+func writeReviewHTMLEvidenceList(b *strings.Builder, evidence []model.Evidence, limit int) {
+	if len(evidence) == 0 {
+		fmt.Fprintln(b, `<p class="muted">No evidence attached to this finding yet.</p>`)
+		return
+	}
+
+	fmt.Fprintln(b, `<h4>Evidence</h4>`)
+	fmt.Fprintln(b, `<ul class="evidence-list">`)
+
+	count := len(evidence)
+	if count > limit {
+		count = limit
+	}
+
+	for i := 0; i < count; i++ {
+		item := evidence[i]
+		location := evidenceLocation(item)
+		detail := item.Message
+		if detail == "" {
+			detail = item.Snippet
+		}
+		if detail == "" && (item.FromFile != "" || item.ToFile != "") {
+			detail = item.FromFile + " -> " + item.ToFile
+		}
+
+		fmt.Fprintln(b, `<li>`)
+		if location != "" {
+			fmt.Fprintf(b, `<code>%s</code>`, escape(location))
+		}
+		if detail != "" {
+			fmt.Fprintf(b, `<div class="detail">%s</div>`, escape(detail))
+		}
+		if item.FromLayer != "" || item.ToLayer != "" {
+			fmt.Fprintf(b, `<div class="detail">Layer: <code>%s → %s</code></div>`, escape(item.FromLayer), escape(item.ToLayer))
 		}
 		fmt.Fprintln(b, `</li>`)
 	}
+
+	if len(evidence) > limit {
+		fmt.Fprintf(b, `<li class="muted">... %d more evidence item(s)</li>`, len(evidence)-limit)
+	}
+
 	fmt.Fprintln(b, `</ul>`)
+}
+
+func evidenceLocation(evidence model.Evidence) string {
+	location := evidence.File
+	if location == "" {
+		location = evidence.FromFile
+	}
+
+	if location == "" {
+		return ""
+	}
+
+	switch {
+	case evidence.LineStart > 0 && evidence.LineEnd > evidence.LineStart:
+		return fmt.Sprintf("%s:%d-%d", location, evidence.LineStart, evidence.LineEnd)
+	case evidence.LineStart > 0:
+		return fmt.Sprintf("%s:%d", location, evidence.LineStart)
+	default:
+		return location
+	}
 }
 
 func writeReviewHTMLImpactColumn(b *strings.Builder, title string, class string, items []reportmodel.ReviewImpactItem) {
@@ -661,6 +747,32 @@ h3 {
 }
 .debt-details ul {
   margin-top: 12px;
+}
+.debt-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+.debt-item {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: #ffffff;
+}
+.debt-item summary {
+  cursor: pointer;
+}
+.debt-body {
+  margin-top: 12px;
+}
+.debt-body p + p {
+  margin-top: 8px;
+}
+.evidence-list {
+  margin-top: 8px;
+}
+.evidence-list li + li {
+  margin-top: 10px;
 }
 .impact {
   border: 1px solid var(--line);
