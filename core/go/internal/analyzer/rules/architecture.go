@@ -135,7 +135,7 @@ func (b *architectureFindingBuilder) finding() model.Finding {
 	severity := model.SeverityHigh
 	title := architectureFindingTitle(b.kinds)
 	riskText := architectureRiskText(b.fromLayer, b.toLayer, b.kinds)
-	suggestion := architectureSuggestionText(b.kinds)
+	suggestion := architectureSuggestionText(b.fromLayer, b.toLayer, b.kinds)
 
 	if isCompositionRootLoggingReview(b.fromLayer, b.toLayer, b.kinds, b.evidence) {
 		kind = model.FindingKindPolicyReview
@@ -197,7 +197,11 @@ func architectureRiskText(fromLayer string, toLayer string, kinds map[model.Depe
 	)
 }
 
-func architectureSuggestionText(kinds map[model.DependencyKind]struct{}) string {
+func architectureSuggestionText(fromLayer string, toLayer string, kinds map[model.DependencyKind]struct{}) string {
+	if suggestion := cleanArchitectureSuggestion(fromLayer, toLayer); suggestion != "" {
+		return suggestion
+	}
+
 	if hasOnlyDependencyKind(kinds, model.DependencyKindImport) {
 		return "Move the dependency behind an allowed package boundary, introduce a lower-level shared package, or update the architecture rules if this dependency is intentional."
 	}
@@ -207,6 +211,69 @@ func architectureSuggestionText(kinds map[model.DependencyKind]struct{}) string 
 	}
 
 	return "Move the dependency behind an allowed boundary, introduce a lower-level shared package/module, or update the architecture rules if this dependency is intentional."
+}
+
+func cleanArchitectureSuggestion(fromLayer string, toLayer string) string {
+	from := normalizeLayerName(fromLayer)
+	to := normalizeLayerName(toLayer)
+
+	if isDomainLayer(from) && isOuterLayer(to) {
+		return "Keep domain/model/contracts independent from outer implementation details. Move the referenced type into domain/shared, introduce a domain-owned abstraction, or reverse the dependency so infrastructure/adapters depend inward."
+	}
+
+	if isDeliveryLayer(from) && isConcreteImplementationLayer(to) {
+		return "Keep delivery/API code from depending directly on concrete infrastructure or vendor implementations. Route the call through an application/usecase boundary and depend on a domain/application port instead."
+	}
+
+	if isApplicationLayer(from) && isConcreteImplementationLayer(to) {
+		return "Keep application/usecase policy independent from concrete infrastructure or vendor implementations. Depend on a port/interface owned by the application/domain layer, and let infrastructure/adapters implement it."
+	}
+
+	return ""
+}
+
+func normalizeLayerName(layer string) string {
+	return strings.ToLower(strings.TrimSpace(layer))
+}
+
+func isDomainLayer(layer string) bool {
+	switch layer {
+	case "domain", "model", "models", "contract", "contracts", "entities", "entity":
+		return true
+	default:
+		return false
+	}
+}
+
+func isApplicationLayer(layer string) bool {
+	switch layer {
+	case "application", "app", "usecase", "usecases", "service", "services":
+		return true
+	default:
+		return false
+	}
+}
+
+func isDeliveryLayer(layer string) bool {
+	switch layer {
+	case "api", "server", "web", "http", "grpc", "controllers", "controller", "delivery", "adapter", "adapters":
+		return true
+	default:
+		return false
+	}
+}
+
+func isConcreteImplementationLayer(layer string) bool {
+	switch layer {
+	case "infrastructure", "infra", "vendor", "vendors", "camera", "cameras", "database", "db", "persistence", "framework", "frameworks":
+		return true
+	default:
+		return false
+	}
+}
+
+func isOuterLayer(layer string) bool {
+	return isDeliveryLayer(layer) || isApplicationLayer(layer) || isConcreteImplementationLayer(layer)
 }
 
 func architectureEvidenceMessage(dep model.DependencyEdge) string {
