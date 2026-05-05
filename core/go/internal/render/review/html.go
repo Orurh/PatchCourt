@@ -905,6 +905,63 @@ th {
 td code {
   word-break: break-word;
 }
+
+/* PatchCourt release override: keep long evidence paths inside cards. */
+.card,
+.impact,
+.impact li,
+.contract-change-card,
+.contract-impact-card,
+.table-wrap,
+section {
+  min-width: 0;
+}
+
+.impact li,
+.detail,
+.file-list li,
+.contract-change-card,
+.contract-impact-card,
+td,
+th {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+code {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.impact code,
+.detail code,
+.file-list code,
+td code {
+  display: inline;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.code-diff-block pre,
+.graph-block {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.code-diff-block code,
+.graph-block code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+table {
+  table-layout: fixed;
+  width: 100%;
+}
+
 @media (max-width: 900px) {
   .hero,
   .columns {

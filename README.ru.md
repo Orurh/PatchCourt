@@ -1,667 +1,559 @@
+<div align="center">
+
 # PatchCourt
 
-PatchCourt — это инструмент статического архитектурного ревью для C/C++ проектов.
+### Diff-aware архитектурное ревью для C++ patch’ей
 
-Он строит include-level модель зависимостей, раскладывает файлы по архитектурным слоям, находит подозрительные связи и генерирует отчёты, удобные для разработчиков, CI и будущего LLM-assisted code review.
+**Patch сделал архитектуру лучше или хуже?**
 
-Текущий фокус проекта — анализ архитектуры C/C++ кода.
+PatchCourt анализирует архитектурный эффект изменений в C++-проекте: отделяет **новый риск** от **старого legacy-долга** и показывает evidence до конкретных файлов, `#include`/`import` связей, слоёв, публичных контрактов, findings и review-вопросов.
+
+<br/>
+
+[![Go](https://img.shields.io/badge/Go-1.24+-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://go.dev/)
+[![C++](https://img.shields.io/badge/Focus-C++_Architecture-00599C?style=for-the-badge&logo=cplusplus&logoColor=white)](https://isocpp.org/)
+[![SARIF](https://img.shields.io/badge/SARIF-Code_Scanning-6f42c1?style=for-the-badge)](https://sarifweb.azurewebsites.net/)
+[![Alpha](https://img.shields.io/badge/status-v0.2.0--alpha-orange?style=for-the-badge)](#фокус-релиза-v020-alpha)
+
+[Русская версия](README.ru.md)
+</div>
 
 ---
 
-## Что делает PatchCourt
+## Зачем нужен PatchCourt
 
-PatchCourt помогает отвечать на вопросы:
+В больших C++-проектах архитектура обычно ломается не взрывом, а дрейфом.
 
-- Какие слои зависят друг от друга?
-- Добавил ли патч новую запрещённую зависимость?
-- Есть ли двунаправленные зависимости между слоями?
-- Зависит ли domain-слой от внешнего implementation-кода?
-- Есть ли потенциально неиспользуемые C++ include'ы?
-- Какие конкретные файлы являются evidence для finding'а?
-- Какие артефакты можно приложить к merge request?
+Сначала API подключает конкретную Sony-реализацию. Потом `domain` начинает знать про `infrastructure`. Потом публичный интерфейс меняется без тестов. Потом dependency cycle становится «ну он всегда был». А на review уже никто не понимает, кто принёс новый риск, а что было старым долгом.
 
-PatchCourt разделён на несколько стадий:
+PatchCourt нужен именно для этого места: показать, что изменил конкретный patch.
 
 ```text
-facts      -> include/import graph
-discovery  -> metrics, clusters, suspicious dependencies
-policy     -> explicit allowed dependencies
-review     -> what changed in a patch
-explain    -> why a finding exists
-artifacts  -> markdown, json, dot, mermaid
+Что стало хуже?
+Что стало лучше?
+Что было старым legacy-долгом?
+Где конкретный evidence?
+Что reviewer должен спросить в PR/MR?
+```
+
+PatchCourt — не компилятор, не clang-tidy, не замена человеку и не «AI reviewer».
+
+Это deterministic evidence engine для архитектурного review.
+
+```text
+facts -> dependency graph -> architecture rules -> diff -> findings -> review artifacts
 ```
 
 ---
 
-## Текущий статус
+## Главная идея
 
-Сейчас PatchCourt поддерживает:
+PatchCourt отвечает на один вопрос:
 
-- индексацию C/C++ файлов;
-- граф C/C++ `#include` зависимостей;
-- autodiscovery `compile_commands.json`;
-- configured include paths;
-- обработку system include paths;
-- discovery архитектурных слоёв проекта;
-- явную layer policy через `.patchcourt.yaml`;
-- architecture violation findings;
-- discovery hints;
-- эвристику потенциально неиспользуемых include'ов;
-- локальные suppressions через комментарии;
-- scan reports в text/json/markdown;
-- layer graph в dot/json/mermaid;
-- before/after review reports;
-- markdown review output;
-- объяснение конкретного finding'а;
-- команду `check`, которая одной командой создаёт стандартные артефакты проекта.
+> Сделал ли этот C++ patch архитектуру лучше или хуже?
 
-Go-анализ пока не является текущим фокусом.
+И отвечает не общими словами, а структурированным evidence:
+
+| Сигнал | Пример |
+|---|---|
+| Новая запрещённая зависимость | `api -> cameras/sony` |
+| Новый layer edge | `domain -> infrastructure` |
+| Изменился публичный контракт | `method::ICameraAdapter::RunPreflight` |
+| Нет связанных тестовых изменений | public interface changed, tests did not |
+| Старый долг | cycle уже был до patch’а |
+| Улучшение | запрещённая зависимость удалена |
+
+Самое важное — разделение:
+
+```text
+Worse          -> стало хуже из-за этого patch’а
+Better         -> patch что-то улучшил
+Unchanged debt -> долг уже был раньше
+```
+
+Вот это разделение и есть продуктовая ценность PatchCourt.
 
 ---
 
-## Установка
+## Пример review
 
-Из директории Go-реализации:
+Плохой patch:
+
+```cpp
+// src/api/camera_routes.cc
+#include "src/cameras/sony/sony_camera_manager.h"
+```
+
+PatchCourt может показать:
+
+```text
+Risk: HIGH
+
+Worse:
+  [HIGH] API layer now depends on Sony camera implementation
+  [HIGH] Domain layer now depends on infrastructure
+  [HIGH] Public interface changed: ICameraAdapter::RunPreflight
+  [MEDIUM] Public contract changed without related test-like files
+
+Better:
+  none
+
+Unchanged debt:
+  existing unrelated architecture debt
+```
+
+И сразу дать evidence:
+
+```text
+Dependency:
+  src/api/camera_routes.cc
+    -> src/cameras/sony/sony_camera_manager.h
+
+Layer edge:
+  api -> cameras
+
+Contract:
+  method::ICameraAdapter::RunPreflight
+```
+
+PatchCourt не пытается доказать, что patch «правильный» или «неправильный».
+
+Он делает архитектурный эффект patch’а видимым.
+
+---
+
+## Быстрый demo-сценарий
+
+Склонировать проект и запустить camera-service demo:
 
 ```bash
-cd core/go
-go build -o ./bin/patchcourt ./cmd/patchcourt
+git clone https://github.com/orurh/PatchCourt.git
+cd PatchCourt/core/go
+
+make camera-demo
 ```
 
-Запуск тестов:
+Открыть HTML-отчёты:
 
 ```bash
-go test ./...
+make open-camera-demo
+```
+
+Demo генерирует bad/better отчёты:
+
+```text
+.patchcourt/out/examples/camera-service/bad-review.html
+.patchcourt/out/examples/camera-service/bad-review.json
+.patchcourt/out/examples/camera-service/bad-review.md
+.patchcourt/out/examples/camera-service/bad-review.txt
+.patchcourt/out/examples/camera-service/bad-context.md
+.patchcourt/out/examples/camera-service/bad.sarif
+
+.patchcourt/out/examples/camera-service/better-review.html
+.patchcourt/out/examples/camera-service/better-review.json
+.patchcourt/out/examples/camera-service/better-review.md
+.patchcourt/out/examples/camera-service/better-review.txt
+.patchcourt/out/examples/camera-service/better-context.md
+.patchcourt/out/examples/camera-service/better.sarif
+```
+
+Смысл demo:
+
+| Patch | Что должно быть видно |
+|---|---|
+| bad patch | новый architecture drift, высокий риск |
+| better patch | меньше drift, ниже риск, часть проблем убрана |
+
+---
+
+## Что генерирует PatchCourt
+
+| Артефакт | Зачем нужен |
+|---|---|
+| `review.html` | статичный человекочитаемый отчёт |
+| `review.json` | machine-readable review result |
+| `review.md` | markdown-версия отчёта |
+| `review.txt` | вывод для терминала |
+| `review-context.md` | context pack для LLM-review |
+| `patchcourt.sarif` | экспорт для CI/code scanning |
+
+SARIF — это integration/export layer.
+
+Главные PatchCourt-артефакты:
+
+```text
+review.html
+review.json
+review-context.md
 ```
 
 ---
 
-## Быстрый старт
+## Основной workflow
 
-Запустить полный check проекта:
+Review ветки относительно `origin/main`:
+
+```bash
+./bin/patchcourt review \
+  --base origin/main \
+  --head HEAD \
+  --format json \
+  --html-out .patchcourt/out/review.html \
+  --llm-pack \
+  --llm-pack-out .patchcourt/out/review-context.md \
+  --sarif-out .patchcourt/out/patchcourt.sarif \
+  > .patchcourt/out/review.json
+```
+
+Review текущего worktree относительно base ref:
+
+```bash
+./bin/patchcourt review \
+  --base main \
+  --worktree \
+  --format json \
+  --html-out .patchcourt/out/review.html \
+  --llm-pack \
+  --llm-pack-out .patchcourt/out/review-context.md \
+  --sarif-out .patchcourt/out/patchcourt.sarif \
+  > .patchcourt/out/review.json
+```
+
+Низкоуровневый режим `before/after`:
+
+```bash
+./bin/patchcourt review \
+  --before-root /tmp/before \
+  --after-root /tmp/after \
+  --format markdown
+```
+
+---
+
+## LLM context pack
+
+PatchCourt умеет готовить компактный deterministic context pack для LLM-assisted review:
+
+```bash
+./bin/patchcourt review \
+  --base origin/main \
+  --head HEAD \
+  --llm-pack \
+  --llm-pack-out .patchcourt/out/review-context.md
+```
+
+Внутри context pack:
+
+```text
+patch summary
+raw changed files
+analyzed changed files
+touched layers
+architecture impact
+contract changes
+dependency changes
+finding changes
+risk reasons
+review questions
+```
+
+Принцип:
+
+```text
+LLM может сжимать, объяснять и формулировать review questions.
+LLM не должна выдумывать файлы, символы, зависимости или findings.
+```
+
+PatchCourt сначала собирает deterministic evidence. LLM работает поверх него.
+
+---
+
+## CI integration
+
+PatchCourt можно запускать в CI как non-blocking architecture review assistant.
+
+Рекомендуемый режим для alpha:
+
+```text
+generate review.html
+upload review artifacts
+upload SARIF where supported
+do not fail CI by default
+```
+
+Примеры:
+
+```text
+core/go/docs/ci/github-actions.md
+core/go/docs/ci/gitlab-ci.md
+```
+
+Минимальный GitHub Actions flow:
+
+```yaml
+- name: Run PatchCourt review
+  run: |
+    mkdir -p .patchcourt/out
+    patchcourt review \
+      --base origin/main \
+      --head HEAD \
+      --format json \
+      --html-out .patchcourt/out/review.html \
+      --llm-pack \
+      --llm-pack-out .patchcourt/out/review-context.md \
+      --sarif-out .patchcourt/out/patchcourt.sarif \
+      > .patchcourt/out/review.json
+
+- name: Upload SARIF
+  uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: .patchcourt/out/patchcourt.sarif
+```
+
+Blocking mode лучше включать явно и отдельно, когда команда уже доверяет правилам проекта.
+
+---
+
+## Project check mode
+
+PatchCourt умеет анализировать текущее состояние проекта:
 
 ```bash
 ./bin/patchcourt check /path/to/project
 ```
 
-Команда запишет стандартные артефакты в:
+Типовые артефакты:
 
 ```text
-/path/to/project/.patchcourt/out/
+.patchcourt/out/project-model.json
+.patchcourt/out/scan.md
+.patchcourt/out/layer-graph.json
+.patchcourt/out/layer-graph.dot
+.patchcourt/out/layer-graph.mmd
+.patchcourt/out/report.html
 ```
 
-Пример вывода:
+Это полезно, чтобы:
 
 ```text
-PatchCourt check
-
-Root: /path/to/project
-Config: defaults
-Out: /path/to/project/.patchcourt/out
-
-Summary:
-  production files: 101
-  test files:       24
-  dependencies:     686
-  resolved:         301
-  unresolved:       0
-  findings:         9
-  graph nodes:      10
-  graph edges:      25
-
-Artifacts:
-  - project model: /path/to/project/.patchcourt/out/project-model.json
-  - scan report: /path/to/project/.patchcourt/out/scan.md
-  - layer graph json: /path/to/project/.patchcourt/out/layer-graph.json
-  - layer graph dot: /path/to/project/.patchcourt/out/layer-graph.dot
-  - layer graph mermaid: /path/to/project/.patchcourt/out/layer-graph.mmd
-```
-
-Сгенерировать SVG-граф:
-
-```bash
-dot -Tsvg /path/to/project/.patchcourt/out/layer-graph.dot \
-  -o /path/to/project/.patchcourt/out/layer-graph.svg
+понять текущую структуру проекта
+найти подозрительные layer edges
+построить dependency graph
+подготовить baseline config
 ```
 
 ---
 
-## Команды
+## Edge drill-down
 
-### `check`
+Граф сам по себе часто бесполезен, если нельзя провалиться в evidence.
 
-Запускает scan + graph, пишет стандартные артефакты и печатает краткий summary.
-
-```bash
-./bin/patchcourt check /path/to/project
-```
-
-С явным конфигом и output directory:
+PatchCourt позволяет объяснить конкретную layer dependency:
 
 ```bash
-./bin/patchcourt check /path/to/project \
-  --config /path/to/project/.patchcourt.yaml \
-  --out /tmp/patchcourt-out
+./bin/patchcourt edge \
+  --model .patchcourt/out/project-model.json \
+  api cameras
 ```
 
-Генерируемые артефакты:
+Пример формы вывода:
 
 ```text
-project-model.json
-scan.md
-layer-graph.json
-layer-graph.dot
-layer-graph.mmd
+Edge: api -> cameras
+Count: 3
+
+Top source files:
+  src/api/camera_routes.cc
+
+Top target files:
+  src/cameras/sony/sony_camera_manager.h
+
+Dependencies:
+  src/api/camera_routes.cc
+    -> src/cameras/sony/sony_camera_manager.h
 ```
 
-Это рекомендуемая команда для повседневного использования.
+Графы полезны. Evidence полезнее.
 
 ---
 
-### `init`
+## Конфигурация
 
-Генерирует стартовый `.patchcourt.yaml`.
+Архитектурные границы описываются в `.patchcourt.yaml`.
 
-Baseline mode выводит текущие зависимости как разрешённые:
+Пример:
+
+```yaml
+ignore:
+  paths:
+    - build/**
+    - cmake-build-*/**
+    - third_party/**
+    - external/**
+    - generated/**
+    - "**/*.pb.cc"
+    - "**/*.pb.h"
+
+cpp:
+  compile_commands:
+    auto_discover: true
+  include_paths:
+    - src
+    - include
+
+layers:
+  api:
+    paths:
+      - src/api/**
+      - src/server/**
+    may_depend_on:
+      - controllers
+      - domain
+
+  controllers:
+    paths:
+      - src/controllers/**
+    may_depend_on:
+      - domain
+      - cameras
+
+  domain:
+    paths:
+      - src/domain/**
+    may_depend_on: []
+
+  cameras:
+    paths:
+      - src/cameras/**
+    may_depend_on:
+      - domain
+
+forbidden_imports:
+  - from_layer: api
+    patterns:
+      - src/cameras/sony/**
+      - src/cameras/*_impl/**
+```
+
+Сгенерировать стартовый конфиг:
 
 ```bash
 ./bin/patchcourt init /path/to/project > .patchcourt.yaml
 ```
 
-Strict mode обнаруживает слои, но оставляет `may_depend_on` пустым:
+Baseline mode полезен для legacy-проектов: принять текущие зависимости и не дать patch’ам ухудшать архитектуру дальше.
 
-```bash
-./bin/patchcourt init /path/to/project --strict > .patchcourt.yaml
-```
-
-Baseline mode полезен для legacy-проектов, где первая цель — не допустить новых архитектурных деградаций.
-
-Strict mode полезен, когда нужно сразу увидеть существующие нарушения архитектурной политики.
-
-Пример сгенерированного конфига:
-
-```yaml
-ignore:
-  paths:
-    - ".git/**"
-    - "build/**"
-    - "libs/**"
-    - "third_party/**"
-    - "external/**"
-    - "generated/**"
-    - "**/*.pb.h"
-    - "**/*.pb.cc"
-
-cpp:
-  compile_commands:
-    auto_discover: true
-  include_paths:
-    - "src"
-
-layers:
-  server:
-    paths:
-      - "src/server/**"
-    may_depend_on:
-      - domain
-
-  domain:
-    paths:
-      - "src/domain/**"
-    may_depend_on: []
-```
+Strict mode полезен для greenfield или cleanup-работ: сразу подсветить существующие нарушения.
 
 ---
 
-### `scan`
+## Что уже работает
 
-Строит модель проекта и выводит findings.
-
-Text output:
-
-```bash
-./bin/patchcourt scan /path/to/project \
-  --config .patchcourt.yaml \
-  --format text
-```
-
-JSON output:
-
-```bash
-./bin/patchcourt scan /path/to/project \
-  --config .patchcourt.yaml \
-  --format json > project-model.json
-```
-
-Markdown output:
-
-```bash
-./bin/patchcourt scan /path/to/project \
-  --config .patchcourt.yaml \
-  --format markdown > scan.md
-```
-
-Scan model содержит:
-
-- files;
-- file roles;
-- symbols;
-- dependencies;
-- resolved/unresolved includes;
-- external dependencies;
-- layer assignments;
-- findings;
-- evidence.
+| Область | Статус |
+|---|---|
+| C++ file indexing | works |
+| C++ include graph | works |
+| `compile_commands.json` discovery | works |
+| configured include paths | works |
+| Go import baseline | works |
+| layer rules via `.patchcourt.yaml` | works |
+| architecture findings | works |
+| edge drill-down | works |
+| before/after review | works |
+| git base/head review | works |
+| worktree review | works |
+| public contract diff | alpha |
+| test-like review questions | alpha |
+| `review.html` | alpha |
+| LLM context pack | alpha |
+| SARIF export | alpha |
 
 ---
 
-### `graph`
+## Чем PatchCourt не является
 
-Строит граф слоёв проекта.
-
-DOT:
-
-```bash
-./bin/patchcourt graph /path/to/project \
-  --config .patchcourt.yaml \
-  --format dot > layer-graph.dot
-```
-
-Mermaid:
-
-```bash
-./bin/patchcourt graph /path/to/project \
-  --config .patchcourt.yaml \
-  --format mermaid > layer-graph.mmd
-```
-
-JSON:
-
-```bash
-./bin/patchcourt graph /path/to/project \
-  --config .patchcourt.yaml \
-  --format json > layer-graph.json
-```
-
-Сгенерировать SVG:
-
-```bash
-dot -Tsvg layer-graph.dot -o layer-graph.svg
-```
-
----
-
-### `review`
-
-Сравнивает before/after модели проекта или before/after директории.
-
-Review по двум директориям:
-
-```bash
-./bin/patchcourt review \
-  --before-root /tmp/project-before \
-  --after-root /tmp/project-after \
-  --config .patchcourt.yaml \
-  --format markdown
-```
-
-Review по двум заранее построенным моделям:
-
-```bash
-./bin/patchcourt review \
-  --before before-model.json \
-  --after after-model.json \
-  --format text
-```
-
-Markdown review output рассчитан на merge requests:
-
-```markdown
-# PatchCourt Review
-
-## Summary
-
-- Risk: high, 11 points
-- Dependency changes: 1
-- Layer edge changes: 1
-- Added findings: 1
-- Added policy findings: 1
-
-## Risk reasons
-
-- +7 added high policy violation: architecture.server.cameras
-- +1 dependency edge added: include|src/server/api_router.cc|src/cameras/camera_adapter_factory.h
-- +3 layer edge added: server -> cameras
-```
-
----
-
-### `explain`
-
-Объясняет конкретный finding.
-
-Из root директории:
-
-```bash
-./bin/patchcourt explain architecture.server.cameras \
-  --root /path/to/project \
-  --config .patchcourt.yaml
-```
-
-Из модели:
-
-```bash
-./bin/patchcourt explain architecture.server.cameras \
-  --model .patchcourt/out/project-model.json
-```
-
-Пример вывода:
+PatchCourt — это не:
 
 ```text
-PatchCourt explain
-
-Finding: architecture.server.cameras
-Title:   Include-level architecture boundary violation
-Kind:    policy_violation
-Severity: high
-Confidence: high
-
-Risk:
-  Layer "server" includes a header from layer "cameras", which is not allowed by .patchcourt.yaml.
-
-Evidence:
-  - src/server/api_router.cc: includes src/cameras/camera_adapter_factory.h, creating include dependency server -> cameras
+C++ compiler frontend
+clang-tidy replacement
+proof of correctness
+generic security scanner
+Go linter replacement
+full AI code reviewer
+web app
 ```
 
----
-
-## Findings
-
-PatchCourt сейчас генерирует две основные категории findings.
-
-### Policy violations
-
-Policy violations появляются из явных правил `.patchcourt.yaml`.
-
-Пример:
-
-```yaml
-layers:
-  server:
-    paths:
-      - "src/server/**"
-    may_depend_on:
-      - domain
-
-  cameras:
-    paths:
-      - "src/cameras/**"
-    may_depend_on:
-      - domain
-```
-
-Если `src/server/api_router.cc` включает `src/cameras/camera_adapter_factory.h`, PatchCourt сообщает:
+PatchCourt — это:
 
 ```text
-architecture.server.cameras
+deterministic architecture-impact reviewer for patches
 ```
 
-### Discovery hints
+---
 
-Discovery hints — это best-effort архитектурные запахи, найденные по dependency graph.
+## Ограничения
 
-Примеры:
+PatchCourt сейчас в alpha-стадии.
+
+Текущие ограничения:
+
+- C++ анализ lightweight и пока без Clang AST.
+- Качество include resolution зависит от `compile_commands.json` или `.patchcourt.yaml`.
+- CMake lightweight extraction не является полноценным CMake evaluator.
+- Public contract extraction эвристический.
+- Risk score — это приоритизация review, а не verdict корректности.
+- SARIF — export/integration layer, не core model.
+- Go support — baseline-level, не главный market focus.
+- Возможны false positives; их нужно проверять по evidence.
+
+---
+
+## Фокус релиза v0.2.0-alpha
+
+`v0.2.0-alpha` сфокусирован на:
 
 ```text
-discovery.bidirectional.application.cameras
-discovery.bidirectional.domain.session
-discovery.controllers.depends_on.server
-discovery.domain.depends_on.application
-discovery.cpp.unused_includes
+diff-aware C++ architecture review
+review.html
+review.json
+review-context.md
+patchcourt.sarif
+camera-service bad/better demo
+GitHub Actions / GitLab CI examples
+release gates через make release-check
 ```
 
-Это не строгие policy violations, а подсказки для ревью.
-
----
-
-## Suppressions
-
-PatchCourt поддерживает локальное подавление finding'ов через комментарии.
-
-Пример:
-
-```cpp
-// patchcourt:ignore architecture.server.cameras reason: legacy direct adapter include
-#include "src/cameras/camera_adapter_factory.h"
-```
-
-Suppressed findings не попадают в отчёт для этого файла.
-
-Suppressions стоит использовать аккуратно. Лучше исправлять архитектурные границы или обновлять policy, если зависимость действительно intentional.
-
----
-
-## Разрешение C++ include'ов
-
-PatchCourt разрешает include'ы через несколько источников:
-
-- direct project paths;
-- configured `cpp.include_paths`;
-- обнаруженный `compile_commands.json`;
-- system include paths;
-- heuristic fallback.
-
-Пример конфига:
-
-```yaml
-cpp:
-  compile_commands:
-    auto_discover: true
-  include_paths:
-    - "src"
-    - "include"
-```
-
-PatchCourt автоматически ищет compile database в типичных местах:
+В этот релиз не входят:
 
 ```text
-compile_commands.json
-build/compile_commands.json
+Clang backend
+VS Code extension
+web server
+GitHub PR bot
+GitLab native SAST JSON
+deep cache
+suppressions UI
+широкое расширение Go/C++ risk rules
 ```
-
----
-
-## Ignored paths
-
-PatchCourt применяет default ignores, если конфиг не передан.
-
-Default ignored paths включают:
-
-```text
-.git/**
-build/**
-cmake-build-debug/**
-cmake-build-release/**
-node_modules/**
-vendor/**
-libs/**
-third_party/**
-external/**
-generated/**
-**/*.pb.h
-**/*.pb.cc
-**/*.grpc.pb.h
-**/*.grpc.pb.cc
-```
-
-Это убирает vendor/generated/build artifacts из архитектурного анализа проекта.
-
----
-
-## File roles
-
-PatchCourt классифицирует файлы как:
-
-```text
-production
-test
-generated
-external
-config
-unknown
-```
-
-Architecture findings, layer graphs и review risk игнорируют зависимости, исходящие из test/generated/external файлов.
-
-Цель — сфокусировать архитектурное ревью на production-коде.
-
----
-
-## Пример workflow для C++ проекта
-
-Сгенерировать baseline config:
-
-```bash
-./bin/patchcourt init /path/to/project > /path/to/project/.patchcourt.yaml
-```
-
-Запустить check:
-
-```bash
-./bin/patchcourt check /path/to/project \
-  --config /path/to/project/.patchcourt.yaml
-```
-
-Открыть сгенерированный граф:
-
-```bash
-dot -Tsvg /path/to/project/.patchcourt/out/layer-graph.dot \
-  -o /path/to/project/.patchcourt/out/layer-graph.svg
-
-xdg-open /path/to/project/.patchcourt/out/layer-graph.svg
-```
-
-Объяснить top finding:
-
-```bash
-./bin/patchcourt explain discovery.bidirectional.application.cameras \
-  --model /path/to/project/.patchcourt/out/project-model.json
-```
-
----
-
-## Пример review workflow
-
-Подготовить before/after копии:
-
-```bash
-cp -a /path/to/project /tmp/project-before
-cp -a /path/to/project /tmp/project-after
-```
-
-Внести изменение в `/tmp/project-after`.
-
-Запустить review:
-
-```bash
-./bin/patchcourt review \
-  --before-root /tmp/project-before \
-  --after-root /tmp/project-after \
-  --config /path/to/project/.patchcourt.yaml \
-  --format markdown > review.md
-```
-
-`review.md` можно приложить к merge request или вставить в обсуждение code review.
-
----
-
-## Design principles
-
-PatchCourt строится вокруг нескольких принципов:
-
-1. Facts first. Include graph собирается до применения policy.
-2. Discovery is not policy. Подозрительные зависимости являются hints, пока они явно не запрещены.
-3. Policy is explicit. `.patchcourt.yaml` задаёт разрешённые зависимости между слоями.
-4. Review is evidence-based. У каждого finding'а должны быть конкретные file-level evidence.
-5. Low noise matters. Test/generated/external/vendor/build файлы не должны доминировать в архитектурном отчёте.
-6. C++ include dependencies are compile-time dependencies. Даже unused include'ы могут увеличивать coupling и build cost.
-
----
-
-## Текущие ограничения
-
-PatchCourt пока ранний инструмент.
-
-Известные ограничения:
-
-- C++ parsing лёгкий и синтаксический.
-- Symbol usage detection эвристический.
-- Macro-heavy и template-heavy код может давать false positives.
-- Header-only библиотеки могут путать unused-include detection.
-- Go-анализ пока не является текущим фокусом.
-- `review --base main --head HEAD` ещё не реализован.
-- Interactive UI / 3D graph viewer ещё не реализован.
-
----
-
-## Roadmap
-
-Ближайшие задачи:
-
-- `check --format json`;
-- более удобные CI-oriented exit codes;
-- `review --base main --head HEAD`;
-- LLM review context pack;
-- более строгая config validation;
-- улучшенные include resolution diagnostics;
-- улучшение confidence для unused include;
-- HTML/interactive graph report.
-
-Возможное будущее:
-
-- local web UI;
-- VS Code extension;
-- graph exploration с подсветкой findings;
-- trend/baseline tracking;
-- per-team architecture presets;
-- Go package graph analysis.
 
 ---
 
 ## Development
 
-Запустить все тесты:
+Из `core/go`:
 
 ```bash
-go test ./...
+make help
+make ci
+make camera-demo
+make self-review BASE=HEAD
+make release-check BASE=HEAD
 ```
 
-Собрать CLI:
+Architecture guardrails проверяются тестами.
 
-```bash
-go build -o ./bin/patchcourt ./cmd/patchcourt
-```
-
-Запустить на самом проекте:
-
-```bash
-./bin/patchcourt check .
-```
-
----
-
-## Структура репозитория
-
-```text
-cmd/patchcourt                 CLI entrypoint
-
-internal/app                   use cases: scan, graph, review, explain, check
-internal/analysis              analyzers and domain logic
-internal/config                config loading, validation, defaults
-internal/model                 project model and shared data structures
-internal/output/report         text/json/markdown/dot/mermaid renderers
-internal/platform              filesystem, path, git, logging helpers
-```
+Core/usecase/analyzer пакеты должны возвращать structured results и не писать напрямую в stdout/stderr.
 
 ---
 

@@ -65,3 +65,4 @@ PatchCourt_TZ_*.md
 core/go/.patchcourt/out/
 core/go/.patchcourt/state/
 dist/
+PatchCourt_spec_v4_ru.md

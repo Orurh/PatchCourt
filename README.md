@@ -1,667 +1,716 @@
+<div align="center">
+
 # PatchCourt
 
-PatchCourt is a static architecture review tool for C/C++ projects.
+### Diff-aware architecture review for C++ patches
 
-It builds an include-level dependency model, maps files to architectural layers, detects suspicious coupling, and produces review-friendly reports for humans, CI, and future LLM-assisted code review.
+**Did this patch make your architecture better or worse?**
 
-The current focus is C/C++ architecture analysis.
+PatchCourt reviews the architectural impact of C++ changes, separates **new risk** from **legacy debt**, and produces evidence down to files, include/import edges, layers, public contracts, findings, and review questions.
+
+<br/>
+
+[![Go](https://img.shields.io/badge/Go-1.24+-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://go.dev/)
+[![C++](https://img.shields.io/badge/Focus-C++_Architecture-00599C?style=for-the-badge&logo=cplusplus&logoColor=white)](https://isocpp.org/)
+[![SARIF](https://img.shields.io/badge/SARIF-Code_Scanning-6f42c1?style=for-the-badge)](https://sarifweb.azurewebsites.net/)
+[![Status](https://img.shields.io/badge/status-v0.2.0--alpha-orange?style=for-the-badge)](#v020-alpha-release-focus)
+
+</div>
 
 ---
 
-## What PatchCourt does
+## Why PatchCourt exists
 
-PatchCourt answers questions like:
+Large C++ systems rarely lose architecture in one dramatic commit.
 
-- Which layers depend on each other?
-- Did this patch introduce a new forbidden dependency?
-- Are there bidirectional layer dependencies?
-- Does a domain layer depend on outer implementation code?
-- Are there possibly unused C++ includes?
-- What evidence supports each finding?
-- What artifacts can be attached to a merge request?
-
-PatchCourt is intentionally split into several stages:
+They drift one patch at a time:
 
 ```text
-facts      -> include/import graph
-discovery  -> metrics, clusters, suspicious dependencies
-policy     -> explicit allowed dependencies
-review     -> what changed in a patch
-explain    -> why a finding exists
-artifacts  -> markdown, json, dot, mermaid
+api starts including vendor-specific implementation headers
+domain pulls infrastructure details
+public interfaces change without tests
+old dependency cycles stay forever
+reviewers cannot tell whether the patch made things worse
+```
+
+Most dependency tools show the whole existing architecture mess.
+
+PatchCourt focuses on the patch:
+
+```text
+What got worse?
+What got better?
+What was already legacy debt?
+Where exactly is the evidence?
+What should the reviewer ask?
+```
+
+PatchCourt is not a compiler, clang-tidy replacement, generic linter, security scanner, or AI reviewer.
+
+It is a deterministic evidence engine for architecture review.
+
+```text
+project facts
+  -> dependency graph
+  -> architecture rules
+  -> patch diff
+  -> findings
+  -> review.html / review.json / review-context.md / SARIF
 ```
 
 ---
 
-## Current status
+## Core idea
 
-PatchCourt currently supports:
+PatchCourt answers one review question:
 
-- C/C++ file indexing
-- C/C++ `#include` dependency graph
-- `compile_commands.json` autodiscovery
-- configured include paths
-- system include handling
-- project layer discovery
-- explicit layer policy via `.patchcourt.yaml`
-- architecture violation findings
-- discovery hints
-- possibly unused include detection
-- local suppressions via comments
-- scan reports in text/json/markdown
-- layer graph output in dot/json/mermaid
-- before/after review reports
-- markdown review output
-- finding explanation
-- one-command project check with generated artifacts
+> Did this C++ patch make the architecture better or worse?
 
-Go project analysis is not the current focus yet.
+And it answers with structured evidence:
+
+| Signal | Example |
+|---|---|
+| New forbidden dependency | `api -> cameras/sony` |
+| New layer edge | `domain -> infrastructure` |
+| Public contract changed | `method::ICameraAdapter::RunPreflight` |
+| Missing test-like changes | public interface changed, tests did not |
+| Existing debt | old cycle was already present before the patch |
+| Better change | forbidden dependency removed |
+
+The important split:
+
+```text
+Worse          -> introduced by this patch
+Better         -> improved by this patch
+Unchanged debt -> already existed before this patch
+```
+
+That split is the product.
 
 ---
 
-## Installation
+## Example: bad patch review
 
-From the Go implementation directory:
+A bad patch might do this:
+
+```cpp
+// src/api/camera_routes.cc
+#include "src/cameras/sony/sony_camera_manager.h"
+```
+
+And also change a public interface:
+
+```cpp
+// before
+virtual bool RunPreflight() const = 0;
+
+// after
+virtual bool RunPreflight(int cameraIndex) const = 0;
+```
+
+PatchCourt review output is shaped like this:
+
+```text
+PatchCourt review
+
+Risk: high, 14 points
+
+Summary:
+  contract changes:    2
+  dependency changes:  4
+  layer edge changes:  2
+  finding changes:     3
+  added findings:      3
+  removed findings:    0
+
+Architecture impact:
+
+  Worse:
+    [high] New forbidden dependency
+      api -> cameras
+      src/api/camera_routes.cc -> src/cameras/sony/sony_camera_manager.h
+
+    [high] Public contract changed
+      method::ICameraAdapter::RunPreflight
+      before: virtual bool RunPreflight() const = 0;
+      after:  virtual bool RunPreflight(int cameraIndex) const = 0;
+
+    [medium] Public contract changed without related test-like files
+      Verify callers and add or update tests.
+
+  Better:
+    none
+
+  Unchanged debt:
+    Existing unrelated architecture debt remains unchanged.
+```
+
+The key point is not that PatchCourt says “correct” or “incorrect”.
+
+The key point is that the reviewer immediately sees **what changed architecturally**, **why it is risky**, and **where to inspect**.
+
+---
+
+## Example: better patch review
+
+A better patch moves implementation details behind an interface or application boundary.
+
+PatchCourt should become quieter:
+
+```text
+PatchCourt review
+
+Risk: low, 2 points
+
+Architecture impact:
+
+  Worse:
+    none
+
+  Better:
+    Removed forbidden dependency: api -> cameras/sony
+    Removed direct dependency on vendor implementation
+    Kept delivery code behind application/domain boundary
+
+  Unchanged debt:
+    Existing unrelated discovery hints remain unchanged.
+```
+
+This is the intended review loop:
+
+```text
+bad patch    -> reveals architecture drift
+better patch -> shows the drift reduced
+```
+
+---
+
+## Quick demo
+
+Run the built-in camera-service demo:
+
+```bash
+git clone https://github.com/orurh/PatchCourt.git
+cd PatchCourt/core/go
+
+make camera-demo
+```
+
+Open the generated reports:
+
+```bash
+make open-camera-demo
+```
+
+## What the report looks like
+
+<p align="center">
+  <img src="docs/assets/patchcourt-bad-architecture-impact.png" alt="PatchCourt bad patch architecture impact report" width="100%">
+</p>
+
+<p align="center">
+  <img src="docs/assets/patchcourt-contract-impact.png" alt="PatchCourt contract impact evidence" width="100%">
+</p>
+
+<p align="center">
+  <img src="docs/assets/patchcourt-better-review.png" alt="PatchCourt better patch review report" width="100%">
+</p>
+
+Generated artifacts:
+
+```text
+.patchcourt/out/examples/camera-service/bad-review.html
+.patchcourt/out/examples/camera-service/bad-review.json
+.patchcourt/out/examples/camera-service/bad-review.md
+.patchcourt/out/examples/camera-service/bad-review.txt
+.patchcourt/out/examples/camera-service/bad-context.md
+.patchcourt/out/examples/camera-service/bad.sarif
+
+.patchcourt/out/examples/camera-service/better-review.html
+.patchcourt/out/examples/camera-service/better-review.json
+.patchcourt/out/examples/camera-service/better-review.md
+.patchcourt/out/examples/camera-service/better-review.txt
+.patchcourt/out/examples/camera-service/better-context.md
+.patchcourt/out/examples/camera-service/better.sarif
+```
+
+The demo compares two patches:
+
+| Patch | Expected signal |
+|---|---|
+| bad patch | new architecture drift and higher review risk |
+| better patch | less drift and lower review risk |
+
+---
+
+## What PatchCourt generates
+
+| Artifact | Purpose |
+|---|---|
+| `review.html` | Static human-readable architecture review |
+| `review.json` | Machine-readable PatchCourt review result |
+| `review.md` | Markdown review output |
+| `review.txt` | Terminal-friendly output |
+| `review-context.md` | LLM-ready context pack |
+| `patchcourt.sarif` | CI/code scanning integration export |
+
+SARIF is an integration layer.
+
+The primary PatchCourt artifacts are:
+
+```text
+review.html
+review.json
+review-context.md
+```
+
+---
+
+## Main workflow
+
+Build PatchCourt:
 
 ```bash
 cd core/go
 go build -o ./bin/patchcourt ./cmd/patchcourt
 ```
 
-Run tests:
-
-```bash
-go test ./...
-```
-
----
-
-## Quick start
-
-Run a full project check:
-
-```bash
-./bin/patchcourt check /path/to/project
-```
-
-This writes standard artifacts to:
-
-```text
-/path/to/project/.patchcourt/out/
-```
-
-Typical output:
-
-```text
-PatchCourt check
-
-Root: /path/to/project
-Config: defaults
-Out: /path/to/project/.patchcourt/out
-
-Summary:
-  production files: 101
-  test files:       24
-  dependencies:     686
-  resolved:         301
-  unresolved:       0
-  findings:         9
-  graph nodes:      10
-  graph edges:      25
-
-Artifacts:
-  - project model: /path/to/project/.patchcourt/out/project-model.json
-  - scan report: /path/to/project/.patchcourt/out/scan.md
-  - layer graph json: /path/to/project/.patchcourt/out/layer-graph.json
-  - layer graph dot: /path/to/project/.patchcourt/out/layer-graph.dot
-  - layer graph mermaid: /path/to/project/.patchcourt/out/layer-graph.mmd
-```
-
-Generate an SVG graph:
-
-```bash
-dot -Tsvg /path/to/project/.patchcourt/out/layer-graph.dot \
-  -o /path/to/project/.patchcourt/out/layer-graph.svg
-```
-
----
-
-## Commands
-
-### `check`
-
-Run scan + graph and write standard artifacts.
-
-```bash
-./bin/patchcourt check /path/to/project
-```
-
-With explicit config and output directory:
-
-```bash
-./bin/patchcourt check /path/to/project \
-  --config /path/to/project/.patchcourt.yaml \
-  --out /tmp/patchcourt-out
-```
-
-Generated artifacts:
-
-```text
-project-model.json
-scan.md
-layer-graph.json
-layer-graph.dot
-layer-graph.mmd
-```
-
-This is the recommended command for day-to-day use.
-
----
-
-### `init`
-
-Generate an initial `.patchcourt.yaml`.
-
-Baseline mode infers current dependencies as allowed dependencies:
-
-```bash
-./bin/patchcourt init /path/to/project > .patchcourt.yaml
-```
-
-Strict mode discovers layers but leaves `may_depend_on` empty:
-
-```bash
-./bin/patchcourt init /path/to/project --strict > .patchcourt.yaml
-```
-
-Baseline mode is useful for legacy projects where the first goal is to prevent new architectural drift.
-
-Strict mode is useful when you want PatchCourt to immediately report existing architecture violations.
-
-Example generated config:
-
-```yaml
-ignore:
-  paths:
-    - ".git/**"
-    - "build/**"
-    - "libs/**"
-    - "third_party/**"
-    - "external/**"
-    - "generated/**"
-    - "**/*.pb.h"
-    - "**/*.pb.cc"
-
-cpp:
-  compile_commands:
-    auto_discover: true
-  include_paths:
-    - "src"
-
-layers:
-  server:
-    paths:
-      - "src/server/**"
-    may_depend_on:
-      - domain
-
-  domain:
-    paths:
-      - "src/domain/**"
-    may_depend_on: []
-```
-
----
-
-### `scan`
-
-Build the project model and report findings.
-
-Text output:
-
-```bash
-./bin/patchcourt scan /path/to/project \
-  --config .patchcourt.yaml \
-  --format text
-```
-
-JSON output:
-
-```bash
-./bin/patchcourt scan /path/to/project \
-  --config .patchcourt.yaml \
-  --format json > project-model.json
-```
-
-Markdown output:
-
-```bash
-./bin/patchcourt scan /path/to/project \
-  --config .patchcourt.yaml \
-  --format markdown > scan.md
-```
-
-The scan model contains:
-
-- files
-- file roles
-- symbols
-- dependencies
-- resolved/unresolved includes
-- external dependencies
-- layer assignments
-- findings
-- evidence
-
----
-
-### `graph`
-
-Build a layer graph from the project model.
-
-DOT:
-
-```bash
-./bin/patchcourt graph /path/to/project \
-  --config .patchcourt.yaml \
-  --format dot > layer-graph.dot
-```
-
-Mermaid:
-
-```bash
-./bin/patchcourt graph /path/to/project \
-  --config .patchcourt.yaml \
-  --format mermaid > layer-graph.mmd
-```
-
-JSON:
-
-```bash
-./bin/patchcourt graph /path/to/project \
-  --config .patchcourt.yaml \
-  --format json > layer-graph.json
-```
-
-Generate SVG:
-
-```bash
-dot -Tsvg layer-graph.dot -o layer-graph.svg
-```
-
----
-
-### `review`
-
-Compare before/after project models or before/after roots.
-
-Review from two roots:
+Review a branch against `origin/main`:
 
 ```bash
 ./bin/patchcourt review \
-  --before-root /tmp/project-before \
-  --after-root /tmp/project-after \
-  --config .patchcourt.yaml \
+  --base origin/main \
+  --head HEAD \
+  --format json \
+  --html-out .patchcourt/out/review.html \
+  --llm-pack \
+  --llm-pack-out .patchcourt/out/review-context.md \
+  --sarif-out .patchcourt/out/patchcourt.sarif \
+  > .patchcourt/out/review.json
+```
+
+Review the current working tree:
+
+```bash
+./bin/patchcourt review \
+  --base main \
+  --worktree \
+  --format json \
+  --html-out .patchcourt/out/review.html \
+  --llm-pack \
+  --llm-pack-out .patchcourt/out/review-context.md \
+  --sarif-out .patchcourt/out/patchcourt.sarif \
+  > .patchcourt/out/review.json
+```
+
+Review two directories:
+
+```bash
+./bin/patchcourt review \
+  --before-root /tmp/before \
+  --after-root /tmp/after \
   --format markdown
 ```
 
-Review from two prebuilt models:
+---
+
+## HTML report
+
+`review.html` is the main human-facing artifact.
+
+It is designed for code review and CI artifacts:
+
+```text
+Verdict / risk
+Risk reasons
+Worse / Better / Unchanged debt
+Changed files
+Layer impact graph
+Contract changes
+Contract impact
+Finding changes
+Dependency changes
+Review questions
+```
+
+No external service is required to open the report.
+
+---
+
+## LLM context pack
+
+PatchCourt can generate a deterministic context pack for LLM-assisted review:
 
 ```bash
 ./bin/patchcourt review \
-  --before before-model.json \
-  --after after-model.json \
-  --format text
+  --base origin/main \
+  --head HEAD \
+  --llm-pack \
+  --llm-pack-out .patchcourt/out/review-context.md
 ```
 
-Markdown review output is designed for merge requests:
+The pack contains:
 
-```markdown
-# PatchCourt Review
+```text
+patch summary
+raw changed files
+analyzed changed files
+touched layers
+architecture impact
+contract changes
+dependency changes
+finding changes
+risk reasons
+review questions
+```
 
-## Summary
+Principle:
 
-- Risk: high, 11 points
-- Dependency changes: 1
-- Layer edge changes: 1
-- Added findings: 1
-- Added policy findings: 1
+```text
+LLM may summarize and ask review questions.
+LLM must not invent files, symbols, dependencies, or findings.
+```
 
-## Risk reasons
+PatchCourt collects the facts first.
 
-- +7 added high policy violation: architecture.server.cameras
-- +1 dependency edge added: include|src/server/api_router.cc|src/cameras/camera_adapter_factory.h
-- +3 layer edge added: server -> cameras
+The LLM works on top of the evidence.
+
+---
+
+## SARIF and CI
+
+PatchCourt can export SARIF for code scanning integrations:
+
+```bash
+./bin/patchcourt review \
+  --base origin/main \
+  --head HEAD \
+  --sarif-out .patchcourt/out/patchcourt.sarif
+```
+
+GitHub Actions example:
+
+```yaml
+name: PatchCourt
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  patchcourt:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install PatchCourt
+        run: |
+          curl -L -o patchcourt.tar.gz \
+            https://github.com/orurh/PatchCourt/releases/download/v0.2.0-alpha/patchcourt-linux-amd64.tar.gz
+          tar -xzf patchcourt.tar.gz
+          sudo mv patchcourt /usr/local/bin/patchcourt
+
+      - name: Run PatchCourt review
+        run: |
+          mkdir -p .patchcourt/out
+          patchcourt review \
+            --base origin/main \
+            --head HEAD \
+            --format json \
+            --html-out .patchcourt/out/review.html \
+            --llm-pack \
+            --llm-pack-out .patchcourt/out/review-context.md \
+            --sarif-out .patchcourt/out/patchcourt.sarif \
+            > .patchcourt/out/review.json
+
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: .patchcourt/out/patchcourt.sarif
+
+      - name: Upload PatchCourt artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: patchcourt-report
+          path: .patchcourt/out
+```
+
+More CI examples:
+
+```text
+core/go/docs/ci/github-actions.md
+core/go/docs/ci/gitlab-ci.md
+```
+
+Recommended alpha behavior:
+
+```text
+generate review.html
+upload review artifacts
+upload SARIF where supported
+do not fail CI by default
+```
+
+Blocking mode should be explicit and project-owned.
+
+---
+
+## Project check mode
+
+PatchCourt can inspect current project architecture:
+
+```bash
+./bin/patchcourt check /path/to/project
+```
+
+Typical artifacts:
+
+```text
+.patchcourt/out/project-model.json
+.patchcourt/out/scan.md
+.patchcourt/out/layer-graph.json
+.patchcourt/out/layer-graph.dot
+.patchcourt/out/layer-graph.mmd
+.patchcourt/out/report.html
+```
+
+Use this for:
+
+```text
+understanding project structure
+finding suspicious layer edges
+generating dependency graphs
+building an initial baseline config
 ```
 
 ---
 
-### `explain`
+## Edge drill-down
 
-Explain a specific finding.
-
-From root:
+Explain a concrete layer dependency:
 
 ```bash
-./bin/patchcourt explain architecture.server.cameras \
-  --root /path/to/project \
-  --config .patchcourt.yaml
-```
-
-From model:
-
-```bash
-./bin/patchcourt explain architecture.server.cameras \
-  --model .patchcourt/out/project-model.json
+./bin/patchcourt edge \
+  --model .patchcourt/out/project-model.json \
+  api cameras
 ```
 
 Example output:
 
 ```text
-PatchCourt explain
+PatchCourt edge
 
-Finding: architecture.server.cameras
-Title:   Include-level architecture boundary violation
-Kind:    policy_violation
-Severity: high
-Confidence: high
+Edge: api -> cameras
+Count: 3
 
-Risk:
-  Layer "server" includes a header from layer "cameras", which is not allowed by .patchcourt.yaml.
+Usage:
+  used:    3
+  maybe:   0
+  unused:  0
+  unknown: 0
 
-Evidence:
-  - src/server/api_router.cc: includes src/cameras/camera_adapter_factory.h, creating include dependency server -> cameras
+Top source files:
+  3  src/api/camera_routes.cc
+
+Top target files:
+  1  src/cameras/sony/sony_camera_manager.h
+
+Dependencies:
+  src/api/camera_routes.cc
+    -> src/cameras/sony/sony_camera_manager.h [used]
 ```
+
+Graphs are useful.
+
+Evidence is better.
 
 ---
 
-## Findings
+## Configuration
 
-PatchCourt currently emits two broad categories of findings.
-
-### Policy violations
-
-Policy violations come from explicit `.patchcourt.yaml` rules.
+PatchCourt uses `.patchcourt.yaml` to describe architecture boundaries.
 
 Example:
 
 ```yaml
-layers:
-  server:
-    paths:
-      - "src/server/**"
-    may_depend_on:
-      - domain
+ignore:
+  paths:
+    - build/**
+    - cmake-build-*/**
+    - third_party/**
+    - external/**
+    - generated/**
+    - "**/*.pb.cc"
+    - "**/*.pb.h"
 
-  cameras:
-    paths:
-      - "src/cameras/**"
-    may_depend_on:
-      - domain
-```
-
-If `src/server/api_router.cc` includes `src/cameras/camera_adapter_factory.h`, PatchCourt reports:
-
-```text
-architecture.server.cameras
-```
-
-### Discovery hints
-
-Discovery hints are best-effort architecture smells found from the dependency graph.
-
-Examples:
-
-```text
-discovery.bidirectional.application.cameras
-discovery.bidirectional.domain.session
-discovery.controllers.depends_on.server
-discovery.domain.depends_on.application
-discovery.cpp.unused_includes
-```
-
-These are not strict policy violations. They are review hints.
-
----
-
-## Suppressions
-
-PatchCourt supports local finding suppression comments.
-
-Example:
-
-```cpp
-// patchcourt:ignore architecture.server.cameras reason: legacy direct adapter include
-#include "src/cameras/camera_adapter_factory.h"
-```
-
-Suppressed findings are not reported for that file.
-
-Use suppressions sparingly. Prefer fixing architecture boundaries or updating the policy when the dependency is intentional.
-
----
-
-## C++ include resolution
-
-PatchCourt resolves includes using several sources:
-
-- direct project paths
-- configured `cpp.include_paths`
-- discovered `compile_commands.json`
-- system include paths
-- heuristic fallback
-
-Example config:
-
-```yaml
 cpp:
   compile_commands:
     auto_discover: true
   include_paths:
-    - "src"
-    - "include"
+    - src
+    - include
+
+layers:
+  api:
+    paths:
+      - src/api/**
+      - src/server/**
+    may_depend_on:
+      - controllers
+      - domain
+
+  controllers:
+    paths:
+      - src/controllers/**
+    may_depend_on:
+      - domain
+      - cameras
+
+  domain:
+    paths:
+      - src/domain/**
+    may_depend_on: []
+
+  cameras:
+    paths:
+      - src/cameras/**
+    may_depend_on:
+      - domain
+
+forbidden_imports:
+  - from_layer: api
+    patterns:
+      - src/cameras/sony/**
+      - src/cameras/*_impl/**
 ```
 
-PatchCourt searches common compile database locations automatically:
+Generate an initial config:
+
+```bash
+./bin/patchcourt init /path/to/project > .patchcourt.yaml
+```
+
+Baseline mode is useful for legacy projects: accept current dependencies, prevent new drift.
+
+Strict mode is useful for greenfield or cleanup work: report existing violations immediately.
+
+---
+
+## What works today
+
+| Area | Status |
+|---|---|
+| C++ file indexing | works |
+| C++ include graph | works |
+| `compile_commands.json` discovery | works |
+| configured include paths | works |
+| Go import baseline | works |
+| layer rules via `.patchcourt.yaml` | works |
+| architecture findings | works |
+| edge drill-down | works |
+| before/after review | works |
+| git base/head review | works |
+| worktree review | works |
+| public contract diff | alpha |
+| test-like review questions | alpha |
+| `review.html` | alpha |
+| LLM context pack | alpha |
+| SARIF export | alpha |
+
+---
+
+## What PatchCourt is not
+
+PatchCourt is not:
 
 ```text
-compile_commands.json
-build/compile_commands.json
+a C++ compiler frontend
+a clang-tidy replacement
+a proof of correctness
+a generic security scanner
+a Go linter replacement
+a full AI code reviewer
+a web app
 ```
 
----
-
-## Ignored paths
-
-PatchCourt applies default ignores when no config is provided.
-
-Default ignored paths include:
+PatchCourt is:
 
 ```text
-.git/**
-build/**
-cmake-build-debug/**
-cmake-build-release/**
-node_modules/**
-vendor/**
-libs/**
-third_party/**
-external/**
-generated/**
-**/*.pb.h
-**/*.pb.cc
-**/*.grpc.pb.h
-**/*.grpc.pb.cc
+a deterministic architecture-impact reviewer for patches
 ```
-
-This keeps vendor, generated, and build artifacts out of project architecture analysis.
-
----
-
-## File roles
-
-PatchCourt classifies files as:
-
-```text
-production
-test
-generated
-external
-config
-unknown
-```
-
-Architecture findings, layer graphs, and review risk ignore dependencies originating from test/generated/external files.
-
-The goal is to focus architecture review on production code.
-
----
-
-## Example workflow for a C++ project
-
-Generate baseline config:
-
-```bash
-./bin/patchcourt init /path/to/project > /path/to/project/.patchcourt.yaml
-```
-
-Run check:
-
-```bash
-./bin/patchcourt check /path/to/project \
-  --config /path/to/project/.patchcourt.yaml
-```
-
-Open generated graph:
-
-```bash
-dot -Tsvg /path/to/project/.patchcourt/out/layer-graph.dot \
-  -o /path/to/project/.patchcourt/out/layer-graph.svg
-
-xdg-open /path/to/project/.patchcourt/out/layer-graph.svg
-```
-
-Explain the top finding:
-
-```bash
-./bin/patchcourt explain discovery.bidirectional.application.cameras \
-  --model /path/to/project/.patchcourt/out/project-model.json
-```
-
----
-
-## Example review workflow
-
-Prepare before/after copies:
-
-```bash
-cp -a /path/to/project /tmp/project-before
-cp -a /path/to/project /tmp/project-after
-```
-
-Make a change in `/tmp/project-after`.
-
-Run review:
-
-```bash
-./bin/patchcourt review \
-  --before-root /tmp/project-before \
-  --after-root /tmp/project-after \
-  --config /path/to/project/.patchcourt.yaml \
-  --format markdown > review.md
-```
-
-Attach `review.md` to a merge request or paste it into a code review discussion.
-
----
-
-## Design principles
-
-PatchCourt is designed around a few constraints:
-
-1. Facts first. The include graph is collected before policy is applied.
-2. Discovery is not policy. Suspicious dependencies are hints unless explicitly forbidden.
-3. Policy is explicit. `.patchcourt.yaml` defines allowed layer dependencies.
-4. Review is evidence-based. Every finding should have concrete file-level evidence.
-5. Low noise matters. Test, generated, external, vendor, and build files should not dominate architecture reports.
-6. C++ include dependencies are compile-time dependencies. Even unused includes can increase coupling and build cost.
 
 ---
 
 ## Current limitations
 
-PatchCourt is still early.
+PatchCourt is alpha-stage software.
 
-Known limitations:
+Current limitations:
 
-- C++ parsing is lightweight and syntactic.
-- Symbol usage detection is heuristic.
-- Macro-heavy and template-heavy code can produce false positives.
-- Header-only libraries can confuse unused-include detection.
-- Go analysis is not the current focus.
-- `review --base main --head HEAD` is not implemented yet.
-- Interactive UI / 3D graph viewer is not implemented yet.
+- C++ analysis is lightweight and does not use Clang AST yet.
+- Include resolution quality depends on `compile_commands.json` or `.patchcourt.yaml`.
+- CMake lightweight extraction is not a full CMake evaluator.
+- Public contract extraction is heuristic.
+- Risk score is review prioritization, not a correctness verdict.
+- SARIF is an export/integration layer, not the core PatchCourt model.
+- Go support is baseline-level and not the main product focus.
+- False positives are possible and should be reviewed with the provided evidence.
 
 ---
 
-## Roadmap
+## v0.2.0-alpha release focus
 
-Near-term:
+The `v0.2.0-alpha` release focuses on:
 
-- `check --format json`
-- better CI-oriented exit codes
-- `review --base main --head HEAD`
-- LLM review context pack
-- stricter config validation
-- better include resolution diagnostics
-- improved unused include confidence
-- HTML/interactive graph report
+```text
+diff-aware C++ architecture review
+review.html
+review.json
+review-context.md
+patchcourt.sarif
+camera-service bad/better demo
+GitHub Actions / GitLab CI examples
+release gates via make release-check
+```
 
-Possible future:
+Not included in this release:
 
-- local web UI
-- VS Code extension
-- graph exploration with highlighted findings
-- trend/baseline tracking
-- per-team architecture presets
-- Go package graph analysis
+```text
+Clang backend
+VS Code extension
+web server
+GitHub PR bot
+GitLab native SAST JSON
+deep cache
+suppressions UI
+broad Go/C++ risk-rule expansion
+```
 
 ---
 
 ## Development
 
-Run all tests:
+From `core/go`:
 
 ```bash
-go test ./...
+make help
+make ci
+make camera-demo
+make self-review BASE=HEAD
+make release-check BASE=HEAD
 ```
 
-Build CLI:
+Architecture guardrails are enforced by tests.
 
-```bash
-go build -o ./bin/patchcourt ./cmd/patchcourt
-```
-
-Run against this project:
-
-```bash
-./bin/patchcourt check .
-```
-
----
-
-## Repository layout
-
-```text
-cmd/patchcourt                 CLI entrypoint
-
-internal/app                   use cases: scan, graph, review, explain, check
-internal/analysis              analyzers and domain logic
-internal/config                config loading, validation, defaults
-internal/model                 project model and shared data structures
-internal/output/report         text/json/markdown/dot/mermaid renderers
-internal/platform              filesystem, path, git, logging helpers
-```
+Core/usecase/analyzer packages return structured results and must not write directly to stdout/stderr.
 
 ---
 
