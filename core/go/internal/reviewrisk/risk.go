@@ -40,20 +40,13 @@ func Calculate(input Input) Score {
 	var score Score
 
 	for _, change := range input.FindingChanges {
-		if change.Kind != findingdiff.FindingChangeKindAdded || change.After == nil {
-			continue
-		}
+		switch change.Kind {
+		case findingdiff.FindingChangeKindAdded:
+			scoreAddedFinding(&score, change)
 
-		points := severityPoints(change.After.Severity)
-		if change.After.Kind == model.FindingKindPolicyViolation {
-			points += 2
+		case findingdiff.FindingChangeKindChanged:
+			scoreChangedFinding(&score, change)
 		}
-
-		addReason(
-			&score,
-			points,
-			fmt.Sprintf("added %s %s: %s", change.After.Severity, model.HumanFindingKind(change.After.Kind), change.ID),
-		)
 	}
 
 	for _, change := range input.ContractChanges {
@@ -108,6 +101,73 @@ func Calculate(input Input) Score {
 	return score
 }
 
+func scoreAddedFinding(score *Score, change findingdiff.FindingChange) {
+	if change.After == nil {
+		return
+	}
+
+	points := severityPoints(change.After.Severity)
+	if change.After.Kind == model.FindingKindPolicyViolation {
+		points += 2
+	}
+
+	addReason(
+		score,
+		points,
+		fmt.Sprintf("added %s %s: %s", change.After.Severity, model.HumanFindingKind(change.After.Kind), change.ID),
+	)
+}
+
+func scoreChangedFinding(score *Score, change findingdiff.FindingChange) {
+	if change.Before == nil || change.After == nil {
+		return
+	}
+
+	beforeSeverityPoints := severityPoints(change.Before.Severity)
+	afterSeverityPoints := severityPoints(change.After.Severity)
+
+	if afterSeverityPoints > beforeSeverityPoints {
+		addReason(
+			score,
+			afterSeverityPoints-beforeSeverityPoints,
+			fmt.Sprintf(
+				"finding severity increased: %s (%s -> %s)",
+				change.ID,
+				change.Before.Severity,
+				change.After.Severity,
+			),
+		)
+	}
+
+	if len(change.AddedEvidence) > 0 {
+		points := len(change.AddedEvidence)
+		if points > 3 {
+			points = 3
+		}
+
+		addReason(
+			score,
+			points,
+			fmt.Sprintf("finding evidence increased: %s (+%d evidence)", change.ID, len(change.AddedEvidence)),
+		)
+	}
+
+	if confidenceRank(change.After.Confidence) > confidenceRank(change.Before.Confidence) &&
+		len(change.AddedEvidence) == 0 &&
+		afterSeverityPoints <= beforeSeverityPoints {
+		addReason(
+			score,
+			1,
+			fmt.Sprintf(
+				"finding confidence increased: %s (%s -> %s)",
+				change.ID,
+				change.Before.Confidence,
+				change.After.Confidence,
+			),
+		)
+	}
+}
+
 func severityPoints(severity model.Severity) int {
 	switch severity {
 	case model.SeverityCritical:
@@ -120,6 +180,19 @@ func severityPoints(severity model.Severity) int {
 		return 1
 	default:
 		return 1
+	}
+}
+
+func confidenceRank(confidence model.Confidence) int {
+	switch confidence {
+	case model.ConfidenceHigh:
+		return 3
+	case model.ConfidenceMedium:
+		return 2
+	case model.ConfidenceLow:
+		return 1
+	default:
+		return 0
 	}
 }
 

@@ -9,6 +9,7 @@ import (
 	"github.com/orurh/patchcourt/internal/analyzer/discovery"
 	"github.com/orurh/patchcourt/internal/analyzer/lang/cpp/compilecmds"
 	"github.com/orurh/patchcourt/internal/analyzer/lang/cpp/resolver"
+	cppruntime "github.com/orurh/patchcourt/internal/analyzer/lang/cpp/runtime"
 	"github.com/orurh/patchcourt/internal/analyzer/lang/cpp/usage"
 	"github.com/orurh/patchcourt/internal/analyzer/project"
 	"github.com/orurh/patchcourt/internal/analyzer/rules"
@@ -111,6 +112,9 @@ func (e *Engine) Analyze(ctx context.Context, req AnalyzeRequest) (*AnalyzeResul
 	)
 
 	rules.Apply(projectModel, cfg, e.rules)
+
+	runtimeFindings := cppruntime.Analyze(req.Root, projectModel)
+	projectModel.Findings = append(projectModel.Findings, runtimeFindings...)
 
 	discoveryFindings := discovery.AnalyzeHints(projectModel)
 	projectModel.Findings = append(projectModel.Findings, discoveryFindings...)

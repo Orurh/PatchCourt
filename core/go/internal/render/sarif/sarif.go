@@ -140,14 +140,16 @@ func BuildReviewSARIF(result reportmodel.ReviewResult) Log {
 }
 
 type builder struct {
-	ruleByID map[string]Rule
-	results  []Result
+	ruleByID   map[string]Rule
+	resultKeys map[string]struct{}
+	results    []Result
 }
 
 func newBuilder() *builder {
 	return &builder{
-		ruleByID: make(map[string]Rule),
-		results:  make([]Result, 0),
+		ruleByID:   make(map[string]Rule),
+		resultKeys: make(map[string]struct{}),
+		results:    make([]Result, 0),
 	}
 }
 
@@ -178,7 +180,7 @@ func (b *builder) addFindingChanges(changes []findingdiff.FindingChange) {
 			},
 		})
 
-		b.results = append(b.results, Result{
+		b.addResult(Result{
 			RuleID:    ruleID,
 			Level:     levelForSeverity(finding.Severity),
 			Message:   Message{Text: findingMessage(finding)},
@@ -217,7 +219,7 @@ func (b *builder) addContractChanges(changes []contracts.SymbolChange) {
 			},
 		})
 
-		b.results = append(b.results, Result{
+		b.addResult(Result{
 			RuleID:    ruleID,
 			Level:     levelForContractChange(change),
 			Message:   Message{Text: title},
@@ -235,6 +237,10 @@ func (b *builder) addContractChanges(changes []contracts.SymbolChange) {
 func (b *builder) addImpactItems(items []reportmodel.ReviewImpactItem) {
 	for _, item := range items {
 		if len(item.Evidence) == 0 {
+			continue
+		}
+
+		if isFindingImpactItem(item) {
 			continue
 		}
 
@@ -257,7 +263,7 @@ func (b *builder) addImpactItems(items []reportmodel.ReviewImpactItem) {
 			},
 		})
 
-		b.results = append(b.results, Result{
+		b.addResult(Result{
 			RuleID:    ruleID,
 			Level:     levelForSeverity(model.Severity(item.Severity)),
 			Message:   Message{Text: impactMessage(item)},
@@ -272,6 +278,48 @@ func (b *builder) addImpactItems(items []reportmodel.ReviewImpactItem) {
 				"patchcourt.suggestion": item.Suggestion,
 			}),
 		})
+	}
+}
+
+func (b *builder) addResult(result Result) {
+	key := resultDedupeKey(result)
+	if key != "" {
+		if _, ok := b.resultKeys[key]; ok {
+			return
+		}
+		b.resultKeys[key] = struct{}{}
+	}
+
+	b.results = append(b.results, result)
+}
+
+func resultDedupeKey(result Result) string {
+	location := ""
+	if len(result.Locations) > 0 {
+		location = locationKey(result.Locations[0])
+	}
+
+	patchcourtID := ""
+	if result.Properties != nil {
+		if value, ok := result.Properties["patchcourt.id"].(string); ok {
+			patchcourtID = value
+		}
+	}
+
+	return strings.Join([]string{
+		result.RuleID,
+		patchcourtID,
+		location,
+		result.Message.Text,
+	}, "|")
+}
+
+func isFindingImpactItem(item reportmodel.ReviewImpactItem) bool {
+	switch item.Kind {
+	case "finding_added", "finding_removed", "finding_worsened", "finding_weakened":
+		return true
+	default:
+		return false
 	}
 }
 

@@ -238,3 +238,41 @@ func TestBuildReviewSARIF_DoesNotRenderBetterOrUnchangedDebt(t *testing.T) {
 	require.Empty(t, log.Runs[0].Results)
 	require.Empty(t, log.Runs[0].Tool.Driver.Rules)
 }
+
+func TestBuildReviewSARIF_DoesNotDuplicateFindingImpactItems(t *testing.T) {
+	result := reportmodel.ReviewResult{
+		FindingChanges: []findingdiff.FindingChange{
+			{
+				Kind: findingdiff.FindingChangeKindAdded,
+				ID:   "cpp.async.this_capture",
+				After: &model.Finding{
+					ID:       "cpp.async.this_capture",
+					Kind:     model.FindingKindRuntimeRisk,
+					Severity: model.SeverityHigh,
+					Title:    "`this` captured into async callback",
+					Evidence: []model.Evidence{
+						{File: "src/runtime/camera_async_lifecycle.cc", LineStart: 33},
+					},
+				},
+			},
+		},
+		Impact: reportmodel.ReviewImpactReport{
+			Worse: []reportmodel.ReviewImpactItem{
+				{
+					Kind:     "finding_added",
+					ID:       "cpp.async.this_capture",
+					Severity: string(model.SeverityHigh),
+					Title:    "Added runtime risk finding",
+					Evidence: []model.Evidence{
+						{File: "src/runtime/camera_async_lifecycle.cc", LineStart: 33},
+					},
+				},
+			},
+		},
+	}
+
+	log := BuildReviewSARIF(result)
+
+	require.Len(t, log.Runs[0].Results, 1)
+	require.Equal(t, "cpp.async.this_capture", log.Runs[0].Results[0].RuleID)
+}

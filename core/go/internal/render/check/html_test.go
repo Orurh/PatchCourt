@@ -32,6 +32,20 @@ func TestWriteCheckHTML_RendersSelfContainedReport(t *testing.T) {
 					},
 				},
 			},
+			{
+				ID:         "cpp.async.this_capture",
+				Kind:       model.FindingKindRuntimeRisk,
+				Severity:   model.SeverityHigh,
+				Title:      "`this` captured into async callback",
+				Confidence: model.ConfidenceMedium,
+				Evidence: []model.Evidence{
+					{
+						File:      "src/controllers/device_orchestrator.cc",
+						LineStart: 42,
+						Message:   "`this` is captured in an async-looking callback/task",
+					},
+				},
+			},
 		},
 		Dependencies: []model.DependencyEdge{
 			{
@@ -101,6 +115,10 @@ func TestWriteCheckHTML_RendersSelfContainedReport(t *testing.T) {
 	require.Contains(t, got, "overviewGraph")
 	require.Contains(t, got, "renderOverviewGraph")
 	require.Contains(t, got, "overview-edge")
+	require.Contains(t, got, "nodeFindingInfo")
+	require.Contains(t, got, "buildNodeFindingInfo")
+	require.Contains(t, got, "overview-node-")
+	require.Contains(t, got, "nodeRiskClass")
 	require.Contains(t, got, "Layer graph")
 	require.Contains(t, got, "shell")
 	require.Contains(t, got, "workspace")

@@ -3,6 +3,8 @@ package review
 import (
 	"strings"
 
+	findingdiff "github.com/orurh/patchcourt/internal/diff/finding"
+	"github.com/orurh/patchcourt/internal/model"
 	"github.com/orurh/patchcourt/internal/render/reviewcontract"
 	"github.com/orurh/patchcourt/internal/render/reviewquestions"
 	"github.com/orurh/patchcourt/internal/reportmodel"
@@ -112,10 +114,31 @@ type ReviewContractImpactedFileRow struct {
 }
 
 type ReviewFindingRow struct {
-	Kind     string
-	ID       string
-	Severity string
-	Title    string
+	Kind                string
+	ID                  string
+	FindingKind         string
+	Severity            string
+	Confidence          string
+	Title               string
+	Risk                string
+	Suggestion          string
+	BeforeEvidenceCount int
+	AfterEvidenceCount  int
+	AddedEvidence       []ReviewEvidenceRow
+	RemovedEvidence     []ReviewEvidenceRow
+	Evidence            []ReviewEvidenceRow
+}
+
+type ReviewEvidenceRow struct {
+	File      string
+	LineStart int
+	LineEnd   int
+	Message   string
+	Snippet   string
+	FromLayer string
+	ToLayer   string
+	FromFile  string
+	ToFile    string
 }
 
 type ReviewQuestion struct {
@@ -337,10 +360,47 @@ func buildFindingRows(result reportmodel.ReviewResult) []ReviewFindingRow {
 		}
 
 		rows = append(rows, ReviewFindingRow{
-			Kind:     string(change.Kind),
-			ID:       change.ID,
-			Severity: string(finding.Severity),
-			Title:    finding.Title,
+			Kind:                string(change.Kind),
+			ID:                  change.ID,
+			FindingKind:         string(finding.Kind),
+			Severity:            string(finding.Severity),
+			Confidence:          string(finding.Confidence),
+			Title:               finding.Title,
+			Risk:                finding.Risk,
+			Suggestion:          finding.Suggestion,
+			BeforeEvidenceCount: change.BeforeEvidenceCount,
+			AfterEvidenceCount:  change.AfterEvidenceCount,
+			AddedEvidence:       buildReviewEvidenceRows(change.AddedEvidence),
+			RemovedEvidence:     buildReviewEvidenceRows(change.RemovedEvidence),
+			Evidence:            fallbackFindingEvidenceRows(change, *finding),
+		})
+	}
+
+	return rows
+}
+
+func fallbackFindingEvidenceRows(change findingdiff.FindingChange, finding model.Finding) []ReviewEvidenceRow {
+	if len(change.AddedEvidence) > 0 || len(change.RemovedEvidence) > 0 {
+		return nil
+	}
+
+	return buildReviewEvidenceRows(finding.Evidence)
+}
+
+func buildReviewEvidenceRows(items []model.Evidence) []ReviewEvidenceRow {
+	rows := make([]ReviewEvidenceRow, 0, len(items))
+
+	for _, item := range items {
+		rows = append(rows, ReviewEvidenceRow{
+			File:      item.File,
+			LineStart: item.LineStart,
+			LineEnd:   item.LineEnd,
+			Message:   item.Message,
+			Snippet:   item.Snippet,
+			FromLayer: item.FromLayer,
+			ToLayer:   item.ToLayer,
+			FromFile:  item.FromFile,
+			ToFile:    item.ToFile,
 		})
 	}
 

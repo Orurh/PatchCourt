@@ -199,3 +199,42 @@ go 1.26
 	assertContains(t, yaml, `      - render`)
 	assertContains(t, yaml, `      - reportmodel`)
 }
+
+func TestGenerateInitConfig_NestedCPPPreset(t *testing.T) {
+	root := t.TempDir()
+
+	writeFile(t, root, "src/core/client/http_session.h", `#pragma once
+`)
+	writeFile(t, root, "src/core/gopro_camera/gopro_camera.h", `#pragma once
+#include "core/client/http_session.h"
+`)
+	writeFile(t, root, "src/core/gopro_camera/gopro_camera.cc", `#include "core/gopro_camera/gopro_camera.h"
+`)
+	writeFile(t, root, "src/core/gopro_manager/gopro_cameras_manager.cc", `#include "core/gopro_camera/gopro_camera.h"
+`)
+	writeFile(t, root, "src/utility/log.h", `#pragma once
+`)
+
+	result, err := GenerateInitConfig(InitOptions{
+		Root:   root,
+		Preset: "nested-cpp",
+	})
+	if err != nil {
+		t.Fatalf("GenerateInitConfig failed: %v", err)
+	}
+
+	yaml := result.ConfigYAML
+
+	assertContains(t, yaml, `# Preset: nested-cpp`)
+	assertContains(t, yaml, `src/core`)
+	assertContains(t, yaml, `client:`)
+	assertContains(t, yaml, `      - "src/core/client/**"`)
+	assertContains(t, yaml, `gopro_camera:`)
+	assertContains(t, yaml, `      - "src/core/gopro_camera/**"`)
+	assertContains(t, yaml, `gopro_manager:`)
+	assertContains(t, yaml, `      - "src/core/gopro_manager/**"`)
+	assertContains(t, yaml, `utility:`)
+	assertContains(t, yaml, `      - "src/utility/**"`)
+	assertContains(t, yaml, `      - client`)
+	assertContains(t, yaml, `      - gopro_camera`)
+}

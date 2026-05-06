@@ -300,6 +300,7 @@ smoke: fmt test build state review
 .PHONY: camera-demo
 camera-demo: build
 	python3 scripts/generate_camera_service_demo.py
+	python3 scripts/add_camera_service_runtime_risk_demo.py
 	mkdir -p "$(CAMERA_DEMO_OUT)"
 	$(BIN) review \
 		--before-root examples/camera-service/before \

@@ -521,24 +521,141 @@ func writeReviewHTMLFindingChanges(b *strings.Builder, rows []ReviewFindingRow) 
 		return
 	}
 
-	fmt.Fprintln(b, `<div class="table-wrap">`)
-	fmt.Fprintln(b, `<table>`)
-	fmt.Fprintln(b, `<thead><tr><th>Kind</th><th>ID</th><th>Severity</th><th>Title</th></tr></thead>`)
-	fmt.Fprintln(b, `<tbody>`)
+	fmt.Fprintln(b, `<div class="finding-change-list">`)
 
 	for _, row := range rows {
-		fmt.Fprintln(b, `<tr>`)
-		fmt.Fprintf(b, `<td><span class="tag">%s</span></td>`, escape(row.Kind))
-		fmt.Fprintf(b, `<td><code>%s</code></td>`, escape(row.ID))
-		fmt.Fprintf(b, `<td>%s</td>`, escape(row.Severity))
-		fmt.Fprintf(b, `<td>%s</td>`, escape(row.Title))
-		fmt.Fprintln(b, `</tr>`)
+		fmt.Fprintln(b, `<article class="finding-change-card">`)
+		fmt.Fprintf(b, `<div><span class="tag">%s</span>`, escape(row.Kind))
+		if row.Severity != "" {
+			fmt.Fprintf(b, ` <span class="tag severity-%s">%s</span>`, htmlClass(row.Severity), escape(row.Severity))
+		}
+		if row.FindingKind != "" {
+			fmt.Fprintf(b, ` <span class="tag">%s</span>`, escape(row.FindingKind))
+		}
+		if row.Confidence != "" {
+			fmt.Fprintf(b, ` <span class="tag">confidence: %s</span>`, escape(row.Confidence))
+		}
+		fmt.Fprintln(b, `</div>`)
+
+		if row.ID != "" {
+			fmt.Fprintf(b, `<h3><code>%s</code></h3>`, escape(row.ID))
+		}
+		if row.Title != "" {
+			fmt.Fprintf(b, `<p class="detail">%s</p>`, escape(row.Title))
+		}
+
+		writeFindingEvidenceCounts(b, row)
+
+		if row.Risk != "" {
+			fmt.Fprintf(b, `<p><strong>Risk:</strong> %s</p>`, escape(row.Risk))
+		}
+		if row.Suggestion != "" {
+			fmt.Fprintf(b, `<p class="muted"><strong>Suggestion:</strong> %s</p>`, escape(row.Suggestion))
+		}
+
+		writeReviewHTMLEvidenceDetails(b, "Added evidence", row.AddedEvidence)
+		writeReviewHTMLEvidenceDetails(b, "Removed evidence", row.RemovedEvidence)
+		writeReviewHTMLEvidenceDetails(b, "Evidence", row.Evidence)
+
+		fmt.Fprintln(b, `</article>`)
 	}
 
-	fmt.Fprintln(b, `</tbody>`)
-	fmt.Fprintln(b, `</table>`)
 	fmt.Fprintln(b, `</div>`)
 	fmt.Fprintln(b, `</section>`)
+}
+
+func writeFindingEvidenceCounts(b *strings.Builder, row ReviewFindingRow) {
+	if row.BeforeEvidenceCount == 0 && row.AfterEvidenceCount == 0 {
+		return
+	}
+
+	fmt.Fprintln(b, `<ul class="compact-list">`)
+	if row.BeforeEvidenceCount > 0 {
+		fmt.Fprintf(b, `<li>Before evidence: <strong>%d</strong></li>`, row.BeforeEvidenceCount)
+	}
+	if row.AfterEvidenceCount > 0 {
+		fmt.Fprintf(b, `<li>After evidence: <strong>%d</strong></li>`, row.AfterEvidenceCount)
+	}
+	if len(row.AddedEvidence) > 0 {
+		fmt.Fprintf(b, `<li>Added evidence in patch: <strong>%d</strong></li>`, len(row.AddedEvidence))
+	}
+	if len(row.RemovedEvidence) > 0 {
+		fmt.Fprintf(b, `<li>Removed evidence in patch: <strong>%d</strong></li>`, len(row.RemovedEvidence))
+	}
+	fmt.Fprintln(b, `</ul>`)
+}
+
+func writeReviewHTMLEvidenceDetails(b *strings.Builder, title string, rows []ReviewEvidenceRow) {
+	if len(rows) == 0 {
+		return
+	}
+
+	fmt.Fprintf(b, `<details class="evidence-details" open><summary>%s: %d</summary>`, escape(title), len(rows))
+	fmt.Fprintln(b, `<div class="evidence-list">`)
+
+	limit := len(rows)
+	if limit > 8 {
+		limit = 8
+	}
+
+	for i := 0; i < limit; i++ {
+		writeReviewHTMLEvidenceItem(b, rows[i])
+	}
+
+	if len(rows) > limit {
+		fmt.Fprintf(b, `<p class="muted">... %d more evidence item(s)</p>`, len(rows)-limit)
+	}
+
+	fmt.Fprintln(b, `</div>`)
+	fmt.Fprintln(b, `</details>`)
+}
+
+func writeReviewHTMLEvidenceItem(b *strings.Builder, row ReviewEvidenceRow) {
+	fmt.Fprintln(b, `<div class="evidence-item">`)
+
+	location := reviewEvidenceLocation(row)
+	if location != "" {
+		fmt.Fprintf(b, `<div><code>%s</code></div>`, escape(location))
+	}
+
+	if row.Message != "" {
+		fmt.Fprintf(b, `<div>%s</div>`, escape(row.Message))
+	}
+
+	if row.FromFile != "" || row.ToFile != "" {
+		fmt.Fprintf(b, `<div class="muted"><code>%s</code> → <code>%s</code></div>`, escape(row.FromFile), escape(row.ToFile))
+	}
+
+	if row.FromLayer != "" || row.ToLayer != "" {
+		fmt.Fprintf(b, `<div class="muted">%s → %s</div>`, escape(row.FromLayer), escape(row.ToLayer))
+	}
+
+	if row.Snippet != "" {
+		fmt.Fprintf(b, `<pre>%s</pre>`, escape(row.Snippet))
+	}
+
+	fmt.Fprintln(b, `</div>`)
+}
+
+func reviewEvidenceLocation(row ReviewEvidenceRow) string {
+	location := row.File
+	if location == "" {
+		location = row.FromFile
+	}
+
+	if location == "" {
+		return ""
+	}
+
+	if row.LineStart <= 0 {
+		return location
+	}
+
+	if row.LineEnd > row.LineStart {
+		return fmt.Sprintf("%s:%d-%d", location, row.LineStart, row.LineEnd)
+	}
+
+	return fmt.Sprintf("%s:%d", location, row.LineStart)
 }
 
 func writeReviewHTMLRiskReasons(b *strings.Builder, reasons []ReviewRiskReason) {
@@ -820,6 +937,51 @@ li + li {
   margin-top: 4px;
 }
 .contract-change-list,
+
+.finding-change-list {
+  display: grid;
+  gap: 12px;
+}
+
+.finding-change-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px;
+  background: #ffffff;
+}
+
+.finding-change-card h3 {
+  margin: 8px 0 4px;
+}
+
+.evidence-details {
+  margin-top: 10px;
+}
+
+.evidence-details summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.evidence-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.evidence-item {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  background: #f9fafb;
+}
+
+.evidence-item pre {
+  margin: 8px 0 0;
+  white-space: pre-wrap;
+}
+
 .contract-impact-list {
   display: grid;
   gap: 14px;

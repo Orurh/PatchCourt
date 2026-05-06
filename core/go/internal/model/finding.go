@@ -25,6 +25,7 @@ const (
 	FindingKindDiscoveryHint   FindingKind = "discovery_hint"
 	FindingKindPolicyViolation FindingKind = "policy_violation"
 	FindingKindPolicyReview    FindingKind = "policy_review"
+	FindingKindRuntimeRisk     FindingKind = "runtime_risk"
 	FindingKindReviewChange    FindingKind = "review_change"
 	FindingKindRefactorHint    FindingKind = "refactor_hint"
 )

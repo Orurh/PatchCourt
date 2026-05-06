@@ -6,6 +6,8 @@ func HumanFindingKind(kind FindingKind) string {
 		return "policy violation"
 	case FindingKindPolicyReview:
 		return "policy review"
+	case FindingKindRuntimeRisk:
+		return "runtime risk"
 	case FindingKindDiscoveryHint:
 		return "discovery hint"
 	case FindingKindRefactorHint:

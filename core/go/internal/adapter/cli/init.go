@@ -57,7 +57,7 @@ func (r *Runner) newInitCommand(ctx context.Context, rootOpts *rootOptions) *cob
 	}
 
 	cmd.Flags().BoolVar(&opts.strict, "strict", false, "generate strict config without inferred may_depend_on baseline")
-	cmd.Flags().StringVar(&opts.preset, "preset", "", "init preset: auto, go-clean")
+	cmd.Flags().StringVar(&opts.preset, "preset", "", "init preset: auto, go-clean, nested-cpp")
 	cmd.Flags().BoolVar(&opts.write, "write", false, "write generated config to .patchcourt.yaml")
 	cmd.Flags().BoolVar(&opts.force, "force", false, "overwrite existing config when used with --write")
 	cmd.Flags().StringVar(&opts.outputPath, "out", "", "output config path when used with --write")

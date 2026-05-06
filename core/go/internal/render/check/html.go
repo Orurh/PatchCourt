@@ -23,6 +23,7 @@ type checkHTMLPayload struct {
 	OutDir       string                  `json:"out_dir"`
 	Summary      model.ScanSummary       `json:"summary"`
 	LayerGraph   any                     `json:"layer_graph"`
+	Files        []model.FileModel       `json:"files"`
 	Findings     []model.Finding         `json:"findings"`
 	Dependencies []model.DependencyEdge  `json:"dependencies"`
 }
@@ -38,6 +39,7 @@ func WriteCheckHTML(w io.Writer, input CheckHTMLInput) error {
 	}
 
 	if input.Project != nil {
+		payload.Files = input.Project.Files
 		payload.Findings = input.Project.Findings
 		payload.Dependencies = input.Project.Dependencies
 	}
@@ -997,6 +999,88 @@ const checkHTMLTemplate = `<!doctype html>
         selectedEdge.to === to;
     }
 
+
+    function buildFileLayerMap() {
+      const result = new Map();
+      const files = data.files || [];
+
+      for (const file of files) {
+        const path = get(file, "path", "path", "");
+        const layer = get(file, "layer", "layer", "");
+        if (!path || !layer) continue;
+        result.set(path, layer);
+      }
+
+      return result;
+    }
+
+    function evidenceFile(evidence) {
+      return get(evidence, "file", "file", "") || get(evidence, "from_file", "fromFile", "");
+    }
+
+    function findingSeverityRank(finding) {
+      const severity = get(finding, "severity", "severity", "");
+      if (severity === "critical") return 4;
+      if (severity === "high") return 3;
+      if (severity === "medium") return 2;
+      if (severity === "low") return 1;
+      return 0;
+    }
+
+    function buildNodeFindingInfo() {
+      const fileLayer = buildFileLayerMap();
+      const result = new Map();
+
+      for (const finding of data.findings || []) {
+        const evidence = get(finding, "evidence", "evidence", []);
+        const rank = findingSeverityRank(finding);
+
+        for (const item of evidence) {
+          const file = evidenceFile(item);
+          const layer = fileLayer.get(file);
+          if (!layer) continue;
+
+          let info = result.get(layer);
+          if (!info) {
+            info = {
+              findingIDs: new Set(),
+              evidenceCount: 0,
+              maxSeverityRank: 0,
+              maxSeverity: "",
+              runtimeRiskCount: 0
+            };
+            result.set(layer, info);
+          }
+
+          const id = get(finding, "id", "id", "");
+          const kind = get(finding, "kind", "kind", "");
+
+          if (id) info.findingIDs.add(id);
+          info.evidenceCount += 1;
+
+          if (kind === "runtime_risk") {
+            info.runtimeRiskCount += 1;
+          }
+
+          if (rank > info.maxSeverityRank) {
+            info.maxSeverityRank = rank;
+            info.maxSeverity = get(finding, "severity", "severity", "");
+          }
+        }
+      }
+
+      return result;
+    }
+
+    const nodeFindingInfo = buildNodeFindingInfo();
+
+    function nodeRiskClass(info) {
+      if (!info || info.evidenceCount === 0) return "";
+      if (info.maxSeverityRank >= 3) return "danger";
+      if (info.maxSeverityRank >= 2) return "warn";
+      return "info";
+    }
+
     function renderOverviewGraph() {
       const wrap = document.getElementById("overviewGraphWrap");
       if (!wrap) return;
@@ -1087,16 +1171,46 @@ const checkHTMLTemplate = `<!doctype html>
           return get(edge, "from", "from") === node || get(edge, "to", "to") === node;
         });
 
-        const fill = connected ? "#1f2a44" : "#172033";
-        const stroke = connected ? "#3a4a72" : "#6b7280";
+        const info = nodeFindingInfo.get(node);
+        const riskClass = nodeRiskClass(info);
+
+        let fill = connected ? "#1f2a44" : "#172033";
+        let stroke = connected ? "#3a4a72" : "#6b7280";
+        let strokeWidth = 1.2;
         const dash = connected ? "" : ' stroke-dasharray="7 5"';
         const textColor = connected ? "#e8eefc" : "#9aa7c7";
         const label = truncateText(node, 17);
 
+        if (riskClass === "danger") {
+          fill = "#3a1f2c";
+          stroke = "#ef4444";
+          strokeWidth = 2.4;
+        } else if (riskClass === "warn") {
+          fill = "#392a18";
+          stroke = "#fb923c";
+          strokeWidth = 2.0;
+        } else if (riskClass === "info") {
+          stroke = "#60a5fa";
+          strokeWidth = 1.8;
+        }
+
+        const badge = info && info.evidenceCount > 0
+          ? '<g>' +
+              '<circle cx="' + (p.x + nodeWidth / 2 - 6) + '" cy="' + (p.y - nodeHeight / 2 + 6) + '" r="11" fill="' + stroke + '"></circle>' +
+              '<text x="' + (p.x + nodeWidth / 2 - 6) + '" y="' + (p.y - nodeHeight / 2 + 10) + '" fill="#fff" font-size="11" font-weight="700" text-anchor="middle">' + escapeHTML(String(info.findingIDs.size)) + '</text>' +
+            '</g>'
+          : "";
+
+        const title = info && info.evidenceCount > 0
+          ? '<title>' + escapeHTML(node + ": " + info.findingIDs.size + " finding(s), " + info.evidenceCount + " evidence item(s)") + '</title>'
+          : "";
+
         parts.push(
-          '<g class="overview-node">' +
-            '<ellipse cx="' + p.x + '" cy="' + p.y + '" rx="' + (nodeWidth / 2) + '" ry="' + (nodeHeight / 2) + '" fill="' + fill + '" stroke="' + stroke + '"' + dash + '></ellipse>' +
+          '<g class="overview-node overview-node-' + escapeHTML(riskClass || "normal") + '">' +
+            title +
+            '<ellipse cx="' + p.x + '" cy="' + p.y + '" rx="' + (nodeWidth / 2) + '" ry="' + (nodeHeight / 2) + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="' + strokeWidth + '"' + dash + '></ellipse>' +
             '<text x="' + p.x + '" y="' + (p.y + 4) + '" fill="' + textColor + '" font-size="13" text-anchor="middle">' + escapeHTML(label) + '</text>' +
+            badge +
           '</g>'
         );
       });

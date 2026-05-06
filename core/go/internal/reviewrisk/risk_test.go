@@ -31,6 +31,142 @@ func TestCalculate_ScoresAddedPolicyViolationFinding(t *testing.T) {
 	require.Equal(t, "added high policy violation: architecture.api.cameras", score.Reasons[0].Message)
 }
 
+func TestCalculate_ScoresChangedFindingSeverityIncrease(t *testing.T) {
+	score := Calculate(Input{
+		FindingChanges: []findingdiff.FindingChange{
+			{
+				Kind: findingdiff.FindingChangeKindChanged,
+				ID:   "cpp.async.this_capture",
+				Before: &model.Finding{
+					ID:       "cpp.async.this_capture",
+					Severity: model.SeverityMedium,
+				},
+				After: &model.Finding{
+					ID:       "cpp.async.this_capture",
+					Severity: model.SeverityHigh,
+				},
+				SeverityChanged: true,
+			},
+		},
+	})
+
+	require.Equal(t, 2, score.Points)
+	require.Equal(t, LevelLow, score.Level)
+	require.Len(t, score.Reasons, 1)
+	require.Equal(t, "finding severity increased: cpp.async.this_capture (medium -> high)", score.Reasons[0].Message)
+}
+
+func TestCalculate_ScoresChangedFindingAddedEvidence(t *testing.T) {
+	score := Calculate(Input{
+		FindingChanges: []findingdiff.FindingChange{
+			{
+				Kind: findingdiff.FindingChangeKindChanged,
+				ID:   "cpp.async.raw_pointer_capture",
+				Before: &model.Finding{
+					ID:       "cpp.async.raw_pointer_capture",
+					Severity: model.SeverityHigh,
+				},
+				After: &model.Finding{
+					ID:       "cpp.async.raw_pointer_capture",
+					Severity: model.SeverityHigh,
+				},
+				AddedEvidence: []model.Evidence{
+					{File: "src/gopro_manager.cc", LineStart: 10},
+					{File: "src/gopro_manager.cc", LineStart: 20},
+				},
+			},
+		},
+	})
+
+	require.Equal(t, 2, score.Points)
+	require.Equal(t, LevelLow, score.Level)
+	require.Len(t, score.Reasons, 1)
+	require.Equal(t, "finding evidence increased: cpp.async.raw_pointer_capture (+2 evidence)", score.Reasons[0].Message)
+}
+
+func TestCalculate_CapsChangedFindingAddedEvidenceScore(t *testing.T) {
+	score := Calculate(Input{
+		FindingChanges: []findingdiff.FindingChange{
+			{
+				Kind: findingdiff.FindingChangeKindChanged,
+				ID:   "cpp.async.raw_pointer_capture",
+				Before: &model.Finding{
+					ID:       "cpp.async.raw_pointer_capture",
+					Severity: model.SeverityHigh,
+				},
+				After: &model.Finding{
+					ID:       "cpp.async.raw_pointer_capture",
+					Severity: model.SeverityHigh,
+				},
+				AddedEvidence: []model.Evidence{
+					{File: "a.cc", LineStart: 1},
+					{File: "a.cc", LineStart: 2},
+					{File: "a.cc", LineStart: 3},
+					{File: "a.cc", LineStart: 4},
+				},
+			},
+		},
+	})
+
+	require.Equal(t, 3, score.Points)
+	require.Equal(t, LevelMedium, score.Level)
+	require.Len(t, score.Reasons, 1)
+	require.Equal(t, "finding evidence increased: cpp.async.raw_pointer_capture (+4 evidence)", score.Reasons[0].Message)
+}
+
+func TestCalculate_ScoresChangedFindingConfidenceIncreaseWithoutOtherRiskSignal(t *testing.T) {
+	score := Calculate(Input{
+		FindingChanges: []findingdiff.FindingChange{
+			{
+				Kind: findingdiff.FindingChangeKindChanged,
+				ID:   "cpp.async.this_capture",
+				Before: &model.Finding{
+					ID:         "cpp.async.this_capture",
+					Severity:   model.SeverityMedium,
+					Confidence: model.ConfidenceMedium,
+				},
+				After: &model.Finding{
+					ID:         "cpp.async.this_capture",
+					Severity:   model.SeverityMedium,
+					Confidence: model.ConfidenceHigh,
+				},
+				ConfidenceChanged: true,
+			},
+		},
+	})
+
+	require.Equal(t, 1, score.Points)
+	require.Equal(t, LevelLow, score.Level)
+	require.Len(t, score.Reasons, 1)
+	require.Equal(t, "finding confidence increased: cpp.async.this_capture (medium -> high)", score.Reasons[0].Message)
+}
+
+func TestCalculate_DoesNotScoreChangedFindingEvidenceReduction(t *testing.T) {
+	score := Calculate(Input{
+		FindingChanges: []findingdiff.FindingChange{
+			{
+				Kind: findingdiff.FindingChangeKindChanged,
+				ID:   "cpp.async.raw_pointer_capture",
+				Before: &model.Finding{
+					ID:       "cpp.async.raw_pointer_capture",
+					Severity: model.SeverityHigh,
+				},
+				After: &model.Finding{
+					ID:       "cpp.async.raw_pointer_capture",
+					Severity: model.SeverityHigh,
+				},
+				RemovedEvidence: []model.Evidence{
+					{File: "src/gopro_manager.cc", LineStart: 10},
+				},
+			},
+		},
+	})
+
+	require.Equal(t, 0, score.Points)
+	require.Equal(t, LevelLow, score.Level)
+	require.Empty(t, score.Reasons)
+}
+
 func TestCalculate_ScoresContractAndDependencyChanges(t *testing.T) {
 	score := Calculate(Input{
 		ContractChanges: []contracts.SymbolChange{
@@ -77,17 +213,6 @@ func TestCalculate_CriticalLevel(t *testing.T) {
 	})
 
 	require.Equal(t, LevelCritical, score.Level)
-}
-
-func addedFinding(id string, severity model.Severity) findingdiff.FindingChange {
-	return findingdiff.FindingChange{
-		Kind: findingdiff.FindingChangeKindAdded,
-		ID:   id,
-		After: &model.Finding{
-			ID:       id,
-			Severity: severity,
-		},
-	}
 }
 
 func TestCalculate_ScoresIncreasedLayerEdgeCount(t *testing.T) {
@@ -158,4 +283,15 @@ func TestCalculate_DoesNotScoreNoisyAddedDependencies(t *testing.T) {
 	require.Equal(t, 0, score.Points)
 	require.Equal(t, LevelLow, score.Level)
 	require.Empty(t, score.Reasons)
+}
+
+func addedFinding(id string, severity model.Severity) findingdiff.FindingChange {
+	return findingdiff.FindingChange{
+		Kind: findingdiff.FindingChangeKindAdded,
+		ID:   id,
+		After: &model.Finding{
+			ID:       id,
+			Severity: severity,
+		},
+	}
 }

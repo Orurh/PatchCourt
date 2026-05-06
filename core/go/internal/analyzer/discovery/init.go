@@ -45,6 +45,14 @@ func GenerateInitConfig(opts InitOptions) (*InitResult, error) {
 
 	ignorePaths := config.DefaultIgnorePaths()
 	includePathStrings := discoverCPPIncludePaths(absRoot)
+	if opts.Preset == "nested-cpp" {
+		includePathStrings = appendExistingIncludePaths(absRoot, includePathStrings, []string{
+			"src/core",
+			"src/utility",
+			"src/utils",
+		})
+	}
+
 	includePaths := configIncludePaths(includePathStrings)
 
 	project, err := project.Build(project.Options{
@@ -57,7 +65,7 @@ func GenerateInitConfig(opts InitOptions) (*InitResult, error) {
 	}
 
 	if opts.Preset != "" && opts.Preset != "auto" {
-		configYAML, err := renderPresetConfig(absRoot, ignorePaths, includePathStrings, opts)
+		configYAML, err := renderPresetConfig(absRoot, ignorePaths, includePathStrings, project, opts)
 		if err != nil {
 			return nil, err
 		}
@@ -311,13 +319,246 @@ type presetLayer struct {
 	MayDependOn []string
 }
 
-func renderPresetConfig(absRoot string, ignorePaths []string, includePaths []string, opts InitOptions) (string, error) {
+func renderPresetConfig(absRoot string, ignorePaths []string, includePaths []string, projectModel *model.ProjectModel, opts InitOptions) (string, error) {
 	switch opts.Preset {
 	case "go-clean":
 		return renderGoCleanPresetConfig(absRoot, ignorePaths, includePaths), nil
+	case "nested-cpp":
+		return renderNestedCPPPresetConfig(absRoot, ignorePaths, includePaths, projectModel, opts.Strict), nil
 	default:
 		return "", fmt.Errorf("unknown init preset %q", opts.Preset)
 	}
+}
+
+func renderNestedCPPPresetConfig(absRoot string, ignorePaths []string, includePaths []string, projectModel *model.ProjectModel, strict bool) string {
+	layers := discoverNestedCPPLayers(absRoot)
+
+	if !strict && projectModel != nil {
+		fillNestedCPPBaselineDependencies(layers, projectModel)
+	}
+
+	return renderPresetLayersConfig(ignorePaths, includePaths, layers, "nested-cpp")
+}
+
+func discoverNestedCPPLayers(absRoot string) []presetLayer {
+	layers := make([]presetLayer, 0)
+
+	coreRoot := filepath.Join(absRoot, "src", "core")
+	if entries, err := os.ReadDir(coreRoot); err == nil {
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+
+			name := nestedCPPLayerName(entry.Name())
+			if name == "" {
+				continue
+			}
+
+			relPath := "src/core/" + entry.Name() + "/**"
+			if !hasReviewableSourceUnder(absRoot, strings.TrimSuffix(relPath, "/**")) {
+				continue
+			}
+
+			layers = append(layers, presetLayer{
+				Name:  name,
+				Paths: []string{relPath},
+			})
+		}
+	}
+
+	for _, candidate := range []struct {
+		name string
+		path string
+	}{
+		{name: "utility", path: "src/utility/**"},
+		{name: "utils", path: "src/utils/**"},
+		{name: "include", path: "include/**"},
+	} {
+		if !presetLayerExists(absRoot, candidate.path) {
+			continue
+		}
+
+		if !hasReviewableSourceUnder(absRoot, strings.TrimSuffix(candidate.path, "/**")) {
+			continue
+		}
+
+		if containsPresetLayer(layers, candidate.name) {
+			continue
+		}
+
+		layers = append(layers, presetLayer{
+			Name:  candidate.name,
+			Paths: []string{candidate.path},
+		})
+	}
+
+	sort.SliceStable(layers, func(i int, j int) bool {
+		return layers[i].Name < layers[j].Name
+	})
+
+	return layers
+}
+
+func fillNestedCPPBaselineDependencies(layers []presetLayer, projectModel *model.ProjectModel) {
+	if len(layers) == 0 || projectModel == nil {
+		return
+	}
+
+	existing := make(map[string]struct{}, len(layers))
+	for _, layer := range layers {
+		existing[layer.Name] = struct{}{}
+	}
+
+	depsByLayer := make(map[string]map[string]struct{})
+
+	for _, dep := range projectModel.Dependencies {
+		if dep.External || !dep.Resolved {
+			continue
+		}
+
+		fromLayer := nestedCPPLayerForFile(layers, dep.FromFile)
+		toLayer := nestedCPPLayerForFile(layers, dep.ToFile)
+
+		if fromLayer == "" || toLayer == "" || fromLayer == toLayer {
+			continue
+		}
+
+		if _, ok := existing[fromLayer]; !ok {
+			continue
+		}
+		if _, ok := existing[toLayer]; !ok {
+			continue
+		}
+
+		if depsByLayer[fromLayer] == nil {
+			depsByLayer[fromLayer] = make(map[string]struct{})
+		}
+		depsByLayer[fromLayer][toLayer] = struct{}{}
+	}
+
+	for i := range layers {
+		deps := sortedKeys(depsByLayer[layers[i].Name])
+		layers[i].MayDependOn = deps
+	}
+}
+
+func nestedCPPLayerForFile(layers []presetLayer, file string) string {
+	for _, layer := range layers {
+		for _, pattern := range layer.Paths {
+			if pathmatch.Match(pattern, file) {
+				return layer.Name
+			}
+		}
+	}
+
+	return ""
+}
+
+func nestedCPPLayerName(name string) string {
+	name = strings.TrimSpace(strings.ToLower(name))
+	if name == "" {
+		return ""
+	}
+
+	var b strings.Builder
+	lastUnderscore := false
+
+	for _, r := range name {
+		switch {
+		case r >= 'a' && r <= 'z':
+			b.WriteRune(r)
+			lastUnderscore = false
+		case r >= '0' && r <= '9':
+			b.WriteRune(r)
+			lastUnderscore = false
+		case r == '_' || r == '-' || r == '.' || r == ' ':
+			if !lastUnderscore {
+				b.WriteRune('_')
+				lastUnderscore = true
+			}
+		}
+	}
+
+	result := strings.Trim(b.String(), "_")
+	if result == "" {
+		return ""
+	}
+
+	return result
+}
+
+func containsPresetLayer(layers []presetLayer, name string) bool {
+	for _, layer := range layers {
+		if layer.Name == name {
+			return true
+		}
+	}
+
+	return false
+}
+
+func hasReviewableSourceUnder(absRoot string, relDir string) bool {
+	dir := filepath.Join(absRoot, filepath.FromSlash(relDir))
+
+	found := false
+	_ = filepath.WalkDir(dir, func(path string, entry os.DirEntry, err error) error {
+		if err != nil || found {
+			return nil
+		}
+
+		if entry.IsDir() {
+			switch entry.Name() {
+			case ".git", "build", "cmake-build-debug", "cmake-build-release", "node_modules", "vendor", "third_party", "external", "generated":
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		name := strings.ToLower(entry.Name())
+		if strings.HasSuffix(name, ".cc") ||
+			strings.HasSuffix(name, ".cpp") ||
+			strings.HasSuffix(name, ".cxx") ||
+			strings.HasSuffix(name, ".c") ||
+			strings.HasSuffix(name, ".h") ||
+			strings.HasSuffix(name, ".hpp") ||
+			strings.HasSuffix(name, ".hh") ||
+			strings.HasSuffix(name, ".hxx") {
+			found = true
+		}
+
+		return nil
+	})
+
+	return found
+}
+
+func appendExistingIncludePaths(absRoot string, paths []string, candidates []string) []string {
+	result := append([]string(nil), paths...)
+
+	for _, candidate := range candidates {
+		if !dirExists(filepath.Join(absRoot, filepath.FromSlash(candidate))) {
+			continue
+		}
+
+		if stringSliceContains(result, candidate) {
+			continue
+		}
+
+		result = append(result, candidate)
+	}
+
+	return result
+}
+
+func stringSliceContains(values []string, expected string) bool {
+	for _, value := range values {
+		if value == expected {
+			return true
+		}
+	}
+
+	return false
 }
 
 func renderGoCleanPresetConfig(absRoot string, ignorePaths []string, includePaths []string) string {

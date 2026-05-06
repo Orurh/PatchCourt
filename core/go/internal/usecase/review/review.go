@@ -143,10 +143,33 @@ func buildReviewSummary(
 
 		case findingdiff.FindingChangeKindRemoved:
 			summary.RemovedFindings++
+
+		case findingdiff.FindingChangeKindChanged:
+			if changedFindingGotWorseForSummary(change) && change.After != nil {
+				if isHighOrCritical(change.After.Severity) {
+					summary.AddedHighFindings++
+				}
+
+				if change.After.Kind == model.FindingKindPolicyViolation {
+					summary.AddedPolicyFindings++
+				}
+			}
 		}
 	}
 
 	return summary
+}
+
+func changedFindingGotWorseForSummary(change findingdiff.FindingChange) bool {
+	if change.Before == nil || change.After == nil {
+		return false
+	}
+
+	if model.SeverityRank(change.After.Severity) > model.SeverityRank(change.Before.Severity) {
+		return true
+	}
+
+	return len(change.AddedEvidence) > len(change.RemovedEvidence)
 }
 
 func isHighOrCritical(severity model.Severity) bool {

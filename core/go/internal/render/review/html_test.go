@@ -234,3 +234,54 @@ func TestWriteReviewHTML_RendersContractImpacts(t *testing.T) {
 	require.Contains(t, got, "likely_method_reference")
 	require.Contains(t, got, "42")
 }
+
+func TestWriteReviewHTML_RendersFindingEvidenceDetails(t *testing.T) {
+	var out bytes.Buffer
+
+	result := reportmodel.ReviewResult{
+		FindingChanges: []findingdiff.FindingChange{
+			{
+				Kind:               findingdiff.FindingChangeKindAdded,
+				ID:                 "cpp.async.this_capture",
+				AfterEvidenceCount: 1,
+				AddedEvidence: []model.Evidence{
+					{
+						File:      "src/runtime/camera_async_lifecycle.cc",
+						LineStart: 33,
+						Snippet:   "boost::asio::post(thread_pool_, [this]() {",
+						Message:   "`this` is captured in an async-looking callback/task",
+					},
+				},
+				After: &model.Finding{
+					ID:         "cpp.async.this_capture",
+					Kind:       model.FindingKindRuntimeRisk,
+					Severity:   model.SeverityHigh,
+					Title:      "`this` captured into async callback",
+					Risk:       "Callback may outlive the owning object.",
+					Suggestion: "Review what guarantees the owning object outlives the callback.",
+					Confidence: model.ConfidenceMedium,
+					Evidence: []model.Evidence{
+						{
+							File:      "src/runtime/camera_async_lifecycle.cc",
+							LineStart: 33,
+							Snippet:   "boost::asio::post(thread_pool_, [this]() {",
+							Message:   "`this` is captured in an async-looking callback/task",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	require.NoError(t, WriteReviewHTML(&out, result))
+
+	got := out.String()
+
+	require.Contains(t, got, "cpp.async.this_capture")
+	require.Contains(t, got, "runtime_risk")
+	require.Contains(t, got, "Callback may outlive the owning object.")
+	require.Contains(t, got, "Review what guarantees")
+	require.Contains(t, got, "Added evidence: 1")
+	require.Contains(t, got, "src/runtime/camera_async_lifecycle.cc:33")
+	require.Contains(t, got, "boost::asio::post")
+}
