@@ -79,6 +79,9 @@ func WriteReviewContext(w io.Writer, input ReviewContextInput) {
 	writeFindingChanges(w, result.FindingChanges, limit)
 	fmt.Fprintln(w)
 
+	writeRuntimeRiskChanges(w, result.FindingChanges, limit)
+	fmt.Fprintln(w)
+
 	writeReviewQuestions(w, result, limit)
 }
 
@@ -591,6 +594,89 @@ func writeIndentedMore(w io.Writer, total int, limit int, indent string) {
 	if total > limit {
 		fmt.Fprintf(w, "%s- ... %d more\n", indent, total-limit)
 	}
+}
+
+func writeRuntimeRiskChanges(w io.Writer, changes []findingdiff.FindingChange, limit int) {
+	runtimeChanges := runtimeRiskChanges(changes)
+
+	fmt.Fprintln(w, "## Runtime architecture risks")
+	fmt.Fprintln(w)
+
+	if len(runtimeChanges) == 0 {
+		fmt.Fprintln(w, "- none")
+		return
+	}
+
+	for _, change := range limited(runtimeChanges, limit) {
+		finding := change.After
+		if finding == nil {
+			finding = change.Before
+		}
+		if finding == nil {
+			continue
+		}
+
+		fmt.Fprintf(w, "- `%s` `%s` `%s`", change.Kind, finding.Severity, change.ID)
+		if finding.Title != "" {
+			fmt.Fprintf(w, " — %s", finding.Title)
+		}
+		if finding.Confidence != "" {
+			fmt.Fprintf(w, " _(confidence: %s)_", finding.Confidence)
+		}
+		fmt.Fprintln(w)
+
+		if finding.Risk != "" {
+			fmt.Fprintf(w, "  - risk: %s\n", finding.Risk)
+		}
+		if finding.Suggestion != "" {
+			fmt.Fprintf(w, "  - suggestion: %s\n", finding.Suggestion)
+		}
+
+		writeFindingEvidence(w, "evidence", runtimeChangeEvidence(change, *finding), 5)
+	}
+
+	writeMore(w, len(runtimeChanges), limit)
+}
+
+func runtimeRiskChanges(changes []findingdiff.FindingChange) []findingdiff.FindingChange {
+	result := make([]findingdiff.FindingChange, 0)
+
+	for _, change := range changes {
+		finding := change.After
+		if finding == nil {
+			finding = change.Before
+		}
+		if finding == nil {
+			continue
+		}
+
+		if finding.Kind != model.FindingKindRuntimeRisk {
+			continue
+		}
+
+		result = append(result, change)
+	}
+
+	return result
+}
+
+func runtimeChangeEvidence(change findingdiff.FindingChange, finding model.Finding) []model.Evidence {
+	switch change.Kind {
+	case findingdiff.FindingChangeKindAdded:
+		if len(change.AddedEvidence) > 0 {
+			return change.AddedEvidence
+		}
+	case findingdiff.FindingChangeKindRemoved:
+		if len(change.RemovedEvidence) > 0 {
+			return change.RemovedEvidence
+		}
+	case findingdiff.FindingChangeKindChanged:
+		if len(change.AddedEvidence) > 0 {
+			return change.AddedEvidence
+		}
+	}
+
+	return finding.Evidence
 }
 
 func writeReviewQuestions(w io.Writer, result reportmodel.ReviewResult, limit int) {

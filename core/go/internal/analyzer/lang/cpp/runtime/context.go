@@ -8,6 +8,7 @@ const (
 	contextUnknown        runtimeContextKind = "unknown"
 	contextSyncPredicate  runtimeContextKind = "sync_predicate"
 	contextLocalAlgorithm runtimeContextKind = "local_algorithm"
+	contextImmediateCall  runtimeContextKind = "immediate_call"
 	contextAsioPost       runtimeContextKind = "asio_post"
 	contextAsioAsyncOp    runtimeContextKind = "asio_async_op"
 	contextTimerCallback  runtimeContextKind = "timer_callback"
@@ -16,15 +17,38 @@ const (
 	contextDetachedThread runtimeContextKind = "detached_thread"
 )
 
+type RuntimeContextKind = runtimeContextKind
+
+const (
+	ContextUnknown        RuntimeContextKind = contextUnknown
+	ContextSyncPredicate  RuntimeContextKind = contextSyncPredicate
+	ContextLocalAlgorithm RuntimeContextKind = contextLocalAlgorithm
+	ContextImmediateCall  RuntimeContextKind = contextImmediateCall
+	ContextAsioPost       RuntimeContextKind = contextAsioPost
+	ContextAsioAsyncOp    RuntimeContextKind = contextAsioAsyncOp
+	ContextTimerCallback  RuntimeContextKind = contextTimerCallback
+	ContextStoredCallback RuntimeContextKind = contextStoredCallback
+	ContextThreadStart    RuntimeContextKind = contextThreadStart
+	ContextDetachedThread RuntimeContextKind = contextDetachedThread
+)
+
 type lineWindow struct {
 	Before []string
 	Line   string
 	After  []string
 }
 
+type LineWindow = lineWindow
+
 type runtimeContext struct {
 	Kind   runtimeContextKind
 	Reason string
+}
+
+type RuntimeContext = runtimeContext
+
+func ClassifyRuntimeContext(window LineWindow) RuntimeContext {
+	return classifyRuntimeContext(window)
 }
 
 func classifyRuntimeContext(window lineWindow) runtimeContext {
@@ -56,6 +80,12 @@ func classifyRuntimeContextText(text string) (runtimeContext, bool) {
 		return runtimeContext{
 			Kind:   contextLocalAlgorithm,
 			Reason: "lambda appears to be used by a synchronous standard algorithm",
+		}, true
+
+	case isImmediateCallContext(text):
+		return runtimeContext{
+			Kind:   contextImmediateCall,
+			Reason: "lambda appears to be invoked immediately at the call site",
 		}, true
 
 	case isAsioPostContext(text):
@@ -119,6 +149,10 @@ func windowText(window lineWindow) string {
 }
 
 func isReportableThisCaptureContext(kind runtimeContextKind) bool {
+	return IsReportableThisCaptureContext(kind)
+}
+
+func IsReportableThisCaptureContext(kind RuntimeContextKind) bool {
 	switch kind {
 	case contextAsioPost,
 		contextAsioAsyncOp,
@@ -156,6 +190,19 @@ func findingIDForThisCaptureContext(kind runtimeContextKind) string {
 	}
 }
 
+func ContextBaseScore(kind RuntimeContextKind) int {
+	switch kind {
+	case contextDetachedThread, contextThreadStart:
+		return 5
+	case contextAsioPost, contextAsioAsyncOp, contextTimerCallback:
+		return 5
+	case contextStoredCallback:
+		return 3
+	default:
+		return 0
+	}
+}
+
 func isSyncPredicateContext(text string) bool {
 	return strings.Contains(text, ".wait_for(") ||
 		strings.Contains(text, "wait_for(") ||
@@ -185,6 +232,15 @@ func isDetachedThreadContext(text string) bool {
 
 func isThreadStartContext(text string) bool {
 	return strings.Contains(text, "std::thread")
+}
+
+func isImmediateCallContext(text string) bool {
+	compact := strings.ReplaceAll(text, " ", "")
+	compact = strings.ReplaceAll(compact, "\t", "")
+
+	return strings.Contains(compact, "}()") ||
+		strings.Contains(compact, "})()") ||
+		strings.Contains(compact, "](){") && strings.Contains(compact, "}()")
 }
 
 func isAsioPostContext(text string) bool {

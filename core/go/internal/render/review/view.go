@@ -27,6 +27,7 @@ type ReviewView struct {
 	DependencyRows  []ReviewDependencyRow
 	LayerEdgeRows   []ReviewLayerEdgeRow
 	FindingRows     []ReviewFindingRow
+	RuntimeRiskRows []ReviewFindingRow
 	ReviewQuestions []ReviewQuestion
 	RawCounts       []ReviewMetricCard
 }
@@ -176,6 +177,7 @@ func BuildReviewView(result reportmodel.ReviewResult) ReviewView {
 		DependencyRows:  buildDependencyRows(result),
 		LayerEdgeRows:   buildLayerEdgeRows(result),
 		FindingRows:     buildFindingRows(result),
+		RuntimeRiskRows: buildRuntimeRiskRows(result),
 		ReviewQuestions: buildReviewQuestions(result, 10),
 		RawCounts: []ReviewMetricCard{
 			{Title: "Contract changes", Value: len(result.ContractChanges)},
@@ -402,6 +404,21 @@ func buildReviewEvidenceRows(items []model.Evidence) []ReviewEvidenceRow {
 			FromFile:  item.FromFile,
 			ToFile:    item.ToFile,
 		})
+	}
+
+	return rows
+}
+
+func buildRuntimeRiskRows(result reportmodel.ReviewResult) []ReviewFindingRow {
+	allRows := buildFindingRows(result)
+	rows := make([]ReviewFindingRow, 0)
+
+	for _, row := range allRows {
+		if row.FindingKind != string(model.FindingKindRuntimeRisk) {
+			continue
+		}
+
+		rows = append(rows, row)
 	}
 
 	return rows

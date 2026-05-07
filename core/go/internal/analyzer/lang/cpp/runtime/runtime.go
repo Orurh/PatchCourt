@@ -21,10 +21,14 @@ const (
 )
 
 var (
-	rawPointerFromGetRE = regexp.MustCompile(`(?:^|[=\s;{(])(?:auto|[A-Za-z_][A-Za-z0-9_:<>]*)\s*\*\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*[^;]*\.get\s*\(`)
-	lambdaCaptureRE     = regexp.MustCompile(`\[([^\]]+)\]`)
-	loopKeywordRE       = regexp.MustCompile(`\b(while|for|do)\b`)
+	rawPointerFromGetRE   = regexp.MustCompile(`(?:^|[=\s;{(])(?:auto|[A-Za-z_][A-Za-z0-9_:<>]*)\s*\*\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*[^;]*\.get\s*\(`)
+	lambdaCaptureRE       = regexp.MustCompile(`\[([^\]]+)\]`)
+	structuredBindingRE   = regexp.MustCompile(`\b(?:auto|const\s+auto)\s*&?\s*\[([^\]]+)\]`)
+	localVariableShadowRE = regexp.MustCompile(`\b(?:auto|const\s+auto|[A-Za-z_][A-Za-z0-9_:<>]*)\s*[*&]?\s*([A-Za-z_][A-Za-z0-9_]*)\b`)
+	loopKeywordRE         = regexp.MustCompile(`\b(while|for|do)\b`)
 )
+
+const rawPointerCandidateMaxDistance = 20
 
 type rawPointerCandidate struct {
 	name string
@@ -165,6 +169,9 @@ func analyzeFile(root string, file model.FileModel, builders map[string]*finding
 		lineNumber := i + 1
 		line := stripLineComment(original)
 
+		expireRawPointerCandidates(rawPointers, lineNumber)
+		removeShadowedRawPointers(rawPointers, line)
+
 		for _, name := range rawPointerNamesFromLine(line) {
 			rawPointers[name] = rawPointerCandidate{
 				name: name,
@@ -175,7 +182,7 @@ func analyzeFile(root string, file model.FileModel, builders map[string]*finding
 		captures := lambdaCaptures(line)
 		if len(captures) > 0 {
 			context := classifyRuntimeContext(buildLineWindow(lines, i))
-			analyzeCaptures(file, lineNumber, original, captures, context, rawPointers, builders)
+			analyzeCaptures(file, lineNumber, original, lines, i, captures, context, rawPointers, builders)
 		}
 
 		analyzeShutdownSleep(file, lineNumber, original, lines, i, builders)
@@ -186,25 +193,24 @@ func analyzeCaptures(
 	file model.FileModel,
 	lineNumber int,
 	original string,
+	lines []string,
+	index int,
 	captures []string,
 	context runtimeContext,
 	rawPointers map[string]rawPointerCandidate,
 	builders map[string]*findingBuilder,
 ) {
 	for _, capture := range captures {
-		switch {
-		case capture == "this":
+		switch  capture{
+		case "this":
 			if !isReportableThisCaptureContext(context.Kind) {
 				continue
 			}
 
-			findingID := findingIDForThisCaptureContext(context.Kind)
-			addEvidence(builders[findingID], model.Evidence{
-				File:      file.Path,
-				LineStart: lineNumber,
-				Snippet:   strings.TrimSpace(original),
-				Message:   fmt.Sprintf("`this` is captured in %s context: %s", context.Kind, context.Reason),
-			})
+			emitRuntimeSite(
+				newThisCaptureRuntimeSite(file, lineNumber, lines, index, captures, context),
+				builders,
+			)
 
 		default:
 			candidate, ok := rawPointers[capture]
@@ -212,19 +218,70 @@ func analyzeCaptures(
 				continue
 			}
 
-			addEvidence(builders[findingRawPointerAsyncCapture], model.Evidence{
-				File:      file.Path,
-				LineStart: lineNumber,
-				Snippet:   strings.TrimSpace(original),
-				Message: fmt.Sprintf(
-					"raw pointer %q, declared at line %d, is captured in %s context: %s",
-					candidate.name,
-					candidate.line,
-					context.Kind,
-					context.Reason,
-				),
-			})
+			if lineNumber-candidate.line > rawPointerCandidateMaxDistance {
+				continue
+			}
+
+			emitRuntimeSite(
+				newRawPointerCaptureRuntimeSite(file, lineNumber, lines, index, captures, context, candidate),
+				builders,
+			)
 		}
+	}
+}
+
+func emitRuntimeSite(site RuntimeSite, builders map[string]*findingBuilder) {
+	if site.Score <= 0 || site.FindingID == "" || site.Severity == "" {
+		return
+	}
+
+	builder := builders[site.FindingID]
+	if builder == nil {
+		return
+	}
+
+	if len(builder.finding.Evidence) == 0 {
+		builder.finding.Severity = site.Severity
+		builder.finding.Confidence = site.Confidence
+	} else {
+		builder.finding.Severity = maxSeverity(builder.finding.Severity, site.Severity)
+		builder.finding.Confidence = maxConfidence(builder.finding.Confidence, site.Confidence)
+	}
+
+	addEvidence(builder, model.Evidence{
+		File:      site.File,
+		LineStart: site.Line,
+		Snippet:   site.Snippet,
+		Message:   site.Message,
+	})
+}
+
+func maxSeverity(left model.Severity, right model.Severity) model.Severity {
+	if model.SeverityRank(right) > model.SeverityRank(left) {
+		return right
+	}
+
+	return left
+}
+
+func maxConfidence(left model.Confidence, right model.Confidence) model.Confidence {
+	if runtimeConfidenceRank(right) > runtimeConfidenceRank(left) {
+		return right
+	}
+
+	return left
+}
+
+func runtimeConfidenceRank(confidence model.Confidence) int {
+	switch confidence {
+	case model.ConfidenceHigh:
+		return 3
+	case model.ConfidenceMedium:
+		return 2
+	case model.ConfidenceLow:
+		return 1
+	default:
+		return 0
 	}
 }
 
@@ -245,7 +302,7 @@ func analyzeShutdownSleep(
 		addEvidence(builders[findingDetachedDelayedCallback], model.Evidence{
 			File:      file.Path,
 			LineStart: lineNumber,
-			Snippet:   strings.TrimSpace(original),
+			Snippet:   evidenceSnippet(lines, index, 4, 5),
 			Message:   "detached thread sleeps before invoking a shutdown/callback function",
 		})
 		return
@@ -255,7 +312,7 @@ func analyzeShutdownSleep(
 		addEvidence(builders[findingShutdownPolling], model.Evidence{
 			File:      file.Path,
 			LineStart: lineNumber,
-			Snippet:   strings.TrimSpace(original),
+			Snippet:   evidenceSnippet(lines, index, 4, 5),
 			Message:   "sleep/polling-like wait appears inside a shutdown/callback-draining loop",
 		})
 	}
@@ -326,6 +383,69 @@ func rawPointerNamesFromLine(line string) []string {
 		}
 
 		result = append(result, match[1])
+	}
+
+	return result
+}
+
+func expireRawPointerCandidates(rawPointers map[string]rawPointerCandidate, lineNumber int) {
+	for name, candidate := range rawPointers {
+		if lineNumber-candidate.line > rawPointerCandidateMaxDistance {
+			delete(rawPointers, name)
+		}
+	}
+}
+
+func removeShadowedRawPointers(rawPointers map[string]rawPointerCandidate, line string) {
+	for _, name := range structuredBindingNamesFromLine(line) {
+		delete(rawPointers, name)
+	}
+
+	for _, name := range localVariableNamesFromLine(line) {
+		if _, ok := rawPointers[name]; ok && len(rawPointerNamesFromLine(line)) == 0 {
+			delete(rawPointers, name)
+		}
+	}
+}
+
+func structuredBindingNamesFromLine(line string) []string {
+	matches := structuredBindingRE.FindAllStringSubmatch(line, -1)
+	result := make([]string, 0)
+
+	for _, match := range matches {
+		if len(match) < 2 {
+			continue
+		}
+
+		for _, part := range strings.Split(match[1], ",") {
+			name := strings.TrimSpace(part)
+			name = strings.TrimPrefix(name, "&")
+			name = strings.TrimPrefix(name, "*")
+			name = strings.TrimSpace(name)
+			if name != "" {
+				result = append(result, name)
+			}
+		}
+	}
+
+	return result
+}
+
+func localVariableNamesFromLine(line string) []string {
+	matches := localVariableShadowRE.FindAllStringSubmatch(line, -1)
+	result := make([]string, 0, len(matches))
+
+	for _, match := range matches {
+		if len(match) < 2 {
+			continue
+		}
+
+		name := match[1]
+		if name == "auto" || name == "const" || name == "return" || name == "if" || name == "for" || name == "while" {
+			continue
+		}
+
+		result = append(result, name)
 	}
 
 	return result
@@ -455,6 +575,30 @@ func rawWindowText(lines []string, index int, before int, after int) string {
 	}
 
 	return b.String()
+}
+
+func evidenceSnippet(lines []string, index int, before int, after int) string {
+	start := index - before
+	if start < 0 {
+		start = 0
+	}
+
+	end := index + after + 1
+	if end > len(lines) {
+		end = len(lines)
+	}
+
+	var b strings.Builder
+	for i := start; i < end; i++ {
+		prefix := "  "
+		if i == index {
+			prefix = "> "
+		}
+
+		fmt.Fprintf(&b, "%s%4d | %s\n", prefix, i+1, strings.TrimRight(lines[i], " \t"))
+	}
+
+	return strings.TrimRight(b.String(), "\n")
 }
 
 func addEvidence(builder *findingBuilder, evidence model.Evidence) {

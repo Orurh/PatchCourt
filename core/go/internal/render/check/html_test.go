@@ -42,6 +42,7 @@ func TestWriteCheckHTML_RendersSelfContainedReport(t *testing.T) {
 					{
 						File:      "src/controllers/device_orchestrator.cc",
 						LineStart: 42,
+						Snippet:   "   40 | void Start() {\\n>  42 |   boost::asio::post(*thread_pool_, [this]() {\\n   43 |     Run();",
 						Message:   "`this` is captured in an async-looking callback/task",
 					},
 				},
@@ -109,6 +110,9 @@ func TestWriteCheckHTML_RendersSelfContainedReport(t *testing.T) {
 	require.Contains(t, got, "from_layer")
 	require.Contains(t, got, "to_layer")
 	require.Contains(t, got, "Evidence:")
+	require.Contains(t, got, "evidenceLocation")
+	require.Contains(t, got, "evidence-snippet")
+	require.Contains(t, got, "boost::asio::post")
 	require.Contains(t, got, "edgeDiagram")
 	require.Contains(t, got, "buildEdgeDiagramData")
 	require.Contains(t, got, "Detailed file-level picture")

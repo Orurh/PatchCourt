@@ -44,6 +44,7 @@ func WriteReviewHTML(w io.Writer, result reportmodel.ReviewResult) error {
 
 	writeReviewHTMLSummary(&b, view.SummaryCards)
 	writeReviewHTMLImpact(&b, view.Impact)
+	writeReviewHTMLRuntimeRisks(&b, view.RuntimeRiskRows)
 	writeReviewHTMLLayerImpactGraph(&b, view.LayerGraph)
 	writeReviewHTMLChangedFiles(&b, "Changed files", view.ChangedFiles)
 	writeReviewHTMLContractChanges(&b, view.ContractRows)
@@ -511,6 +512,130 @@ func writeReviewHTMLLayerEdgeChanges(b *strings.Builder, rows []ReviewLayerEdgeR
 	fmt.Fprintln(b, `</section>`)
 }
 
+func writeReviewHTMLRuntimeRisks(b *strings.Builder, rows []ReviewFindingRow) {
+	fmt.Fprintln(b, `<section class="card">`)
+	fmt.Fprintln(b, `<h2>Runtime architecture risks</h2>`)
+
+	if len(rows) == 0 {
+		fmt.Fprintln(b, `<p class="muted">No runtime architecture risks changed in this patch.</p>`)
+		fmt.Fprintln(b, `</section>`)
+		return
+	}
+
+	fmt.Fprintln(b, `<div class="runtime-risk-list">`)
+	for _, row := range rows {
+		severityClass := htmlClass(row.Severity)
+		fmt.Fprintf(b, `<article class="runtime-risk-card runtime-risk-%s">`, severityClass)
+
+		fmt.Fprintln(b, `<div class="runtime-risk-header">`)
+		fmt.Fprintf(b, `<span class="tag">%s</span>`, escape(row.Kind))
+		if row.Severity != "" {
+			fmt.Fprintf(b, ` <span class="tag severity-%s">%s</span>`, severityClass, escape(row.Severity))
+		}
+		if row.Confidence != "" {
+			fmt.Fprintf(b, ` <span class="tag">confidence: %s</span>`, escape(row.Confidence))
+		}
+		fmt.Fprintln(b, `</div>`)
+
+		fmt.Fprintf(b, `<h3><code>%s</code></h3>`, escape(row.ID))
+		if row.Title != "" {
+			fmt.Fprintf(b, `<p><strong>%s</strong></p>`, escape(row.Title))
+		}
+		if row.Risk != "" {
+			fmt.Fprintf(b, `<p><strong>Risk:</strong> %s</p>`, escape(row.Risk))
+		}
+		if row.Suggestion != "" {
+			fmt.Fprintf(b, `<p><strong>Suggestion:</strong> %s</p>`, escape(row.Suggestion))
+		}
+
+		writeReviewHTMLRuntimeEvidenceRows(b, runtimeRiskRowEvidence(row), 5)
+
+		fmt.Fprintln(b, `</article>`)
+	}
+	fmt.Fprintln(b, `</div>`)
+	fmt.Fprintln(b, `</section>`)
+}
+
+func runtimeRiskRowEvidence(row ReviewFindingRow) []ReviewEvidenceRow {
+	if len(row.Evidence) > 0 {
+		return row.Evidence
+	}
+
+	if len(row.AddedEvidence) > 0 {
+		return row.AddedEvidence
+	}
+
+	if len(row.RemovedEvidence) > 0 {
+		return row.RemovedEvidence
+	}
+
+	return nil
+}
+
+func writeReviewHTMLRuntimeEvidenceRows(b *strings.Builder, evidence []ReviewEvidenceRow, limit int) {
+	if len(evidence) == 0 {
+		fmt.Fprintln(b, `<p class="muted">No evidence attached to this runtime risk.</p>`)
+		return
+	}
+
+	fmt.Fprintln(b, `<h4>Evidence</h4>`)
+	fmt.Fprintln(b, `<ul class="evidence-list">`)
+
+	count := len(evidence)
+	if count > limit {
+		count = limit
+	}
+
+	for i := 0; i < count; i++ {
+		item := evidence[i]
+		location := reviewEvidenceLocation(item)
+		detail := item.Message
+		if detail == "" {
+			detail = item.Snippet
+		}
+		if detail == "" && (item.FromFile != "" || item.ToFile != "") {
+			detail = item.FromFile + " -> " + item.ToFile
+		}
+
+		fmt.Fprintln(b, `<li>`)
+		if location != "" {
+			fmt.Fprintf(b, `<code>%s</code>`, escape(location))
+		}
+		if detail != "" {
+			fmt.Fprintf(b, `<div class="detail">%s</div>`, escape(detail))
+		}
+		if item.FromLayer != "" || item.ToLayer != "" {
+			fmt.Fprintf(b, `<div class="detail">Layer: <code>%s → %s</code></div>`, escape(item.FromLayer), escape(item.ToLayer))
+		}
+		fmt.Fprintln(b, `</li>`)
+	}
+
+	if len(evidence) > limit {
+		fmt.Fprintf(b, `<li class="muted">... %d more evidence item(s)</li>`, len(evidence)-limit)
+	}
+
+	fmt.Fprintln(b, `</ul>`)
+}
+
+func reviewEvidenceLocation(evidence ReviewEvidenceRow) string {
+	location := evidence.File
+	if location == "" {
+		location = evidence.FromFile
+	}
+	if location == "" {
+		return ""
+	}
+
+	switch {
+	case evidence.LineStart > 0 && evidence.LineEnd > evidence.LineStart:
+		return fmt.Sprintf("%s:%d-%d", location, evidence.LineStart, evidence.LineEnd)
+	case evidence.LineStart > 0:
+		return fmt.Sprintf("%s:%d", location, evidence.LineStart)
+	default:
+		return location
+	}
+}
+
 func writeReviewHTMLFindingChanges(b *strings.Builder, rows []ReviewFindingRow) {
 	fmt.Fprintln(b, `<section class="card">`)
 	fmt.Fprintln(b, `<h2>Finding changes</h2>`)
@@ -635,27 +760,6 @@ func writeReviewHTMLEvidenceItem(b *strings.Builder, row ReviewEvidenceRow) {
 	}
 
 	fmt.Fprintln(b, `</div>`)
-}
-
-func reviewEvidenceLocation(row ReviewEvidenceRow) string {
-	location := row.File
-	if location == "" {
-		location = row.FromFile
-	}
-
-	if location == "" {
-		return ""
-	}
-
-	if row.LineStart <= 0 {
-		return location
-	}
-
-	if row.LineEnd > row.LineStart {
-		return fmt.Sprintf("%s:%d-%d", location, row.LineStart, row.LineEnd)
-	}
-
-	return fmt.Sprintf("%s:%d", location, row.LineStart)
 }
 
 func writeReviewHTMLRiskReasons(b *strings.Builder, reasons []ReviewRiskReason) {
@@ -937,6 +1041,37 @@ li + li {
   margin-top: 4px;
 }
 .contract-change-list,
+
+
+.runtime-risk-list {
+  display: grid;
+  gap: 12px;
+}
+
+.runtime-risk-card {
+  border: 1px solid #e5e7eb;
+  border-left: 4px solid #f97316;
+  border-radius: 14px;
+  padding: 14px;
+  background: #fff;
+}
+
+.runtime-risk-card.runtime-risk-high,
+.runtime-risk-card.runtime-risk-critical {
+  border-left-color: #dc2626;
+}
+
+.runtime-risk-card.runtime-risk-medium {
+  border-left-color: #f97316;
+}
+
+.runtime-risk-card.runtime-risk-low {
+  border-left-color: #2563eb;
+}
+
+.runtime-risk-header {
+  margin-bottom: 8px;
+}
 
 .finding-change-list {
   display: grid;

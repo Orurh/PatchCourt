@@ -52,6 +52,9 @@ void Start() {
 	require.Equal(t, 3, finding.Evidence[0].LineStart)
 	require.Contains(t, finding.Evidence[0].Message, "`this`")
 	require.Contains(t, finding.Evidence[0].Message, string(contextAsioPost))
+	require.Contains(t, finding.Evidence[0].Snippet, ">    3 |")
+	require.Contains(t, finding.Evidence[0].Snippet, "boost::asio::post")
+	require.Contains(t, finding.Evidence[0].Snippet, "OnCameraResult")
 }
 
 func TestAnalyze_DetectsThisCapturedIntoAsioAsyncCallback(t *testing.T) {
@@ -129,6 +132,8 @@ void DisconnectAll() {
 	require.Len(t, finding.Evidence, 1)
 	require.Equal(t, 4, finding.Evidence[0].LineStart)
 	require.Contains(t, finding.Evidence[0].Message, "loop")
+	require.Contains(t, finding.Evidence[0].Snippet, ">    4 |")
+	require.Contains(t, finding.Evidence[0].Snippet, "pending_disconnects")
 }
 
 func TestAnalyze_DetectsDetachedDelayedShutdownCallback(t *testing.T) {
@@ -153,6 +158,9 @@ void HandleShutdown() {
 	require.Len(t, finding.Evidence, 1)
 	require.Equal(t, 5, finding.Evidence[0].LineStart)
 	require.Contains(t, finding.Evidence[0].Message, "detached thread")
+	require.Contains(t, finding.Evidence[0].Snippet, ">    5 |")
+	require.Contains(t, finding.Evidence[0].Snippet, "callback();")
+	require.Contains(t, finding.Evidence[0].Snippet, ".detach();")
 
 	requireNoFinding(t, findings, findingShutdownPolling)
 }
@@ -261,6 +269,55 @@ void Run() {
 	require.Empty(t, findings)
 }
 
+func TestAnalyze_LowersThisCaptureWhenSharedSelfGuardIsVisible(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "src/storage_worker.cc", `
+void Start() {
+  auto self = shared_from_this();
+  boost::asio::post(strand_, [self, this]() {
+    this->Flush();
+  });
+}
+`)
+
+	project := projectWithFile("src/storage_worker.cc")
+	findings := Analyze(root, project)
+
+	finding := requireFinding(t, findings, findingThisCaptureAsync)
+	require.Equal(t, model.SeverityLow, finding.Severity)
+	require.Equal(t, model.ConfidenceMedium, finding.Confidence)
+	require.Contains(t, finding.Evidence[0].Message, "score=2")
+	require.Contains(t, finding.Evidence[0].Message, "visible guards")
+}
+
+func TestAnalyze_DoesNotReportWeakLockGuardedThisCaptureWhenScoreDropsToZero(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "src/storage_worker.cc", `
+void Start() {
+  auto weak = weak_from_this();
+  boost::asio::post(strand_, [weak, this]() {
+    if (auto self = weak.lock()) {
+      this->Flush();
+    }
+  });
+}
+`)
+
+	project := projectWithFile("src/storage_worker.cc")
+	findings := Analyze(root, project)
+
+	requireNoFinding(t, findings, findingThisCaptureAsync)
+}
+
+func TestClassifyRuntimeContext_ImmediateCallIsNotReportable(t *testing.T) {
+	context := ClassifyRuntimeContext(LineWindow{
+		Line: `([this]() { DoWork(); })();`,
+	})
+
+	require.Equal(t, ContextImmediateCall, context.Kind)
+	require.False(t, IsReportableThisCaptureContext(context.Kind))
+}
+
 func projectWithFile(path string) *model.ProjectModel {
 	return &model.ProjectModel{
 		Root: ".",
@@ -349,4 +406,28 @@ void ChangeAll() {
 	findings := Analyze(root, project)
 
 	require.Empty(t, findings)
+}
+
+func TestAnalyze_DoesNotReuseStaleRawPointerCandidateAfterStructuredBindingShadow(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "src/manager.cc", `
+void Run() {
+  auto* camera_ptr = cameras_[camera_id].get();
+
+  DoSomething();
+  DoSomething();
+  DoSomething();
+
+  for (const auto& [camera_id, camera_ptr] : cameras_to_change) {
+    boost::asio::post(*thread_pool_, [this, action, camera_id, camera_ptr]() {
+      action(camera_ptr);
+    });
+  }
+}
+`)
+
+	project := projectWithFile("src/manager.cc")
+	findings := Analyze(root, project)
+
+	requireNoFinding(t, findings, findingRawPointerAsyncCapture)
 }
