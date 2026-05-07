@@ -33,7 +33,7 @@ func TestWriteCheckHTML_RendersSelfContainedReport(t *testing.T) {
 				},
 			},
 			{
-				ID:         "cpp.async.this_capture",
+				ID:         "cpp.lifetime.this_capture_async",
 				Kind:       model.FindingKindRuntimeRisk,
 				Severity:   model.SeverityHigh,
 				Title:      "`this` captured into async callback",

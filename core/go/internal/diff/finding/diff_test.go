@@ -54,17 +54,17 @@ func TestDiffFindings_IgnoresUnchangedFinding(t *testing.T) {
 
 func TestDiffFindings_DetectsChangedFindingSeverity(t *testing.T) {
 	before := []model.Finding{
-		finding("cpp.async.this_capture", model.SeverityMedium),
+		finding("cpp.lifetime.this_capture_async", model.SeverityMedium),
 	}
 	after := []model.Finding{
-		finding("cpp.async.this_capture", model.SeverityHigh),
+		finding("cpp.lifetime.this_capture_async", model.SeverityHigh),
 	}
 
 	changes := DiffFindings(before, after)
 
 	require.Len(t, changes, 1)
 	require.Equal(t, FindingChangeKindChanged, changes[0].Kind)
-	require.Equal(t, "cpp.async.this_capture", changes[0].ID)
+	require.Equal(t, "cpp.lifetime.this_capture_async", changes[0].ID)
 	require.True(t, changes[0].SeverityChanged)
 	require.False(t, changes[0].ConfidenceChanged)
 	require.NotNil(t, changes[0].Before)
@@ -74,10 +74,10 @@ func TestDiffFindings_DetectsChangedFindingSeverity(t *testing.T) {
 }
 
 func TestDiffFindings_DetectsChangedFindingConfidence(t *testing.T) {
-	beforeFinding := finding("cpp.async.this_capture", model.SeverityHigh)
+	beforeFinding := finding("cpp.lifetime.this_capture_async", model.SeverityHigh)
 	beforeFinding.Confidence = model.ConfidenceMedium
 
-	afterFinding := finding("cpp.async.this_capture", model.SeverityHigh)
+	afterFinding := finding("cpp.lifetime.this_capture_async", model.SeverityHigh)
 	afterFinding.Confidence = model.ConfidenceHigh
 
 	changes := DiffFindings([]model.Finding{beforeFinding}, []model.Finding{afterFinding})
@@ -89,12 +89,12 @@ func TestDiffFindings_DetectsChangedFindingConfidence(t *testing.T) {
 }
 
 func TestDiffFindings_DetectsAddedEvidenceForExistingFinding(t *testing.T) {
-	before := finding("cpp.async.raw_pointer_capture", model.SeverityHigh)
+	before := finding("cpp.lifetime.raw_pointer_async_capture", model.SeverityHigh)
 	before.Evidence = []model.Evidence{
 		evidence("src/gopro_manager.cc", 10, "old capture"),
 	}
 
-	after := finding("cpp.async.raw_pointer_capture", model.SeverityHigh)
+	after := finding("cpp.lifetime.raw_pointer_async_capture", model.SeverityHigh)
 	after.Evidence = []model.Evidence{
 		evidence("src/gopro_manager.cc", 10, "old capture"),
 		evidence("src/gopro_manager.cc", 42, "new capture"),
@@ -112,13 +112,13 @@ func TestDiffFindings_DetectsAddedEvidenceForExistingFinding(t *testing.T) {
 }
 
 func TestDiffFindings_DetectsRemovedEvidenceForExistingFinding(t *testing.T) {
-	before := finding("cpp.async.raw_pointer_capture", model.SeverityHigh)
+	before := finding("cpp.lifetime.raw_pointer_async_capture", model.SeverityHigh)
 	before.Evidence = []model.Evidence{
 		evidence("src/gopro_manager.cc", 10, "old capture"),
 		evidence("src/gopro_manager.cc", 42, "removed capture"),
 	}
 
-	after := finding("cpp.async.raw_pointer_capture", model.SeverityHigh)
+	after := finding("cpp.lifetime.raw_pointer_async_capture", model.SeverityHigh)
 	after.Evidence = []model.Evidence{
 		evidence("src/gopro_manager.cc", 10, "old capture"),
 	}

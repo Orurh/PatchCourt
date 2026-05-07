@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,25 +12,23 @@ import (
 )
 
 const (
-	findingRawPointerCapture       = "cpp.async.raw_pointer_capture"
-	findingThisCapture             = "cpp.async.this_capture"
-	findingShutdownPolling         = "cpp.shutdown.sleep_polling"
-	findingDetachedDelayedCallback = "cpp.shutdown.detached_delayed_callback"
+	findingRawPointerAsyncCapture    = "cpp.lifetime.raw_pointer_async_capture"
+	findingThisCaptureAsync          = "cpp.lifetime.this_capture_async"
+	findingThisCaptureStoredCallback = "cpp.lifetime.this_capture_stored_callback"
+	findingThisCaptureThread         = "cpp.lifetime.this_capture_thread"
+	findingShutdownPolling           = "cpp.shutdown.sleep_polling"
+	findingDetachedDelayedCallback   = "cpp.shutdown.detached_delayed_callback"
 )
 
 var (
 	rawPointerFromGetRE = regexp.MustCompile(`(?:^|[=\s;{(])(?:auto|[A-Za-z_][A-Za-z0-9_:<>]*)\s*\*\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*[^;]*\.get\s*\(`)
 	lambdaCaptureRE     = regexp.MustCompile(`\[([^\]]+)\]`)
+	loopKeywordRE       = regexp.MustCompile(`\b(while|for|do)\b`)
 )
 
 type rawPointerCandidate struct {
 	name string
 	line int
-}
-
-type delayedCallbackCandidate struct {
-	line    int
-	snippet string
 }
 
 type findingBuilder struct {
@@ -43,52 +40,7 @@ func Analyze(root string, project *model.ProjectModel) []model.Finding {
 		return nil
 	}
 
-	builders := map[string]*findingBuilder{
-		findingRawPointerCapture: {
-			finding: model.Finding{
-				ID:         findingRawPointerCapture,
-				Kind:       model.FindingKindRuntimeRisk,
-				Severity:   model.SeverityHigh,
-				Title:      "Raw pointer captured into async task",
-				Risk:       "Object lifetime is not tied to async task lifetime. A mutex may protect lookup, but not lifetime after the task is scheduled.",
-				Suggestion: "Verify the lifetime contract. Prefer shared_ptr/weak_ptr guards, cancellation tokens, or owner-bound async execution.",
-				Confidence: model.ConfidenceHigh,
-			},
-		},
-		findingThisCapture: {
-			finding: model.Finding{
-				ID:         findingThisCapture,
-				Kind:       model.FindingKindRuntimeRisk,
-				Severity:   model.SeverityHigh,
-				Title:      "`this` captured into async callback",
-				Risk:       "Callback may outlive the owning object unless object lifetime is guarded by shared_ptr/weak_ptr, cancellation, strand ownership, or another visible lifetime contract.",
-				Suggestion: "Review what guarantees that the owning object outlives the callback. Consider weak_ptr guard or explicit cancellation/lifecycle ownership.",
-				Confidence: model.ConfidenceMedium,
-			},
-		},
-		findingShutdownPolling: {
-			finding: model.Finding{
-				ID:         findingShutdownPolling,
-				Kind:       model.FindingKindRuntimeRisk,
-				Severity:   model.SeverityMedium,
-				Title:      "Shutdown or callback draining uses sleep/polling",
-				Risk:       "Shutdown order may depend on pending callbacks and cross-thread ownership. Sleep/polling loops do not prove that async work is safely drained.",
-				Suggestion: "Review cancellation, callback completion, and ownership contracts. Prefer explicit completion aggregation, condition_variable, future/promise, or structured async shutdown.",
-				Confidence: model.ConfidenceMedium,
-			},
-		},
-		findingDetachedDelayedCallback: {
-			finding: model.Finding{
-				ID:         findingDetachedDelayedCallback,
-				Kind:       model.FindingKindRuntimeRisk,
-				Severity:   model.SeverityMedium,
-				Title:      "Detached delayed shutdown callback",
-				Risk:       "A detached thread delays and invokes a shutdown callback without visible join, cancellation, or owner lifetime tracking.",
-				Suggestion: "Prefer structured shutdown scheduling owned by the server/event loop, or make the delayed shutdown worker joinable/cancellable with explicit lifetime ownership.",
-				Confidence: model.ConfidenceMedium,
-			},
-		},
-	}
+	builders := runtimeFindingBuilders()
 
 	for _, file := range project.Files {
 		if !isReviewableCPPFile(file) {
@@ -115,6 +67,77 @@ func Analyze(root string, project *model.ProjectModel) []model.Finding {
 	return findings
 }
 
+func runtimeFindingBuilders() map[string]*findingBuilder {
+	return map[string]*findingBuilder{
+		findingRawPointerAsyncCapture: {
+			finding: model.Finding{
+				ID:         findingRawPointerAsyncCapture,
+				Kind:       model.FindingKindRuntimeRisk,
+				Severity:   model.SeverityHigh,
+				Title:      "Raw pointer captured into deferred async/thread task",
+				Risk:       "Object lifetime is not visibly tied to the deferred task lifetime. A mutex may protect lookup, but not lifetime after the task is scheduled.",
+				Suggestion: "Verify the lifetime contract. Prefer shared_ptr/weak_ptr guards, cancellation tokens, or owner-bound async execution.",
+				Confidence: model.ConfidenceHigh,
+			},
+		},
+		findingThisCaptureAsync: {
+			finding: model.Finding{
+				ID:         findingThisCaptureAsync,
+				Kind:       model.FindingKindRuntimeRisk,
+				Severity:   model.SeverityHigh,
+				Title:      "`this` captured into async callback",
+				Risk:       "Callback may outlive the owning object unless object lifetime is guarded by shared_ptr/weak_ptr, cancellation, strand ownership, or another visible lifetime contract.",
+				Suggestion: "Review what guarantees that the owning object outlives the callback. Consider weak_ptr guard or explicit cancellation/lifecycle ownership.",
+				Confidence: model.ConfidenceMedium,
+			},
+		},
+		findingThisCaptureStoredCallback: {
+			finding: model.Finding{
+				ID:         findingThisCaptureStoredCallback,
+				Kind:       model.FindingKindRuntimeRisk,
+				Severity:   model.SeverityMedium,
+				Title:      "`this` captured into stored callback",
+				Risk:       "Callback appears to be stored in another object. If that object can outlive the owner, the callback may call a destroyed object.",
+				Suggestion: "Verify callback ownership and reset/cancellation in shutdown/destructor. Prefer weak_ptr guard or explicit callback lifetime ownership.",
+				Confidence: model.ConfidenceMedium,
+			},
+		},
+		findingThisCaptureThread: {
+			finding: model.Finding{
+				ID:         findingThisCaptureThread,
+				Kind:       model.FindingKindRuntimeRisk,
+				Severity:   model.SeverityHigh,
+				Title:      "`this` captured into thread callback",
+				Risk:       "Thread callback may outlive the owning object unless the thread is joined/cancelled before destruction.",
+				Suggestion: "Verify thread ownership and shutdown ordering. Prefer joinable owned threads, cancellation tokens, or shared/weak lifetime guards.",
+				Confidence: model.ConfidenceMedium,
+			},
+		},
+		findingShutdownPolling: {
+			finding: model.Finding{
+				ID:         findingShutdownPolling,
+				Kind:       model.FindingKindRuntimeRisk,
+				Severity:   model.SeverityMedium,
+				Title:      "Shutdown or callback draining uses sleep/polling",
+				Risk:       "Shutdown order may depend on pending callbacks and cross-thread ownership. Sleep/polling loops do not prove that async work is safely drained.",
+				Suggestion: "Review cancellation, callback completion, and ownership contracts. Prefer explicit completion aggregation, condition_variable, future/promise, or structured async shutdown.",
+				Confidence: model.ConfidenceMedium,
+			},
+		},
+		findingDetachedDelayedCallback: {
+			finding: model.Finding{
+				ID:         findingDetachedDelayedCallback,
+				Kind:       model.FindingKindRuntimeRisk,
+				Severity:   model.SeverityMedium,
+				Title:      "Detached delayed shutdown callback",
+				Risk:       "A detached thread delays and invokes a shutdown/callback function without visible join, cancellation, or owner lifetime tracking.",
+				Suggestion: "Prefer structured shutdown scheduling owned by the server/event loop, or make the delayed shutdown worker joinable/cancellable with explicit lifetime ownership.",
+				Confidence: model.ConfidenceMedium,
+			},
+		},
+	}
+}
+
 func isReviewableCPPFile(file model.FileModel) bool {
 	if file.Language != model.LanguageCPP {
 		return false
@@ -130,35 +153,17 @@ func isReviewableCPPFile(file model.FileModel) bool {
 func analyzeFile(root string, file model.FileModel, builders map[string]*findingBuilder) {
 	path := filepath.Join(root, filepath.FromSlash(file.Path))
 
-	handle, err := os.Open(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return
 	}
-	defer handle.Close()
 
+	lines := splitLines(string(data))
 	rawPointers := make(map[string]rawPointerCandidate)
 
-	scanner := bufio.NewScanner(handle)
-	lineNumber := 0
-
-	pollingContextUntilLine := 0
-	detachedThreadContextUntilLine := 0
-	var delayedSleep *delayedCallbackCandidate
-
-	for scanner.Scan() {
-		lineNumber++
-
-		original := scanner.Text()
+	for i, original := range lines {
+		lineNumber := i + 1
 		line := stripLineComment(original)
-
-		if isPollingLoopContextLine(line) {
-			pollingContextUntilLine = lineNumber + 5
-		}
-
-		if isDetachedThreadContextLine(line) {
-			detachedThreadContextUntilLine = lineNumber + 10
-			delayedSleep = nil
-		}
 
 		for _, name := range rawPointerNamesFromLine(line) {
 			rawPointers[name] = rawPointerCandidate{
@@ -168,73 +173,147 @@ func analyzeFile(root string, file model.FileModel, builders map[string]*finding
 		}
 
 		captures := lambdaCaptures(line)
-		if len(captures) > 0 && isAsyncLookingLine(line) {
-			for _, capture := range captures {
-				if capture == "this" {
-					addEvidence(builders[findingThisCapture], model.Evidence{
-						File:      file.Path,
-						LineStart: lineNumber,
-						Snippet:   strings.TrimSpace(original),
-						Message:   "`this` is captured in an async-looking callback/task",
-					})
-				}
-
-				candidate, ok := rawPointers[capture]
-				if ok {
-					addEvidence(builders[findingRawPointerCapture], model.Evidence{
-						File:      file.Path,
-						LineStart: lineNumber,
-						Snippet:   strings.TrimSpace(original),
-						Message: fmt.Sprintf(
-							"raw pointer %q, declared at line %d, is captured in an async-looking callback/task",
-							candidate.name,
-							candidate.line,
-						),
-					})
-				}
-			}
+		if len(captures) > 0 {
+			context := classifyRuntimeContext(buildLineWindow(lines, i))
+			analyzeCaptures(file, lineNumber, original, captures, context, rawPointers, builders)
 		}
 
-		if isPollingSleepLine(line) {
-			inDetachedThreadContext := lineNumber <= detachedThreadContextUntilLine
+		analyzeShutdownSleep(file, lineNumber, original, lines, i, builders)
+	}
+}
 
-			if inDetachedThreadContext {
-				delayedSleep = &delayedCallbackCandidate{
-					line:    lineNumber,
-					snippet: strings.TrimSpace(original),
-				}
+func analyzeCaptures(
+	file model.FileModel,
+	lineNumber int,
+	original string,
+	captures []string,
+	context runtimeContext,
+	rawPointers map[string]rawPointerCandidate,
+	builders map[string]*findingBuilder,
+) {
+	for _, capture := range captures {
+		switch {
+		case capture == "this":
+			if !isReportableThisCaptureContext(context.Kind) {
+				continue
 			}
 
-			if !inDetachedThreadContext && lineNumber <= pollingContextUntilLine {
-				addEvidence(builders[findingShutdownPolling], model.Evidence{
-					File:      file.Path,
-					LineStart: lineNumber,
-					Snippet:   strings.TrimSpace(original),
-					Message:   "sleep/polling-like wait appears inside a shutdown/callback-draining loop",
-				})
-			}
-		}
-
-		if delayedSleep != nil && lineNumber <= detachedThreadContextUntilLine && isDetachedCallbackInvocationLine(line) {
-			addEvidence(builders[findingDetachedDelayedCallback], model.Evidence{
+			findingID := findingIDForThisCaptureContext(context.Kind)
+			addEvidence(builders[findingID], model.Evidence{
 				File:      file.Path,
-				LineStart: delayedSleep.line,
-				Snippet:   delayedSleep.snippet,
-				Message:   "detached thread sleeps before invoking a shutdown/callback function",
+				LineStart: lineNumber,
+				Snippet:   strings.TrimSpace(original),
+				Message:   fmt.Sprintf("`this` is captured in %s context: %s", context.Kind, context.Reason),
 			})
-			delayedSleep = nil
-		}
 
-		if lineNumber <= detachedThreadContextUntilLine && isDetachLine(line) && delayedSleep != nil {
-			addEvidence(builders[findingDetachedDelayedCallback], model.Evidence{
+		default:
+			candidate, ok := rawPointers[capture]
+			if !ok || !isReportableRawPointerCaptureContext(context.Kind) {
+				continue
+			}
+
+			addEvidence(builders[findingRawPointerAsyncCapture], model.Evidence{
 				File:      file.Path,
-				LineStart: delayedSleep.line,
-				Snippet:   delayedSleep.snippet,
-				Message:   "detached thread sleeps before shutdown/callback completion",
+				LineStart: lineNumber,
+				Snippet:   strings.TrimSpace(original),
+				Message: fmt.Sprintf(
+					"raw pointer %q, declared at line %d, is captured in %s context: %s",
+					candidate.name,
+					candidate.line,
+					context.Kind,
+					context.Reason,
+				),
 			})
-			delayedSleep = nil
 		}
 	}
+}
+
+func analyzeShutdownSleep(
+	file model.FileModel,
+	lineNumber int,
+	original string,
+	lines []string,
+	index int,
+	builders map[string]*findingBuilder,
+) {
+	line := stripLineComment(original)
+	if !isSleepLine(line) {
+		return
+	}
+
+	if isDetachedDelayedCallbackAround(lines, index) {
+		addEvidence(builders[findingDetachedDelayedCallback], model.Evidence{
+			File:      file.Path,
+			LineStart: lineNumber,
+			Snippet:   strings.TrimSpace(original),
+			Message:   "detached thread sleeps before invoking a shutdown/callback function",
+		})
+		return
+	}
+
+	if isPollingSleepAround(lines, index) {
+		addEvidence(builders[findingShutdownPolling], model.Evidence{
+			File:      file.Path,
+			LineStart: lineNumber,
+			Snippet:   strings.TrimSpace(original),
+			Message:   "sleep/polling-like wait appears inside a shutdown/callback-draining loop",
+		})
+	}
+}
+
+func splitLines(data string) []string {
+	data = strings.ReplaceAll(data, "\r\n", "\n")
+	data = strings.ReplaceAll(data, "\r", "\n")
+	return strings.Split(data, "\n")
+}
+
+func buildLineWindow(lines []string, index int) lineWindow {
+	beforeStart := index - 3
+	if beforeStart < 0 {
+		beforeStart = 0
+	}
+
+	for beforeStart < index {
+		trimmed := strings.TrimSpace(stripLineComment(lines[beforeStart]))
+		if trimmed == "" || isStatementBoundary(trimmed) {
+			beforeStart++
+			continue
+		}
+
+		break
+	}
+
+	afterEnd := index + 1
+	for afterEnd < len(lines) && afterEnd < index+7 {
+		afterEnd++
+
+		trimmed := strings.TrimSpace(stripLineComment(lines[afterEnd-1]))
+		if isStatementBoundary(trimmed) {
+			break
+		}
+	}
+
+	before := append([]string(nil), lines[beforeStart:index]...)
+	after := append([]string(nil), lines[index+1:afterEnd]...)
+
+	return lineWindow{
+		Before: before,
+		Line:   lines[index],
+		After:  after,
+	}
+}
+
+func isStatementBoundary(line string) bool {
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return true
+	}
+
+	return strings.HasSuffix(line, ";") ||
+		strings.HasSuffix(line, "};") ||
+		strings.HasSuffix(line, "});") ||
+		strings.HasSuffix(line, "})") ||
+		line == "}"
 }
 
 func rawPointerNamesFromLine(line string) []string {
@@ -253,75 +332,72 @@ func rawPointerNamesFromLine(line string) []string {
 }
 
 func lambdaCaptures(line string) []string {
-	match := lambdaCaptureRE.FindStringSubmatch(line)
-	if len(match) != 2 {
+	matches := lambdaCaptureRE.FindAllStringSubmatchIndex(line, -1)
+	if len(matches) == 0 {
 		return nil
 	}
 
-	parts := strings.Split(match[1], ",")
-	result := make([]string, 0, len(parts))
+	var result []string
 
-	for _, part := range parts {
-		capture := strings.TrimSpace(part)
-		capture = strings.TrimPrefix(capture, "&")
-		capture = strings.TrimPrefix(capture, "=")
-		capture = strings.TrimPrefix(capture, "*")
-		capture = strings.TrimSpace(capture)
-
-		if capture == "" {
+	for _, match := range matches {
+		if len(match) < 4 {
 			continue
 		}
 
-		result = append(result, capture)
+		captureText := line[match[2]:match[3]]
+		afterCapture := line[match[1]:]
+
+		if !looksLikeLambdaAfterCapture(afterCapture) {
+			continue
+		}
+
+		parts := strings.Split(captureText, ",")
+		for _, part := range parts {
+			capture := normalizeLambdaCapture(part)
+			if capture == "" {
+				continue
+			}
+
+			result = append(result, capture)
+		}
 	}
 
 	return result
 }
 
-func isAsyncLookingLine(line string) bool {
-	line = strings.ToLower(line)
-
-	asyncMarkers := []string{
-		"boost::asio::post",
-		"asio::post",
-		"post(",
-		"dispatch(",
-		"defer(",
-		"async_",
-		"async.",
-		"callback",
-		"set_callback",
-		"sethandler",
-		"set_handler",
-		"timer",
-		"thread_pool",
-	}
-
-	for _, marker := range asyncMarkers {
-		if strings.Contains(line, marker) {
-			return true
-		}
-	}
-
-	return false
-}
-
-func isPollingLoopContextLine(line string) bool {
-	lower := strings.ToLower(line)
-
-	if !strings.Contains(lower, "while") &&
-		!strings.Contains(lower, "for") &&
-		!strings.Contains(lower, "do") {
+func looksLikeLambdaAfterCapture(after string) bool {
+	after = strings.TrimSpace(after)
+	if after == "" {
 		return false
 	}
 
-	return isShutdownContextLine(lower) ||
-		strings.Contains(lower, "pending") ||
-		strings.Contains(lower, "load()") ||
-		strings.Contains(lower, "joinable")
+	return strings.HasPrefix(after, "(") ||
+		strings.HasPrefix(after, "{") ||
+		strings.HasPrefix(after, "<") ||
+		strings.HasPrefix(after, "mutable") ||
+		strings.HasPrefix(after, "noexcept") ||
+		strings.HasPrefix(after, "->")
 }
 
-func isPollingSleepLine(line string) bool {
+func normalizeLambdaCapture(part string) string {
+	capture := strings.TrimSpace(part)
+	capture = strings.TrimPrefix(capture, "&")
+	capture = strings.TrimPrefix(capture, "=")
+	capture = strings.TrimPrefix(capture, "*")
+	capture = strings.TrimSpace(capture)
+
+	if capture == "" {
+		return ""
+	}
+
+	if strings.Contains(capture, "=") {
+		capture = strings.TrimSpace(strings.SplitN(capture, "=", 2)[0])
+	}
+
+	return capture
+}
+
+func isSleepLine(line string) bool {
 	lower := strings.ToLower(line)
 
 	return strings.Contains(lower, "sleep_for") ||
@@ -329,38 +405,56 @@ func isPollingSleepLine(line string) bool {
 		strings.Contains(lower, "sleep(")
 }
 
-func isShutdownContextLine(line string) bool {
-	lower := strings.ToLower(line)
+func isDetachedDelayedCallbackAround(lines []string, index int) bool {
+	text := strings.ToLower(rawWindowText(lines, index, 4, 6))
 
-	return strings.Contains(lower, "shutdown") ||
-		strings.Contains(lower, "stop") ||
-		strings.Contains(lower, "disconnect") ||
-		strings.Contains(lower, "pending") ||
-		strings.Contains(lower, "callback") ||
-		strings.Contains(lower, "join")
-}
-
-func isDetachedThreadContextLine(line string) bool {
-	lower := strings.ToLower(line)
-
-	if !strings.Contains(lower, "std::thread") {
+	if !strings.Contains(text, "std::thread") || !strings.Contains(text, ".detach(") {
 		return false
 	}
 
-	return strings.Contains(lower, "shutdown") ||
-		strings.Contains(lower, "callback")
+	if !strings.Contains(text, "callback") && !strings.Contains(text, "shutdown") {
+		return false
+	}
+
+	return strings.Contains(text, "sleep_for") ||
+		strings.Contains(text, "usleep") ||
+		strings.Contains(text, "sleep(")
 }
 
-func isDetachedCallbackInvocationLine(line string) bool {
-	lower := strings.ToLower(strings.TrimSpace(line))
+func isPollingSleepAround(lines []string, index int) bool {
+	text := strings.ToLower(rawWindowText(lines, index, 4, 4))
 
-	return strings.Contains(lower, "callback(") ||
-		strings.Contains(lower, "shutdown_callback")
+	if !loopKeywordRE.MatchString(text) {
+		return false
+	}
+
+	return strings.Contains(text, "pending") ||
+		strings.Contains(text, "callback") ||
+		strings.Contains(text, "shutdown") ||
+		strings.Contains(text, "disconnect") ||
+		strings.Contains(text, "stop") ||
+		strings.Contains(text, "join") ||
+		strings.Contains(text, ".load()")
 }
 
-func isDetachLine(line string) bool {
-	return strings.Contains(strings.ToLower(line), ".detach(") ||
-		strings.Contains(strings.ToLower(line), ").detach")
+func rawWindowText(lines []string, index int, before int, after int) string {
+	start := index - before
+	if start < 0 {
+		start = 0
+	}
+
+	end := index + after + 1
+	if end > len(lines) {
+		end = len(lines)
+	}
+
+	var b strings.Builder
+	for _, line := range lines[start:end] {
+		b.WriteString(stripLineComment(line))
+		b.WriteByte('\n')
+	}
+
+	return b.String()
 }
 
 func addEvidence(builder *findingBuilder, evidence model.Evidence) {

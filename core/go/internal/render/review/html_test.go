@@ -242,7 +242,7 @@ func TestWriteReviewHTML_RendersFindingEvidenceDetails(t *testing.T) {
 		FindingChanges: []findingdiff.FindingChange{
 			{
 				Kind:               findingdiff.FindingChangeKindAdded,
-				ID:                 "cpp.async.this_capture",
+				ID:                 "cpp.lifetime.this_capture_async",
 				AfterEvidenceCount: 1,
 				AddedEvidence: []model.Evidence{
 					{
@@ -253,7 +253,7 @@ func TestWriteReviewHTML_RendersFindingEvidenceDetails(t *testing.T) {
 					},
 				},
 				After: &model.Finding{
-					ID:         "cpp.async.this_capture",
+					ID:         "cpp.lifetime.this_capture_async",
 					Kind:       model.FindingKindRuntimeRisk,
 					Severity:   model.SeverityHigh,
 					Title:      "`this` captured into async callback",
@@ -277,7 +277,7 @@ func TestWriteReviewHTML_RendersFindingEvidenceDetails(t *testing.T) {
 
 	got := out.String()
 
-	require.Contains(t, got, "cpp.async.this_capture")
+	require.Contains(t, got, "cpp.lifetime.this_capture_async")
 	require.Contains(t, got, "runtime_risk")
 	require.Contains(t, got, "Callback may outlive the owning object.")
 	require.Contains(t, got, "Review what guarantees")

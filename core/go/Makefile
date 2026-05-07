@@ -382,3 +382,7 @@ release-check: ci camera-demo self-review
 	@test -f "$(SELF_OUT)/review-context.md" || (echo "missing $(SELF_OUT)/review-context.md" && exit 2)
 	@test -f "$(SELF_SARIF)" || (echo "missing $(SELF_SARIF)" && exit 2)
 	@echo "PatchCourt release-check passed."
+
+.PHONY: bench-runtime
+bench-runtime:
+	./scripts/bench_runtime.sh

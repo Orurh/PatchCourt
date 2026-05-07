@@ -244,9 +244,9 @@ func TestBuildReviewSARIF_DoesNotDuplicateFindingImpactItems(t *testing.T) {
 		FindingChanges: []findingdiff.FindingChange{
 			{
 				Kind: findingdiff.FindingChangeKindAdded,
-				ID:   "cpp.async.this_capture",
+				ID:   "cpp.lifetime.this_capture_async",
 				After: &model.Finding{
-					ID:       "cpp.async.this_capture",
+					ID:       "cpp.lifetime.this_capture_async",
 					Kind:     model.FindingKindRuntimeRisk,
 					Severity: model.SeverityHigh,
 					Title:    "`this` captured into async callback",
@@ -260,7 +260,7 @@ func TestBuildReviewSARIF_DoesNotDuplicateFindingImpactItems(t *testing.T) {
 			Worse: []reportmodel.ReviewImpactItem{
 				{
 					Kind:     "finding_added",
-					ID:       "cpp.async.this_capture",
+					ID:       "cpp.lifetime.this_capture_async",
 					Severity: string(model.SeverityHigh),
 					Title:    "Added runtime risk finding",
 					Evidence: []model.Evidence{
@@ -274,5 +274,5 @@ func TestBuildReviewSARIF_DoesNotDuplicateFindingImpactItems(t *testing.T) {
 	log := BuildReviewSARIF(result)
 
 	require.Len(t, log.Runs[0].Results, 1)
-	require.Equal(t, "cpp.async.this_capture", log.Runs[0].Results[0].RuleID)
+	require.Equal(t, "cpp.lifetime.this_capture_async", log.Runs[0].Results[0].RuleID)
 }

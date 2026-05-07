@@ -36,13 +36,13 @@ func TestCalculate_ScoresChangedFindingSeverityIncrease(t *testing.T) {
 		FindingChanges: []findingdiff.FindingChange{
 			{
 				Kind: findingdiff.FindingChangeKindChanged,
-				ID:   "cpp.async.this_capture",
+				ID:   "cpp.lifetime.this_capture_async",
 				Before: &model.Finding{
-					ID:       "cpp.async.this_capture",
+					ID:       "cpp.lifetime.this_capture_async",
 					Severity: model.SeverityMedium,
 				},
 				After: &model.Finding{
-					ID:       "cpp.async.this_capture",
+					ID:       "cpp.lifetime.this_capture_async",
 					Severity: model.SeverityHigh,
 				},
 				SeverityChanged: true,
@@ -53,7 +53,7 @@ func TestCalculate_ScoresChangedFindingSeverityIncrease(t *testing.T) {
 	require.Equal(t, 2, score.Points)
 	require.Equal(t, LevelLow, score.Level)
 	require.Len(t, score.Reasons, 1)
-	require.Equal(t, "finding severity increased: cpp.async.this_capture (medium -> high)", score.Reasons[0].Message)
+	require.Equal(t, "finding severity increased: cpp.lifetime.this_capture_async (medium -> high)", score.Reasons[0].Message)
 }
 
 func TestCalculate_ScoresChangedFindingAddedEvidence(t *testing.T) {
@@ -61,13 +61,13 @@ func TestCalculate_ScoresChangedFindingAddedEvidence(t *testing.T) {
 		FindingChanges: []findingdiff.FindingChange{
 			{
 				Kind: findingdiff.FindingChangeKindChanged,
-				ID:   "cpp.async.raw_pointer_capture",
+				ID:   "cpp.lifetime.raw_pointer_async_capture",
 				Before: &model.Finding{
-					ID:       "cpp.async.raw_pointer_capture",
+					ID:       "cpp.lifetime.raw_pointer_async_capture",
 					Severity: model.SeverityHigh,
 				},
 				After: &model.Finding{
-					ID:       "cpp.async.raw_pointer_capture",
+					ID:       "cpp.lifetime.raw_pointer_async_capture",
 					Severity: model.SeverityHigh,
 				},
 				AddedEvidence: []model.Evidence{
@@ -81,7 +81,7 @@ func TestCalculate_ScoresChangedFindingAddedEvidence(t *testing.T) {
 	require.Equal(t, 2, score.Points)
 	require.Equal(t, LevelLow, score.Level)
 	require.Len(t, score.Reasons, 1)
-	require.Equal(t, "finding evidence increased: cpp.async.raw_pointer_capture (+2 evidence)", score.Reasons[0].Message)
+	require.Equal(t, "finding evidence increased: cpp.lifetime.raw_pointer_async_capture (+2 evidence)", score.Reasons[0].Message)
 }
 
 func TestCalculate_CapsChangedFindingAddedEvidenceScore(t *testing.T) {
@@ -89,13 +89,13 @@ func TestCalculate_CapsChangedFindingAddedEvidenceScore(t *testing.T) {
 		FindingChanges: []findingdiff.FindingChange{
 			{
 				Kind: findingdiff.FindingChangeKindChanged,
-				ID:   "cpp.async.raw_pointer_capture",
+				ID:   "cpp.lifetime.raw_pointer_async_capture",
 				Before: &model.Finding{
-					ID:       "cpp.async.raw_pointer_capture",
+					ID:       "cpp.lifetime.raw_pointer_async_capture",
 					Severity: model.SeverityHigh,
 				},
 				After: &model.Finding{
-					ID:       "cpp.async.raw_pointer_capture",
+					ID:       "cpp.lifetime.raw_pointer_async_capture",
 					Severity: model.SeverityHigh,
 				},
 				AddedEvidence: []model.Evidence{
@@ -111,7 +111,7 @@ func TestCalculate_CapsChangedFindingAddedEvidenceScore(t *testing.T) {
 	require.Equal(t, 3, score.Points)
 	require.Equal(t, LevelMedium, score.Level)
 	require.Len(t, score.Reasons, 1)
-	require.Equal(t, "finding evidence increased: cpp.async.raw_pointer_capture (+4 evidence)", score.Reasons[0].Message)
+	require.Equal(t, "finding evidence increased: cpp.lifetime.raw_pointer_async_capture (+4 evidence)", score.Reasons[0].Message)
 }
 
 func TestCalculate_ScoresChangedFindingConfidenceIncreaseWithoutOtherRiskSignal(t *testing.T) {
@@ -119,14 +119,14 @@ func TestCalculate_ScoresChangedFindingConfidenceIncreaseWithoutOtherRiskSignal(
 		FindingChanges: []findingdiff.FindingChange{
 			{
 				Kind: findingdiff.FindingChangeKindChanged,
-				ID:   "cpp.async.this_capture",
+				ID:   "cpp.lifetime.this_capture_async",
 				Before: &model.Finding{
-					ID:         "cpp.async.this_capture",
+					ID:         "cpp.lifetime.this_capture_async",
 					Severity:   model.SeverityMedium,
 					Confidence: model.ConfidenceMedium,
 				},
 				After: &model.Finding{
-					ID:         "cpp.async.this_capture",
+					ID:         "cpp.lifetime.this_capture_async",
 					Severity:   model.SeverityMedium,
 					Confidence: model.ConfidenceHigh,
 				},
@@ -138,7 +138,7 @@ func TestCalculate_ScoresChangedFindingConfidenceIncreaseWithoutOtherRiskSignal(
 	require.Equal(t, 1, score.Points)
 	require.Equal(t, LevelLow, score.Level)
 	require.Len(t, score.Reasons, 1)
-	require.Equal(t, "finding confidence increased: cpp.async.this_capture (medium -> high)", score.Reasons[0].Message)
+	require.Equal(t, "finding confidence increased: cpp.lifetime.this_capture_async (medium -> high)", score.Reasons[0].Message)
 }
 
 func TestCalculate_DoesNotScoreChangedFindingEvidenceReduction(t *testing.T) {
@@ -146,13 +146,13 @@ func TestCalculate_DoesNotScoreChangedFindingEvidenceReduction(t *testing.T) {
 		FindingChanges: []findingdiff.FindingChange{
 			{
 				Kind: findingdiff.FindingChangeKindChanged,
-				ID:   "cpp.async.raw_pointer_capture",
+				ID:   "cpp.lifetime.raw_pointer_async_capture",
 				Before: &model.Finding{
-					ID:       "cpp.async.raw_pointer_capture",
+					ID:       "cpp.lifetime.raw_pointer_async_capture",
 					Severity: model.SeverityHigh,
 				},
 				After: &model.Finding{
-					ID:       "cpp.async.raw_pointer_capture",
+					ID:       "cpp.lifetime.raw_pointer_async_capture",
 					Severity: model.SeverityHigh,
 				},
 				RemovedEvidence: []model.Evidence{
