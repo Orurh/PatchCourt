@@ -201,7 +201,7 @@ func analyzeCaptures(
 	builders map[string]*findingBuilder,
 ) {
 	for _, capture := range captures {
-		switch  capture{
+		switch capture {
 		case "this":
 			if !isReportableThisCaptureContext(context.Kind) {
 				continue

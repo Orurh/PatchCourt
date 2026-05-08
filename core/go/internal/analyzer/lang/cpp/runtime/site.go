@@ -117,8 +117,6 @@ func scoreRuntimeSite(site RuntimeSite) int {
 	return score
 }
 
-
-
 func severityForRuntimeScore(score int) model.Severity {
 	switch {
 	case score >= 5:
