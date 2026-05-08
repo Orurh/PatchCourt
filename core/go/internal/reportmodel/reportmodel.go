@@ -117,6 +117,9 @@ type ReviewSummary struct {
 }
 
 type ReviewResult struct {
+	BeforeProject *model.ProjectModel `json:"-"`
+	AfterProject  *model.ProjectModel `json:"-"`
+
 	SchemaVersion     string                      `json:"schema_version"`
 	Summary           ReviewSummary               `json:"summary"`
 	Risk              risk.Score                  `json:"risk"`

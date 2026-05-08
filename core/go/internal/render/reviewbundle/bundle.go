@@ -49,10 +49,15 @@ func WriteWithOptions(opts Options, result reportmodel.ReviewResult) error {
 	manifest := Manifest{
 		SchemaVersion: SchemaVersion,
 		Artifacts: map[string]string{
-			"review":      "review.json",
-			"html":        "review.html",
-			"llm_context": "review-context.md",
-			"sarif":       "patchcourt.sarif",
+			"review":         "review.json",
+			"project_before": "project-before.json",
+			"project_after":  "project-after.json",
+			"graph":          "graph.json",
+			"runtime":        "runtime.json",
+			"tree":           "tree.json",
+			"html":           "review.html",
+			"llm_context":    "review-context.md",
+			"sarif":          "patchcourt.sarif",
 		},
 	}
 
@@ -61,6 +66,30 @@ func WriteWithOptions(opts Options, result reportmodel.ReviewResult) error {
 	}
 
 	if err := writeJSON(filepath.Join(opts.Dir, "review.json"), result); err != nil {
+		return err
+	}
+
+	if result.BeforeProject != nil {
+		if err := writeJSON(filepath.Join(opts.Dir, "project-before.json"), result.BeforeProject); err != nil {
+			return err
+		}
+	}
+
+	if result.AfterProject != nil {
+		if err := writeJSON(filepath.Join(opts.Dir, "project-after.json"), result.AfterProject); err != nil {
+			return err
+		}
+	}
+
+	if err := writeJSON(filepath.Join(opts.Dir, "graph.json"), BuildReviewGraph(result)); err != nil {
+		return err
+	}
+
+	if err := writeJSON(filepath.Join(opts.Dir, "runtime.json"), BuildRuntimeReport(result)); err != nil {
+		return err
+	}
+
+	if err := writeJSON(filepath.Join(opts.Dir, "tree.json"), BuildProjectTree(result)); err != nil {
 		return err
 	}
 

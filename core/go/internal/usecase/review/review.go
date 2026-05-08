@@ -97,6 +97,8 @@ func (s Service) Run(ctx context.Context, req Request) (*ReviewResult, error) {
 	})
 
 	result := &ReviewResult{
+		BeforeProject:     beforeProject,
+		AfterProject:      afterProject,
 		SchemaVersion:     reportmodel.ReviewResultSchemaVersion,
 		Summary:           buildReviewSummary(changeSet.ContractChanges, changeSet.DependencyChanges, changeSet.LayerEdgeChanges, changeSet.FindingChanges),
 		Risk:              reviewRisk,
