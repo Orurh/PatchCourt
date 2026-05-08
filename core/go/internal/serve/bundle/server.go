@@ -43,6 +43,9 @@ func Serve(ctx context.Context, opts Options) error {
 	registerJSONFile(mux, "/api/graph", opts.DataDir, "graph.json")
 	registerJSONFile(mux, "/api/runtime", opts.DataDir, "runtime.json")
 	registerJSONFile(mux, "/api/tree", opts.DataDir, "tree.json")
+	registerJSONFile(mux, "/api/findings", opts.DataDir, "findings.json")
+	registerJSONFile(mux, "/api/contracts", opts.DataDir, "contracts.json")
+	registerJSONFile(mux, "/api/dependencies", opts.DataDir, "dependencies.json")
 
 	mux.HandleFunc("/api/health", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSONBytes(w, http.StatusOK, []byte(`{"status":"ok"}`+"\n"))
@@ -64,7 +67,10 @@ func Serve(ctx context.Context, opts Options) error {
     "/api/project/after",
     "/api/graph",
     "/api/runtime",
-    "/api/tree"
+    "/api/tree",
+    "/api/findings",
+    "/api/contracts",
+    "/api/dependencies"
   ]
 }`+"\n"))
 	})

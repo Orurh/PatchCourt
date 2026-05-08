@@ -55,6 +55,9 @@ func WriteWithOptions(opts Options, result reportmodel.ReviewResult) error {
 			"graph":          "graph.json",
 			"runtime":        "runtime.json",
 			"tree":           "tree.json",
+			"findings":       "findings.json",
+			"contracts":      "contracts.json",
+			"dependencies":   "dependencies.json",
 			"html":           "review.html",
 			"llm_context":    "review-context.md",
 			"sarif":          "patchcourt.sarif",
@@ -90,6 +93,18 @@ func WriteWithOptions(opts Options, result reportmodel.ReviewResult) error {
 	}
 
 	if err := writeJSON(filepath.Join(opts.Dir, "tree.json"), BuildProjectTree(result)); err != nil {
+		return err
+	}
+
+	if err := writeJSON(filepath.Join(opts.Dir, "findings.json"), BuildFindingsReport(result)); err != nil {
+		return err
+	}
+
+	if err := writeJSON(filepath.Join(opts.Dir, "contracts.json"), BuildContractsReport(result)); err != nil {
+		return err
+	}
+
+	if err := writeJSON(filepath.Join(opts.Dir, "dependencies.json"), BuildDependenciesReport(result)); err != nil {
 		return err
 	}
 
