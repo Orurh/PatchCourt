@@ -9,6 +9,7 @@ import (
 	"github.com/orurh/patchcourt/internal/platform/files"
 	"github.com/orurh/patchcourt/internal/render/llmpack"
 	renderreview "github.com/orurh/patchcourt/internal/render/review"
+	"github.com/orurh/patchcourt/internal/render/reviewbundle"
 	rendersarif "github.com/orurh/patchcourt/internal/render/sarif"
 	"github.com/orurh/patchcourt/internal/usecase"
 	"github.com/spf13/cobra"
@@ -49,6 +50,8 @@ type reviewOptions struct {
 	htmlOut  string
 	sarifOut string
 
+	out string
+
 	format string
 }
 
@@ -80,6 +83,12 @@ func (r *Runner) newReviewCommand(ctx context.Context, rootOpts *rootOptions) *c
 			})
 			if err != nil {
 				return err
+			}
+
+			if opts.out != "" {
+				if err := r.writeReviewBundle(opts.out, result); err != nil {
+					return err
+				}
 			}
 
 			if opts.llmPack {
@@ -131,9 +140,30 @@ func (r *Runner) newReviewCommand(ctx context.Context, rootOpts *rootOptions) *c
 	cmd.Flags().StringVar(&opts.llmPackPath, "llm-pack-out", "", "path to write LLM review context pack")
 	cmd.Flags().StringVar(&opts.htmlOut, "html-out", "", "path to write the static review HTML report")
 	cmd.Flags().StringVar(&opts.sarifOut, "sarif-out", "", "path to write the SARIF report")
+	cmd.Flags().StringVar(&opts.out, "out", "", "directory to write the review analysis bundle")
 	cmd.Flags().StringVar(&opts.format, "format", string(usecase.ReviewFormatText), "output format: text, json, markdown")
 
 	return cmd
+}
+
+func (r *Runner) writeReviewBundle(outDir string, result *usecase.ReviewResult) error {
+	if result == nil {
+		return fmt.Errorf("review result is nil")
+	}
+
+	if outDir == "" {
+		return fmt.Errorf("review bundle output directory is required")
+	}
+
+	if err := reviewbundle.Write(outDir, *result); err != nil {
+		return err
+	}
+
+	if r.stderr != nil {
+		fmt.Fprintf(r.stderr, "Review bundle written: %s\n", outDir)
+	}
+
+	return nil
 }
 
 func (r *Runner) writeReviewHTML(outPath string, result *usecase.ReviewResult) error {
