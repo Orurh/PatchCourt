@@ -120,6 +120,8 @@ func registerGitRoutes(mux *http.ServeMux, root string) {
 		writeJSONValue(w, http.StatusOK, refs)
 	})
 
+	registerGitGraphRoute(mux, root)
+
 	mux.HandleFunc("/api/git/commits", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			w.Header().Set("Allow", http.MethodGet)

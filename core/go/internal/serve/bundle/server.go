@@ -91,6 +91,7 @@ func Serve(ctx context.Context, opts Options) error {
     "/api/git/status",
     "/api/git/branches",
     "/api/git/refs",
+    "/api/git/graph",
     "/api/git/commits",
     "/api/reviews",
     "/api/reviews/latest/manifest",

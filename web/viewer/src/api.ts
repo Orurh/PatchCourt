@@ -6,6 +6,7 @@ import type {
   FindingsReport,
   GitBranchesResponse,
   GitCommitsResponse,
+  GitGraphResponse,
   GitRefsResponse,
   GitStatus,
   ReviewResult,
@@ -65,6 +66,19 @@ export function fetchGitCommits(limit = 50, ref = ''): Promise<GitCommitsRespons
 
 export function fetchGitCommitsAll(limit = 100): Promise<GitCommitsResponse> {
   return getJSON<GitCommitsResponse>(`/api/git/commits?all=true&limit=${limit}`)
+}
+
+export function fetchGitGraph(limit = 100, ref = '', all = false): Promise<GitGraphResponse> {
+  const params = new URLSearchParams()
+  params.set('limit', String(limit))
+
+  if (all) {
+    params.set('all', 'true')
+  } else if (ref.trim() !== '') {
+    params.set('ref', ref)
+  }
+
+  return getJSON<GitGraphResponse>(`/api/git/graph?${params.toString()}`)
 }
 
 export function createReview(req: CreateReviewRequest): Promise<CreateReviewResponse> {

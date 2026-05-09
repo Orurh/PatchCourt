@@ -4,7 +4,7 @@ import {
   fetchDependencies,
   fetchFindings,
   fetchGitBranches,
-  fetchGitCommits,
+  fetchGitGraph,
   fetchGitStatus,
   fetchReview,
   fetchRuntime,
@@ -17,7 +17,8 @@ import type {
   DependenciesReport,
   FindingsReport,
   GitBranch,
-  GitCommit,
+  GitGraphCommit,
+  GitGraphLayout,
   GitStatus,
   ReviewResult,
   RuntimeReport,
@@ -78,7 +79,9 @@ export function App() {
   const [gitStatus, setGitStatus] = useState<GitStatus | null>(null)
   const [branches, setBranches] = useState<GitBranch[]>([])
   const [selectedRef, setSelectedRef] = useState('')
-  const [commits, setCommits] = useState<GitCommit[]>([])
+  const [showAllBranches, setShowAllBranches] = useState(false)
+  const [commits, setCommits] = useState<GitGraphCommit[]>([])
+  const [graphLayout, setGraphLayout] = useState<GitGraphLayout | null>(null)
   const [loadingGit, setLoadingGit] = useState(true)
   const [loadingBundle, setLoadingBundle] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -91,9 +94,9 @@ export function App() {
 
   useEffect(() => {
     if (selectedRef !== '') {
-      void loadCommitsForRef(selectedRef)
+      void loadCommitsForRef(selectedRef, showAllBranches)
     }
-  }, [selectedRef])
+  }, [selectedRef, showAllBranches])
 
   async function loadGitContext() {
     setLoadingGit(true)
@@ -106,8 +109,9 @@ export function App() {
       setBranches(branchResponse.branches)
       setSelectedRef(initialRef)
 
-      const commitResponse = await fetchGitCommits(80, initialRef)
-      setCommits(commitResponse.commits)
+      const graphResponse = await fetchGitGraph(120, initialRef, showAllBranches)
+      setCommits(graphResponse.commits)
+      setGraphLayout(graphResponse.layout ?? null)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -115,10 +119,11 @@ export function App() {
     }
   }
 
-  async function loadCommitsForRef(ref: string) {
+  async function loadCommitsForRef(ref: string, allBranches = false) {
     try {
-      const commitResponse = await fetchGitCommits(80, ref)
-      setCommits(commitResponse.commits)
+      const graphResponse = await fetchGitGraph(120, ref, allBranches)
+      setCommits(graphResponse.commits)
+      setGraphLayout(graphResponse.layout ?? null)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     }
@@ -182,7 +187,10 @@ export function App() {
         branches={branches}
         selectedRef={selectedRef}
         onSelectedRefChange={setSelectedRef}
+        showAllBranches={showAllBranches}
+        onShowAllBranchesChange={setShowAllBranches}
         commits={commits}
+        graphLayout={graphLayout}
         loading={loadingGit}
         onError={setError}
         onReviewGenerated={(response) => {

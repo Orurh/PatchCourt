@@ -425,12 +425,6 @@ pre {
   margin: 0;
 }
 
-.commit-timeline {
-  display: grid;
-  max-height: 520px;
-  overflow: auto;
-  padding-right: 4px;
-}
 
 .commit-row {
   display: grid;
@@ -616,10 +610,6 @@ pre {
   font: inherit;
 }
 
-.git-graph-timeline {
-  max-height: 620px;
-  gap: 2px;
-}
 
 .graph-row {
   grid-template-columns: 88px minmax(260px, 1fr) 130px 90px;
@@ -638,55 +628,12 @@ pre {
   background: white;
 }
 
-.graph-cell {
-  position: relative;
-  height: 44px;
-  width: 82px;
-  display: block;
-}
-
-.graph-lane {
-  position: absolute;
-  top: -13px;
-  bottom: -13px;
-  width: 3px;
-  border-radius: 999px;
-  opacity: 0.24;
-  background: #cbd5e1;
-}
-
-.graph-lane.active,
-.graph-lane.merge-active {
-  opacity: 0.95;
-}
-
-.graph-dot {
-  position: absolute;
-  top: 14px;
-  width: 14px;
-  height: 14px;
-  border: 3px solid white;
-  border-radius: 999px;
-  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.14);
-  z-index: 2;
-}
 
 .local-dot {
   border-radius: 6px;
   transform: rotate(45deg);
 }
 
-.graph-merge-arc {
-  position: absolute;
-  left: 24px;
-  top: 11px;
-  width: 30px;
-  height: 20px;
-  border-top: 3px solid currentColor;
-  border-left: 3px solid currentColor;
-  border-radius: 14px 0 0 0;
-  opacity: 0.75;
-}
 
 .lane-blue {
   background: #3b82f6;
@@ -755,25 +702,369 @@ pre {
   white-space: nowrap;
 }
 
-.selected-base .graph-dot {
-  box-shadow: 0 0 0 4px #c7d2fe;
+.stroke-blue {
+  stroke: #3b82f6;
 }
 
-.selected-head .graph-dot {
-  box-shadow: 0 0 0 4px #fde68a;
+.stroke-pink {
+  stroke: #db2777;
+}
+
+.stroke-green {
+  stroke: #22c55e;
+}
+
+.stroke-yellow {
+  stroke: #f59e0b;
+}
+
+.stroke-purple {
+  stroke: #8b5cf6;
+}
+
+.stroke-cyan {
+  stroke: #06b6d4;
+}
+
+
+.local-dot {
+  border-radius: 6px;
+  transform: rotate(45deg);
+}
+
+
+.graph-row {
+  min-height: 38px;
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+
+.graph-row:not(.selected-base):not(.selected-head):not(.working-tree-row) {
+  background: transparent;
+}
+
+.graph-row:hover {
+  background: #f8fafc;
+}
+
+.graph-row.selected-base {
+  background: #eef2ff;
+}
+
+.graph-row.selected-head,
+.working-tree-row {
+  background: #fff7ed;
+}
+
+.commit-title {
+  gap: 8px;
+}
+
+.commit-date,
+.commit-short {
+  color: #6b7280;
+}
+
+.graph-row {
+  grid-template-columns: 72px minmax(280px, 1fr) 120px 80px;
+}
+
+
+.commit-title code {
+  min-width: 64px;
+  display: inline-block;
+}
+
+.commit-date,
+.commit-short {
+  opacity: 0.72;
+}
+
+.ref-pill {
+  font-size: 12px;
+  padding: 2px 8px;
+}
+
+.selected-base {
+  box-shadow: inset 3px 0 0 #6366f1;
+}
+
+.selected-head,
+.working-tree-row {
+  box-shadow: inset 3px 0 0 #f59e0b;
+}
+
+.graph-row {
+  grid-template-columns: 72px minmax(280px, 1fr) 120px 80px;
+}
+
+
+.commit-title code {
+  min-width: 64px;
+  display: inline-block;
+}
+
+.commit-date,
+.commit-short {
+  opacity: 0.72;
+}
+
+.ref-pill {
+  font-size: 12px;
+  padding: 2px 8px;
+}
+
+.selected-base {
+  box-shadow: inset 3px 0 0 #6366f1;
+}
+
+.selected-head,
+.working-tree-row {
+  box-shadow: inset 3px 0 0 #f59e0b;
+}
+
+
+.graph-row {
+  position: relative;
+  z-index: 2;
+  grid-template-columns: 86px minmax(280px, 1fr) 120px 80px;
+  min-height: 54px;
+}
+
+/* Clean PatchCourt commit graph component */
+
+
+.graph-ref-controls {
+  display: grid;
+  gap: 8px;
+  min-width: 280px;
+}
+
+.graph-ref-selector select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: #f3f4f6;
+}
+
+.graph-all-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.graph-all-toggle input {
+  width: 16px;
+  height: 16px;
+}
+
+/* Commit graph library experiment */
+
+.pc-lib-graph {
+  display: grid;
+  gap: 12px;
+}
+
+.pc-lib-local-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: 1px solid #fed7aa;
+  border-radius: 14px;
+  background: #fff7ed;
+  padding: 12px 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pc-lib-local-row:hover {
+  background: #ffedd5;
+}
+
+.pc-lib-selected-head {
+  box-shadow: inset 3px 0 0 #f59e0b;
+}
+
+.pc-lib-graph-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.pc-lib-graph-box {
+  overflow: auto;
+  max-height: 620px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: white;
+  padding: 8px;
+}
+
+/* Unified commit graph canvas */
+
+
+/* Keep graph lines above selected row background, but below dots/text */
+
+/* Data-driven commit graph */
+
+.pc-graph-list {
+  position: relative;
+  display: grid;
+  max-height: 620px;
+  overflow: auto;
+  padding-right: 4px;
+  isolation: isolate;
+}
+
+.pc-graph-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 92px;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 4;
+}
+
+.pc-graph-row {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) 120px 80px;
+  align-items: center;
+  min-height: 54px;
+  width: 100%;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  padding: 0 10px;
+}
+
+.pc-graph-row:hover {
+  background: rgba(248, 250, 252, 0.86);
+}
+
+.pc-graph-cell {
+  position: relative;
+  z-index: 6;
+  width: 92px;
+  height: 54px;
+  display: block;
+}
+
+.pc-graph-lane {
+  stroke-width: 3;
+  opacity: 0.95;
+  stroke-linecap: round;
+}
+
+.pc-graph-link {
+  fill: none;
+  stroke-width: 3;
+  opacity: 1;
+  stroke-linecap: round;
+}
+
+.pc-graph-dot {
+  position: absolute;
+  top: 18px;
+  box-sizing: border-box;
+  width: 18px;
+  height: 18px;
+  border: 3px solid white;
+  border-radius: 999px;
+  box-shadow:
+    0 0 0 2px #ffffff,
+    0 0 0 3px rgba(15, 23, 42, 0.14);
+  z-index: 7;
+}
+
+.pc-graph-local-dot {
+  border-radius: 5px;
+  transform: rotate(45deg);
+}
+
+.pc-graph-main,
+.pc-graph-date,
+.pc-graph-short {
+  position: relative;
+  z-index: 6;
+}
+
+.pc-graph-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.pc-graph-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.pc-graph-title code {
+  flex: 0 0 auto;
+  min-width: 66px;
+}
+
+.pc-graph-title > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pc-graph-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.pc-graph-date,
+.pc-graph-short {
+  color: #6b7280;
+  font-size: 13px;
+  text-align: right;
+  white-space: nowrap;
+  opacity: 0.72;
+}
+
+.pc-graph-selected-base {
+  background: rgba(238, 242, 255, 0.86);
+  box-shadow: inset 3px 0 0 #6366f1;
+}
+
+.pc-graph-selected-head,
+.pc-graph-local-row {
+  background: rgba(255, 247, 237, 0.9);
+  box-shadow: inset 3px 0 0 #f59e0b;
+}
+
+.pc-graph-local-row {
+  border: 1px solid #fed7aa;
 }
 
 @media (max-width: 1100px) {
-  .graph-first-layout {
-    grid-template-columns: 1fr;
+  .pc-graph-row {
+    grid-template-columns: 92px minmax(0, 1fr);
   }
 
-  .graph-row {
-    grid-template-columns: 82px minmax(220px, 1fr);
-  }
-
-  .commit-date,
-  .commit-short {
+  .pc-graph-date,
+  .pc-graph-short {
     display: none;
   }
 }
+

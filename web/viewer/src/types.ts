@@ -265,3 +265,64 @@ export interface GitRefsResponse {
   root: string
   refs: GitRef[]
 }
+
+export interface GitGraphCommit extends GitCommit {
+  children?: string[] | null
+  lane: number
+  parent_lanes?: number[] | null
+  child_lanes?: number[] | null
+  is_merge?: boolean | null
+  is_branch_point?: boolean | null
+}
+
+export interface GitGraphResponse {
+  schema_version: string
+  root: string
+  ref?: string
+  all?: boolean
+  limit: number
+  commits: GitGraphCommit[]
+  layout?: GitGraphLayout
+}
+
+export interface GitGraphLayout {
+  row_height: number
+  lane_width: number
+  segments?: GitGraphSegment[]
+  edges?: GitGraphEdge[]
+}
+
+export interface GitGraphSegment {
+  lane: number
+  from_row: number
+  to_row: number
+}
+
+export interface GitGraphEdge {
+  from_lane: number
+  to_lane: number
+  from_row: number
+  to_row: number
+  kind: 'branch' | 'merge' | 'parent' | string
+}
+
+export interface GitGraphLayout {
+  row_height: number
+  lane_width: number
+  segments?: GitGraphSegment[]
+  edges?: GitGraphEdge[]
+}
+
+export interface GitGraphSegment {
+  lane: number
+  from_row: number
+  to_row: number
+}
+
+export interface GitGraphEdge {
+  from_lane: number
+  to_lane: number
+  from_row: number
+  to_row: number
+  kind: 'branch' | 'merge' | 'parent' | string
+}
