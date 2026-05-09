@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/orurh/patchcourt/internal/diff/contract"
+	"github.com/orurh/patchcourt/internal/platform/pathmatch"
 	"github.com/orurh/patchcourt/internal/reportmodel"
 )
 
@@ -82,7 +83,7 @@ func hasRelatedChangedTest(changedFiles []string, change contracts.SymbolChange)
 	}
 
 	for _, changedFile := range changedFiles {
-		if !isTestLikeFile(changedFile) {
+		if !pathmatch.IsTestLikeFile(changedFile) {
 			continue
 		}
 
@@ -127,31 +128,12 @@ func contractFiles(change contracts.SymbolChange) []string {
 
 func anyTestLikeFileChanged(changedFiles []string) bool {
 	for _, file := range changedFiles {
-		if isTestLikeFile(file) {
+		if pathmatch.IsTestLikeFile(file) {
 			return true
 		}
 	}
 
 	return false
-}
-
-func isTestLikeFile(file string) bool {
-	normalized := strings.ToLower(strings.ReplaceAll(file, "\\", "/"))
-	base := filepath.Base(normalized)
-
-	if strings.Contains(normalized, "/test/") ||
-		strings.Contains(normalized, "/tests/") ||
-		strings.Contains(normalized, "/mocks/") ||
-		strings.Contains(normalized, "/mock/") {
-		return true
-	}
-
-	return strings.HasSuffix(base, "_test.go") ||
-		strings.HasSuffix(base, "_test.cc") ||
-		strings.HasSuffix(base, "_test.cpp") ||
-		strings.HasSuffix(base, "_test.cxx") ||
-		strings.HasSuffix(base, "_test.h") ||
-		strings.HasSuffix(base, "_test.hpp")
 }
 
 func normalizedBaseName(file string) string {

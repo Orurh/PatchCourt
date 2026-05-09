@@ -170,3 +170,20 @@ func TestDiffLayerEdges_DetectsChangedLayerEdgeCount(t *testing.T) {
 	require.Equal(t, 2, changes[0].BeforeCount)
 	require.Equal(t, 3, changes[0].AfterCount)
 }
+
+func TestLayerEdgeKeyRoundTrip(t *testing.T) {
+	key := LayerEdgeKey("api", "cameras")
+
+	from, to := SplitLayerEdgeKey(key)
+
+	require.Equal(t, "api->cameras", key)
+	require.Equal(t, "api", from)
+	require.Equal(t, "cameras", to)
+}
+
+func TestSplitLayerEdgeKey_InvalidKey(t *testing.T) {
+	from, to := SplitLayerEdgeKey("api")
+
+	require.Equal(t, "api", from)
+	require.Empty(t, to)
+}

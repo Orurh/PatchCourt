@@ -75,7 +75,7 @@ func DiffLayerEdges(before []model.DependencyEdge, after []model.DependencyEdge)
 		beforeCount, hadBefore := beforeCounts[key]
 		afterCount, hasAfter := afterCounts[key]
 
-		from, to := splitLayerEdgeKey(key)
+		from, to := SplitLayerEdgeKey(key)
 
 		switch {
 		case !hadBefore && hasAfter:
@@ -168,18 +168,18 @@ func layerEdgeCounts(deps []model.DependencyEdge) map[string]int {
 			continue
 		}
 
-		key := layerEdgeKey(dep.FromLayer, dep.ToLayer)
+		key := LayerEdgeKey(dep.FromLayer, dep.ToLayer)
 		counts[key]++
 	}
 
 	return counts
 }
 
-func layerEdgeKey(from string, to string) string {
+func LayerEdgeKey(from string, to string) string {
 	return from + "->" + to
 }
 
-func splitLayerEdgeKey(key string) (string, string) {
+func SplitLayerEdgeKey(key string) (string, string) {
 	parts := strings.SplitN(key, "->", 2)
 	if len(parts) != 2 {
 		return key, ""

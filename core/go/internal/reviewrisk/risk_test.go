@@ -81,7 +81,7 @@ func TestCalculate_ScoresChangedFindingAddedEvidence(t *testing.T) {
 	require.Equal(t, 2, score.Points)
 	require.Equal(t, LevelLow, score.Level)
 	require.Len(t, score.Reasons, 1)
-	require.Equal(t, "finding evidence increased: cpp.lifetime.raw_pointer_async_capture (+2 evidence)", score.Reasons[0].Message)
+	require.Equal(t, "finding evidence increased: cpp.lifetime.raw_pointer_async_capture (+2 net evidence)", score.Reasons[0].Message)
 }
 
 func TestCalculate_CapsChangedFindingAddedEvidenceScore(t *testing.T) {
@@ -111,7 +111,7 @@ func TestCalculate_CapsChangedFindingAddedEvidenceScore(t *testing.T) {
 	require.Equal(t, 3, score.Points)
 	require.Equal(t, LevelMedium, score.Level)
 	require.Len(t, score.Reasons, 1)
-	require.Equal(t, "finding evidence increased: cpp.lifetime.raw_pointer_async_capture (+4 evidence)", score.Reasons[0].Message)
+	require.Equal(t, "finding evidence increased: cpp.lifetime.raw_pointer_async_capture (+4 net evidence)", score.Reasons[0].Message)
 }
 
 func TestCalculate_ScoresChangedFindingConfidenceIncreaseWithoutOtherRiskSignal(t *testing.T) {
@@ -294,4 +294,92 @@ func addedFinding(id string, severity model.Severity) findingdiff.FindingChange 
 			Severity: severity,
 		},
 	}
+}
+
+func TestCalculate_DoesNotScoreChangedFindingWhenEvidenceNetDecreases(t *testing.T) {
+	score := Calculate(Input{
+		FindingChanges: []findingdiff.FindingChange{
+			{
+				Kind: findingdiff.FindingChangeKindChanged,
+				ID:   "discovery.shared_candidate.application.constants",
+				Before: &model.Finding{
+					ID:         "discovery.shared_candidate.application.constants",
+					Kind:       model.FindingKindDiscoveryHint,
+					Severity:   model.SeverityLow,
+					Confidence: model.ConfidenceMedium,
+					Evidence: []model.Evidence{
+						{File: "a.cc"},
+						{File: "b.cc"},
+						{File: "c.cc"},
+						{File: "d.cc"},
+						{File: "e.cc"},
+					},
+				},
+				After: &model.Finding{
+					ID:         "discovery.shared_candidate.application.constants",
+					Kind:       model.FindingKindDiscoveryHint,
+					Severity:   model.SeverityLow,
+					Confidence: model.ConfidenceMedium,
+					Evidence: []model.Evidence{
+						{File: "x.cc"},
+					},
+				},
+				AddedEvidence: []model.Evidence{
+					{File: "x.cc"},
+				},
+				RemovedEvidence: []model.Evidence{
+					{File: "a.cc"},
+					{File: "b.cc"},
+					{File: "c.cc"},
+					{File: "d.cc"},
+					{File: "e.cc"},
+				},
+			},
+		},
+	})
+
+	require.Equal(t, 0, score.Points)
+	require.Equal(t, LevelLow, score.Level)
+	require.Empty(t, score.Reasons)
+}
+
+func TestCalculate_ScoresDiscoveryHintEvidenceGrowthAsDiscoverySignal(t *testing.T) {
+	score := Calculate(Input{
+		FindingChanges: []findingdiff.FindingChange{
+			{
+				Kind: findingdiff.FindingChangeKindChanged,
+				ID:   "discovery.shared_candidate.application.constants",
+				Before: &model.Finding{
+					ID:         "discovery.shared_candidate.application.constants",
+					Kind:       model.FindingKindDiscoveryHint,
+					Severity:   model.SeverityLow,
+					Confidence: model.ConfidenceMedium,
+				},
+				After: &model.Finding{
+					ID:         "discovery.shared_candidate.application.constants",
+					Kind:       model.FindingKindDiscoveryHint,
+					Severity:   model.SeverityLow,
+					Confidence: model.ConfidenceMedium,
+				},
+				AddedEvidence: []model.Evidence{
+					{File: "src/cameras/a.cc"},
+					{File: "src/cameras/b.cc"},
+					{File: "src/cameras/c.cc"},
+					{File: "src/cameras/d.cc"},
+					{File: "src/cameras/e.cc"},
+				},
+				RemovedEvidence: []model.Evidence{
+					{File: "src/utils/a.cc"},
+					{File: "src/utils/b.cc"},
+					{File: "src/utils/c.cc"},
+				},
+			},
+		},
+	})
+
+	require.Equal(t, 2, score.Points)
+	require.Equal(t, LevelLow, score.Level)
+	require.Len(t, score.Reasons, 1)
+	require.Equal(t, "discovery signal gained evidence: discovery.shared_candidate.application.constants (+2 net evidence)", score.Reasons[0].Message)
+	require.Equal(t, 2, score.Reasons[0].Points)
 }

@@ -9,6 +9,7 @@ import type {
   GitGraphResponse,
   GitRefsResponse,
   GitStatus,
+  ReviewGraph,
   ReviewResult,
   RuntimeReport,
   TreeReport,
@@ -87,6 +88,10 @@ export function createReview(req: CreateReviewRequest): Promise<CreateReviewResp
 
 export function fetchReview(): Promise<ReviewResult> {
   return getJSON<ReviewResult>('/api/reviews/latest/review')
+}
+
+export function fetchReviewGraph(): Promise<ReviewGraph> {
+  return getJSON<ReviewGraph>('/api/reviews/latest/graph')
 }
 
 export function fetchTree(): Promise<TreeReport> {

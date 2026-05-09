@@ -26,12 +26,12 @@ func buildPolicyViolationEdgeIndex(project *model.ProjectModel) policyViolationE
 				continue
 			}
 
-			index[layerEdgeKey(evidence.FromLayer, evidence.ToLayer)] = struct{}{}
+			index[depdiff.LayerEdgeKey(evidence.FromLayer, evidence.ToLayer)] = struct{}{}
 		}
 
 		from, to, ok := architectureFindingLayers(finding.ID)
 		if ok {
-			index[layerEdgeKey(from, to)] = struct{}{}
+			index[depdiff.LayerEdgeKey(from, to)] = struct{}{}
 		}
 	}
 
@@ -57,16 +57,12 @@ func architectureFindingLayers(id string) (string, string, bool) {
 	return parts[0], parts[1], true
 }
 
-func layerEdgeKey(fromLayer string, toLayer string) string {
-	return fromLayer + "->" + toLayer
-}
-
 func isPolicyViolationLayerEdge(index policyViolationEdgeIndex, fromLayer string, toLayer string) bool {
 	if fromLayer == "" || toLayer == "" {
 		return false
 	}
 
-	_, ok := index[layerEdgeKey(fromLayer, toLayer)]
+	_, ok := index[depdiff.LayerEdgeKey(fromLayer, toLayer)]
 	return ok
 }
 

@@ -6,17 +6,19 @@ import type {
   DependencyChange,
   FindingChange,
   FindingsReport,
+  ReviewGraph,
   ReviewResult,
   RuntimeReport,
-  TreeNode,
   TreeReport,
 } from '../types'
 import { EvidenceList, Metric, severityRank } from './common'
+import { ProjectTree } from './ProjectTree'
 
 type Tab = 'overview' | 'tree' | 'runtime' | 'findings' | 'contracts' | 'dependencies'
 
 interface Props {
   review: ReviewResult
+  graph: ReviewGraph
   tree: TreeReport
   runtime: RuntimeReport
   findings: FindingsReport
@@ -24,7 +26,7 @@ interface Props {
   dependencies: DependenciesReport
 }
 
-export function ReviewDashboard({ review, tree, runtime, findings, contracts, dependencies }: Props) {
+export function ReviewDashboard({ review, graph, tree, runtime, findings, contracts, dependencies }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('overview')
 
   const tabs: Array<[Tab, string]> = [
@@ -47,7 +49,7 @@ export function ReviewDashboard({ review, tree, runtime, findings, contracts, de
       </nav>
 
       {activeTab === 'overview' && <Overview review={review} />}
-      {activeTab === 'tree' && <TreeView tree={tree} />}
+      {activeTab === 'tree' && <ProjectTree tree={tree} graph={graph} />}
       {activeTab === 'runtime' && <RuntimeView runtime={runtime} />}
       {activeTab === 'findings' && <FindingsView findings={findings} />}
       {activeTab === 'contracts' && <ContractsView contracts={contracts} />}
@@ -99,46 +101,6 @@ function Overview({ review }: { review: ReviewResult }) {
         )}
       </section>
     </section>
-  )
-}
-
-function TreeView({ tree }: { tree: TreeReport }) {
-  return (
-    <section className="card">
-      <h2>Project tree</h2>
-      <TreeNodeView node={tree.root} depth={0} />
-    </section>
-  )
-}
-
-function TreeNodeView({ node, depth }: { node: TreeNode; depth: number }) {
-  const isInteresting =
-    (node.changed_files_count ?? 0) > 0 ||
-    (node.finding_count ?? 0) > 0 ||
-    (node.runtime_finding_count ?? 0) > 0 ||
-    node.kind === 'file'
-
-  if (!isInteresting && depth > 0) {
-    return null
-  }
-
-  return (
-    <div className="tree-node" style={{ paddingLeft: depth * 16 }}>
-      <div className="tree-row">
-        <span className={`node-kind ${node.kind}`}>{node.kind === 'dir' ? '▸' : '•'}</span>
-        <code>{node.path || node.name}</code>
-        {node.change_kind && <span className="tag">{node.change_kind}</span>}
-        {node.layer && <span className="tag">{node.layer}</span>}
-        {(node.changed_files_count ?? 0) > 0 && <span className="tag">changed {node.changed_files_count}</span>}
-        {(node.finding_count ?? 0) > 0 && <span className="tag bad">findings {node.finding_count}</span>}
-        {(node.runtime_finding_count ?? 0) > 0 && <span className="tag warn">runtime {node.runtime_finding_count}</span>}
-        {(node.risk_points ?? 0) > 0 && <span className="tag risk">risk {node.risk_points}</span>}
-      </div>
-
-      {node.children?.map((child) => (
-        <TreeNodeView key={child.path || child.name} node={child} depth={depth + 1} />
-      ))}
-    </div>
   )
 }
 

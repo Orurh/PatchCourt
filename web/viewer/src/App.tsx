@@ -7,6 +7,7 @@ import {
   fetchGitGraph,
   fetchGitStatus,
   fetchReview,
+  fetchReviewGraph,
   fetchRuntime,
   fetchTree,
 } from './api'
@@ -20,6 +21,7 @@ import type {
   GitGraphCommit,
   GitGraphLayout,
   GitStatus,
+  ReviewGraph,
   ReviewResult,
   RuntimeReport,
   TreeReport,
@@ -27,6 +29,7 @@ import type {
 
 interface BundleState {
   review: ReviewResult | null
+  graph: ReviewGraph | null
   tree: TreeReport | null
   runtime: RuntimeReport | null
   findings: FindingsReport | null
@@ -36,6 +39,7 @@ interface BundleState {
 
 interface ReadyBundleState {
   review: ReviewResult
+  graph: ReviewGraph
   tree: TreeReport
   runtime: RuntimeReport
   findings: FindingsReport
@@ -45,6 +49,7 @@ interface ReadyBundleState {
 
 const emptyBundle: BundleState = {
   review: null,
+  graph: null,
   tree: null,
   runtime: null,
   findings: null,
@@ -55,6 +60,7 @@ const emptyBundle: BundleState = {
 function readyBundleOrNull(bundle: BundleState): ReadyBundleState | null {
   if (
     bundle.review === null ||
+    bundle.graph === null ||
     bundle.tree === null ||
     bundle.runtime === null ||
     bundle.findings === null ||
@@ -66,6 +72,7 @@ function readyBundleOrNull(bundle: BundleState): ReadyBundleState | null {
 
   return {
     review: bundle.review,
+    graph: bundle.graph,
     tree: bundle.tree,
     runtime: bundle.runtime,
     findings: bundle.findings,
@@ -133,8 +140,9 @@ export function App() {
     setLoadingBundle(true)
 
     try {
-      const [review, tree, runtime, findings, contracts, dependencies] = await Promise.all([
+      const [review, graph, tree, runtime, findings, contracts, dependencies] = await Promise.all([
         fetchReview(),
+        fetchReviewGraph(),
         fetchTree(),
         fetchRuntime(),
         fetchFindings(),
@@ -142,7 +150,7 @@ export function App() {
         fetchDependencies(),
       ])
 
-      setBundle({ review, tree, runtime, findings, contracts, dependencies })
+      setBundle({ review, graph, tree, runtime, findings, contracts, dependencies })
     } catch {
       setBundle(emptyBundle)
     } finally {
@@ -225,6 +233,7 @@ export function App() {
       {readyBundle && (
         <ReviewDashboard
           review={readyBundle.review}
+          graph={readyBundle.graph}
           tree={readyBundle.tree}
           runtime={readyBundle.runtime}
           findings={readyBundle.findings}

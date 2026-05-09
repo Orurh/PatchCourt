@@ -127,7 +127,7 @@ func extractGitArchiveEntry(reader io.Reader, header *tar.Header, outDir string)
 
 func archiveEntryTarget(outDir string, name string) (string, error) {
 	cleanName := filepath.Clean(name)
-	if cleanName == "." || strings.HasPrefix(cleanName, ".."+string(filepath.Separator)) || filepath.IsAbs(cleanName) {
+	if cleanName == "." || cleanName == ".." || strings.HasPrefix(cleanName, ".."+string(filepath.Separator)) || filepath.IsAbs(cleanName) {
 		return "", fmt.Errorf("unsafe archive path: %s", name)
 	}
 

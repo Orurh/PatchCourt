@@ -1,13 +1,11 @@
 package reviewbundle
 
 import (
-	"sort"
-	"strings"
-
 	"github.com/orurh/patchcourt/internal/diff/dep"
 	"github.com/orurh/patchcourt/internal/diff/finding"
 	"github.com/orurh/patchcourt/internal/model"
 	"github.com/orurh/patchcourt/internal/reportmodel"
+	"sort"
 )
 
 const graphSchemaVersion = "patchcourt.review_graph.v1"
@@ -49,7 +47,7 @@ func BuildReviewGraph(result reportmodel.ReviewResult) ReviewGraph {
 	edges := make([]ReviewGraphEdge, 0, len(keys))
 
 	for _, key := range keys {
-		from, to := splitGraphEdgeKey(key)
+		from, to := depdiff.SplitLayerEdgeKey(key)
 		if from == "" || to == "" {
 			continue
 		}
@@ -133,7 +131,7 @@ func layerEdgeCountsFromProject(project *model.ProjectModel) map[string]int {
 			continue
 		}
 
-		counts[graphEdgeKey(dependency.FromLayer, dependency.ToLayer)]++
+		counts[depdiff.LayerEdgeKey(dependency.FromLayer, dependency.ToLayer)]++
 	}
 
 	return counts
@@ -147,7 +145,7 @@ func layerEdgeChangeIndex(changes []depdiff.LayerEdgeChange) map[string]depdiff.
 			continue
 		}
 
-		index[graphEdgeKey(change.FromLayer, change.ToLayer)] = change
+		index[depdiff.LayerEdgeKey(change.FromLayer, change.ToLayer)] = change
 	}
 
 	return index
@@ -170,7 +168,7 @@ func findingIDsByLayerEdge(changes []findingdiff.FindingChange) map[string][]str
 				continue
 			}
 
-			key := graphEdgeKey(evidence.FromLayer, evidence.ToLayer)
+			key := depdiff.LayerEdgeKey(evidence.FromLayer, evidence.ToLayer)
 			result[key] = appendUniqueString(result[key], finding.ID)
 		}
 	}
@@ -281,19 +279,6 @@ func graphMovement(beforeCount int, afterCount int) string {
 	default:
 		return "unchanged"
 	}
-}
-
-func graphEdgeKey(from string, to string) string {
-	return from + "->" + to
-}
-
-func splitGraphEdgeKey(key string) (string, string) {
-	parts := strings.SplitN(key, "->", 2)
-	if len(parts) != 2 {
-		return key, ""
-	}
-
-	return parts[0], parts[1]
 }
 
 func appendUniqueString(values []string, value string) []string {

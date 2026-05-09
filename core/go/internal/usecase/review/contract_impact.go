@@ -9,6 +9,7 @@ import (
 
 	contracts "github.com/orurh/patchcourt/internal/diff/contract"
 	"github.com/orurh/patchcourt/internal/model"
+	"github.com/orurh/patchcourt/internal/platform/pathmatch"
 	"github.com/orurh/patchcourt/internal/reportmodel"
 )
 
@@ -336,31 +337,12 @@ func intString(value int) string {
 
 func anyTestLikeFileChanged(files []string) bool {
 	for _, file := range files {
-		if isTestLikeFile(file) {
+		if pathmatch.IsTestLikeFile(file) {
 			return true
 		}
 	}
 
 	return false
-}
-
-func isTestLikeFile(file string) bool {
-	normalized := strings.ToLower(strings.ReplaceAll(file, "\\", "/"))
-	base := filepath.Base(normalized)
-
-	if strings.Contains(normalized, "/test/") ||
-		strings.Contains(normalized, "/tests/") ||
-		strings.Contains(normalized, "/mocks/") ||
-		strings.Contains(normalized, "/mock/") {
-		return true
-	}
-
-	return strings.HasSuffix(base, "_test.go") ||
-		strings.HasSuffix(base, "_test.cc") ||
-		strings.HasSuffix(base, "_test.cpp") ||
-		strings.HasSuffix(base, "_test.cxx") ||
-		strings.HasSuffix(base, "_test.h") ||
-		strings.HasSuffix(base, "_test.hpp")
 }
 
 func isDeliveryLayerOrPath(layer string, file string) bool {

@@ -1,1 +1,1 @@
-{"root":["./src/App.tsx","./src/api.ts","./src/main.tsx","./src/types.ts","./src/components/RepositoryPanel.tsx","./src/components/ReviewDashboard.tsx","./src/components/common.tsx","./src/components/git/CommitGraph.tsx"],"version":"5.9.3"}
+{"root":["./src/App.tsx","./src/api.ts","./src/main.tsx","./src/types.ts","./src/components/ProjectTree.tsx","./src/components/RepositoryPanel.tsx","./src/components/ReviewDashboard.tsx","./src/components/common.tsx","./src/components/git/CommitGraph.tsx"],"version":"5.9.3"}

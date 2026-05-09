@@ -139,21 +139,13 @@ func scoreChangedFinding(score *Score, change findingdiff.FindingChange) {
 		)
 	}
 
-	if len(change.AddedEvidence) > 0 {
-		points := len(change.AddedEvidence)
-		if points > 3 {
-			points = 3
-		}
-
-		addReason(
-			score,
-			points,
-			fmt.Sprintf("finding evidence increased: %s (+%d evidence)", change.ID, len(change.AddedEvidence)),
-		)
+	evidenceDelta := len(change.AddedEvidence) - len(change.RemovedEvidence)
+	if evidenceDelta > 0 {
+		scoreChangedFindingEvidence(score, change, evidenceDelta)
 	}
 
 	if confidenceRank(change.After.Confidence) > confidenceRank(change.Before.Confidence) &&
-		len(change.AddedEvidence) == 0 &&
+		evidenceDelta <= 0 &&
 		afterSeverityPoints <= beforeSeverityPoints {
 		addReason(
 			score,
@@ -164,6 +156,38 @@ func scoreChangedFinding(score *Score, change findingdiff.FindingChange) {
 				change.Before.Confidence,
 				change.After.Confidence,
 			),
+		)
+	}
+}
+
+func scoreChangedFindingEvidence(score *Score, change findingdiff.FindingChange, evidenceDelta int) {
+	if change.After == nil || evidenceDelta <= 0 {
+		return
+	}
+
+	switch change.After.Kind {
+	case model.FindingKindDiscoveryHint:
+		points := evidenceDelta
+		if points > 2 {
+			points = 2
+		}
+
+		addReason(
+			score,
+			points,
+			fmt.Sprintf("discovery signal gained evidence: %s (+%d net evidence)", change.ID, evidenceDelta),
+		)
+
+	default:
+		points := evidenceDelta
+		if points > 3 {
+			points = 3
+		}
+
+		addReason(
+			score,
+			points,
+			fmt.Sprintf("finding evidence increased: %s (+%d net evidence)", change.ID, evidenceDelta),
 		)
 	}
 }

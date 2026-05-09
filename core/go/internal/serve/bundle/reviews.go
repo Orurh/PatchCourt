@@ -54,18 +54,9 @@ func registerReviewRoutes(mux *http.ServeMux, opts Options) {
 			return
 		}
 
-		if strings.TrimSpace(req.Base) == "" {
-			http.Error(w, "base is required", http.StatusBadRequest)
+		if err := validateCreateReviewRequest(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
-		}
-
-		if req.Worktree && strings.TrimSpace(req.Head) != "" {
-			http.Error(w, "head cannot be set when worktree=true", http.StatusBadRequest)
-			return
-		}
-
-		if !req.Worktree && strings.TrimSpace(req.Head) == "" {
-			req.Head = "HEAD"
 		}
 
 		result, err := runReview(r, opts.Root, req)
@@ -107,6 +98,30 @@ func registerReviewRoutes(mux *http.ServeMux, opts Options) {
 	registerLatestReviewArtifact(mux, "/api/reviews/latest/findings", opts, "findings.json")
 	registerLatestReviewArtifact(mux, "/api/reviews/latest/contracts", opts, "contracts.json")
 	registerLatestReviewArtifact(mux, "/api/reviews/latest/dependencies", opts, "dependencies.json")
+}
+
+func validateCreateReviewRequest(req *CreateReviewRequest) error {
+	if req == nil {
+		return fmt.Errorf("review request is required")
+	}
+
+	req.Base = strings.TrimSpace(req.Base)
+	req.Head = strings.TrimSpace(req.Head)
+	req.ConfigPath = strings.TrimSpace(req.ConfigPath)
+
+	if req.Base == "" {
+		return fmt.Errorf("base is required")
+	}
+
+	if req.Worktree && req.Head != "" {
+		return fmt.Errorf("head cannot be set when worktree=true")
+	}
+
+	if !req.Worktree && req.Head == "" {
+		req.Head = "HEAD"
+	}
+
+	return nil
 }
 
 func runReview(r *http.Request, root string, req CreateReviewRequest) (*reportmodel.ReviewResult, error) {

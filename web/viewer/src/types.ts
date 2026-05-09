@@ -47,6 +47,31 @@ export interface TreeReport {
   root: TreeNode
 }
 
+export interface ReviewGraphNode {
+  id: string
+  label: string
+  before_dependency_count?: number
+  after_dependency_count?: number
+  changed?: boolean
+  risk_points?: number
+  finding_count?: number
+}
+
+export interface ReviewGraphEdge {
+  from: string
+  to: string
+  before_count?: number
+  after_count?: number
+  movement: string
+  finding_ids?: string[]
+}
+
+export interface ReviewGraph {
+  schema_version: string
+  nodes: ReviewGraphNode[]
+  edges: ReviewGraphEdge[]
+}
+
 export interface RuntimeSummary {
   change_count: number
   added_count: number

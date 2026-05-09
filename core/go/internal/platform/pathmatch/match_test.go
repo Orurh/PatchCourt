@@ -125,3 +125,27 @@ func TestMatchAny(t *testing.T) {
 		t.Fatalf("did not expect source file to match ignore patterns")
 	}
 }
+
+func TestIsTestLikeFile(t *testing.T) {
+	tests := []struct {
+		path string
+		want bool
+	}{
+		{"src/server/api_router.cc", false},
+		{"tests/api_router_test.cc", true},
+		{"test/unit/camera_manager_controller_test.cc", true},
+		{"src/domain/foo_spec.cpp", true},
+		{"src/domain/test_camera.cc", true},
+		{"src/mocks/mock_camera.h", true},
+		{`src\mocks\mock_camera.h`, true},
+		{"src/domain/i_camera_adapter.h", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			if got := IsTestLikeFile(tt.path); got != tt.want {
+				t.Fatalf("IsTestLikeFile(%q) = %v, want %v", tt.path, got, tt.want)
+			}
+		})
+	}
+}

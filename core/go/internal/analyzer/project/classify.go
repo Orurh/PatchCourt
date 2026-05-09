@@ -64,25 +64,7 @@ func DetectFileRole(path string, lang model.Language) model.FileRole {
 }
 
 func IsTestFile(path string) bool {
-	normalized := strings.ToLower(pathmatch.Normalize(path))
-	base := filepath.Base(normalized)
-
-	if strings.Contains(base, "_test.") ||
-		strings.Contains(base, "test_") ||
-		strings.Contains(base, "_spec.") ||
-		strings.Contains(base, "spec_") {
-		return true
-	}
-
-	parts := strings.Split(normalized, "/")
-	for _, part := range parts {
-		switch part {
-		case "test", "tests", "unit_test", "unit_tests", "integration_test", "integration_tests", "e2e", "e2e_tests":
-			return true
-		}
-	}
-
-	return false
+	return pathmatch.IsTestLikeFile(path)
 }
 
 func IsGeneratedFile(path string) bool {
