@@ -97,50 +97,83 @@ func extractGitArchive(ctx context.Context, projectRoot string, ref string, outD
 			return fmt.Errorf("read archive: %w", err)
 		}
 
-		cleanName := filepath.Clean(header.Name)
-		if cleanName == "." || strings.HasPrefix(cleanName, ".."+string(filepath.Separator)) || filepath.IsAbs(cleanName) {
-			return fmt.Errorf("unsafe archive path: %s", header.Name)
-		}
-
-		target := filepath.Join(outDir, cleanName)
-
-		switch header.Typeflag {
-		case tar.TypeDir:
-			if err := os.MkdirAll(target, modeOrDefault(header.FileInfo().Mode(), 0o755)); err != nil {
-				return fmt.Errorf("create archive directory %s: %w", target, err)
-			}
-
-		case tar.TypeReg, tar.TypeRegA:
-			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-				return fmt.Errorf("create archive parent %s: %w", filepath.Dir(target), err)
-			}
-
-			file, err := os.OpenFile(target, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, modeOrDefault(header.FileInfo().Mode(), 0o644))
-			if err != nil {
-				return fmt.Errorf("create archive file %s: %w", target, err)
-			}
-
-			_, copyErr := io.Copy(file, reader)
-			closeErr := file.Close()
-			if copyErr != nil {
-				return fmt.Errorf("write archive file %s: %w", target, copyErr)
-			}
-			if closeErr != nil {
-				return fmt.Errorf("close archive file %s: %w", target, closeErr)
-			}
-
-		case tar.TypeSymlink:
-			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-				return fmt.Errorf("create symlink parent %s: %w", filepath.Dir(target), err)
-			}
-			if err := os.Symlink(header.Linkname, target); err != nil {
-				return fmt.Errorf("create symlink %s: %w", target, err)
-			}
-
-		default:
-			// Skip unsupported archive entries for MVP.
+		if err := extractGitArchiveEntry(reader, header, outDir); err != nil {
+			return err
 		}
 	}
+}
+
+func extractGitArchiveEntry(reader io.Reader, header *tar.Header, outDir string) error {
+	target, err := archiveEntryTarget(outDir, header.Name)
+	if err != nil {
+		return err
+	}
+
+	switch header.Typeflag {
+	case tar.TypeDir:
+		return createArchiveDirectory(target, header)
+
+	case tar.TypeReg:
+		return createArchiveFile(reader, target, header)
+
+	case tar.TypeSymlink:
+		return createArchiveSymlink(target, header)
+
+	default:
+		// Skip unsupported archive entries for MVP.
+		return nil
+	}
+}
+
+func archiveEntryTarget(outDir string, name string) (string, error) {
+	cleanName := filepath.Clean(name)
+	if cleanName == "." || strings.HasPrefix(cleanName, ".."+string(filepath.Separator)) || filepath.IsAbs(cleanName) {
+		return "", fmt.Errorf("unsafe archive path: %s", name)
+	}
+
+	return filepath.Join(outDir, cleanName), nil
+}
+
+func createArchiveDirectory(target string, header *tar.Header) error {
+	if err := os.MkdirAll(target, modeOrDefault(header.FileInfo().Mode(), 0o755)); err != nil {
+		return fmt.Errorf("create archive directory %s: %w", target, err)
+	}
+
+	return nil
+}
+
+func createArchiveFile(reader io.Reader, target string, header *tar.Header) error {
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		return fmt.Errorf("create archive parent %s: %w", filepath.Dir(target), err)
+	}
+
+	file, err := os.OpenFile(target, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, modeOrDefault(header.FileInfo().Mode(), 0o644))
+	if err != nil {
+		return fmt.Errorf("create archive file %s: %w", target, err)
+	}
+
+	_, copyErr := io.Copy(file, reader)
+	closeErr := file.Close()
+	if copyErr != nil {
+		return fmt.Errorf("write archive file %s: %w", target, copyErr)
+	}
+	if closeErr != nil {
+		return fmt.Errorf("close archive file %s: %w", target, closeErr)
+	}
+
+	return nil
+}
+
+func createArchiveSymlink(target string, header *tar.Header) error {
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		return fmt.Errorf("create symlink parent %s: %w", filepath.Dir(target), err)
+	}
+
+	if err := os.Symlink(header.Linkname, target); err != nil {
+		return fmt.Errorf("create symlink %s: %w", target, err)
+	}
+
+	return nil
 }
 
 func copyProjectWorktree(srcRoot string, dstRoot string) error {

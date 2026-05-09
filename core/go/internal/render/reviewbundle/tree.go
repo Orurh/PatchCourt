@@ -1,7 +1,6 @@
 package reviewbundle
 
 import (
-	"path"
 	"sort"
 	"strings"
 
@@ -352,8 +351,4 @@ func freezeTreeNode(node *mutableTreeNode) ProjectTreeNode {
 	}
 
 	return row
-}
-
-func cleanTreePath(value string) string {
-	return path.Clean(strings.Trim(value, "/"))
 }
