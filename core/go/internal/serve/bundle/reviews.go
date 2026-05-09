@@ -187,7 +187,6 @@ func latestReviewArtifacts() map[string]string {
 		"findings":       "findings.json",
 		"contracts":      "contracts.json",
 		"dependencies":   "dependencies.json",
-		"html":           "review.html",
 		"llm_context":    "review-context.md",
 		"sarif":          "patchcourt.sarif",
 	}

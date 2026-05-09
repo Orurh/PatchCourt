@@ -31,7 +31,7 @@ func WriteCheckArtifacts(input CheckArtifactsInput) ([]CheckArtifact, error) {
 		return nil, fmt.Errorf("check output dir is required")
 	}
 
-	artifacts := make([]CheckArtifact, 0, 6)
+	artifacts := make([]CheckArtifact, 0, 5)
 
 	writeArtifact := func(name string, filename string, render func() ([]byte, error)) error {
 		path := filepath.Join(input.OutDir, filename)
@@ -83,22 +83,6 @@ func WriteCheckArtifacts(input CheckArtifactsInput) ([]CheckArtifact, error) {
 	if err := writeArtifact("layer graph mermaid", "layer-graph.mmd", func() ([]byte, error) {
 		var buf bytes.Buffer
 		rendergraph.WriteLayerGraphMermaid(&buf, input.LayerGraph)
-		return buf.Bytes(), nil
-	}); err != nil {
-		return nil, err
-	}
-
-	if err := writeArtifact("html report", "report.html", func() ([]byte, error) {
-		var buf bytes.Buffer
-
-		if err := WriteCheckHTML(&buf, CheckHTMLInput{
-			Report:     input.Report,
-			Project:    input.Project,
-			LayerGraph: input.LayerGraph,
-		}); err != nil {
-			return nil, err
-		}
-
 		return buf.Bytes(), nil
 	}); err != nil {
 		return nil, err

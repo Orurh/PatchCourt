@@ -1,7 +1,6 @@
 package reviewbundle
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -9,7 +8,6 @@ import (
 
 	"github.com/orurh/patchcourt/internal/platform/files"
 	"github.com/orurh/patchcourt/internal/render/llmpack"
-	renderreview "github.com/orurh/patchcourt/internal/render/review"
 	rendersarif "github.com/orurh/patchcourt/internal/render/sarif"
 	"github.com/orurh/patchcourt/internal/reportmodel"
 )
@@ -58,7 +56,6 @@ func WriteWithOptions(opts Options, result reportmodel.ReviewResult) error {
 			"findings":       "findings.json",
 			"contracts":      "contracts.json",
 			"dependencies":   "dependencies.json",
-			"html":           "review.html",
 			"llm_context":    "review-context.md",
 			"sarif":          "patchcourt.sarif",
 		},
@@ -108,10 +105,6 @@ func WriteWithOptions(opts Options, result reportmodel.ReviewResult) error {
 		return err
 	}
 
-	if err := writeHTML(filepath.Join(opts.Dir, "review.html"), result); err != nil {
-		return err
-	}
-
 	if err := llmpack.WriteReviewContextFile(filepath.Join(opts.Dir, "review-context.md"), llmpack.ReviewContextInput{
 		Result:   result,
 		MaxItems: opts.MaxItems,
@@ -136,20 +129,6 @@ func writeJSON(path string, value any) error {
 
 	if err := files.WriteFileAtomic(path, data, 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
-	}
-
-	return nil
-}
-
-func writeHTML(path string, result reportmodel.ReviewResult) error {
-	var buf bytes.Buffer
-
-	if err := renderreview.WriteReviewHTML(&buf, result); err != nil {
-		return err
-	}
-
-	if err := files.WriteFileAtomic(path, buf.Bytes(), 0o644); err != nil {
-		return fmt.Errorf("write review HTML %s: %w", path, err)
 	}
 
 	return nil

@@ -206,8 +206,8 @@ func checkNextSteps(result *CheckResult, report CheckReport) []NextStep {
 
 	if result.OutDir != "" {
 		steps = append(steps, NextStep{
-			Label:   "Open HTML report",
-			Command: fmt.Sprintf("xdg-open %s", filepath.Join(result.OutDir, "report.html")),
+			Label:   "Open markdown scan report",
+			Command: fmt.Sprintf("xdg-open %s", filepath.Join(result.OutDir, "scan.md")),
 		})
 
 		steps = append(steps, NextStep{
