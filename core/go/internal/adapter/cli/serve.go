@@ -8,8 +8,10 @@ import (
 )
 
 type serveOptions struct {
-	dataDir string
-	addr    string
+	dataDir   string
+	root      string
+	workspace string
+	addr      string
 }
 
 func (r *Runner) newServeCommand(ctx context.Context, rootOpts *rootOptions) *cobra.Command {
@@ -17,20 +19,22 @@ func (r *Runner) newServeCommand(ctx context.Context, rootOpts *rootOptions) *co
 
 	cmd := &cobra.Command{
 		Use:   "serve",
-		Short: "Serve PatchCourt analysis bundle API",
+		Short: "Serve PatchCourt analysis bundle or project API",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return bundleserve.Serve(ctx, bundleserve.Options{
-				DataDir: opts.dataDir,
-				Addr:    opts.addr,
-				Stderr:  r.stderr,
+				DataDir:   opts.dataDir,
+				Root:      opts.root,
+				Workspace: opts.workspace,
+				Addr:      opts.addr,
+				Stderr:    r.stderr,
 			})
 		},
 	}
 
 	cmd.Flags().StringVar(&opts.dataDir, "data", "", "path to PatchCourt analysis bundle directory")
+	cmd.Flags().StringVar(&opts.root, "root", "", "path to a git project root for project/review API")
+	cmd.Flags().StringVar(&opts.workspace, "workspace", "", "directory for generated review bundles")
 	cmd.Flags().StringVar(&opts.addr, "addr", "127.0.0.1:8787", "address for the bundle API server")
-
-	_ = cmd.MarkFlagRequired("data")
 
 	return cmd
 }

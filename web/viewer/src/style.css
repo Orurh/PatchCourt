@@ -1,0 +1,779 @@
+:root {
+  color: #111827;
+  background: #f3f4f6;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body {
+  margin: 0;
+}
+
+code {
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.92em;
+}
+
+.page {
+  min-height: 100vh;
+  padding: 32px;
+  box-sizing: border-box;
+}
+
+.hero,
+.card,
+.metric {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+}
+
+.hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: center;
+  padding: 28px;
+  margin-bottom: 18px;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: #6366f1;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 12px;
+}
+
+h1 {
+  margin: 0 0 10px;
+  font-size: 38px;
+  letter-spacing: -0.04em;
+}
+
+h2 {
+  margin: 0 0 14px;
+  font-size: 20px;
+}
+
+p {
+  line-height: 1.55;
+}
+
+.muted {
+  color: #6b7280;
+}
+
+.error {
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.risk-badge {
+  min-width: 120px;
+  text-align: center;
+  border-radius: 18px;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+}
+
+.risk-badge span,
+.risk-badge small {
+  display: block;
+  color: #6b7280;
+  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.risk-badge strong {
+  display: block;
+  font-size: 42px;
+  line-height: 1;
+  margin: 8px 0;
+}
+
+.risk-critical {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.risk-high {
+  background: #fff7ed;
+  border-color: #fed7aa;
+}
+
+.risk-medium {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.risk-low {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.tabs button {
+  border: 1px solid #e5e7eb;
+  background: white;
+  color: #374151;
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tabs button.active {
+  background: #111827;
+  color: white;
+  border-color: #111827;
+}
+
+.stack {
+  display: grid;
+  gap: 18px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+}
+
+.metric {
+  padding: 18px;
+}
+
+.metric strong {
+  display: block;
+  font-size: 30px;
+  margin-bottom: 4px;
+}
+
+.metric span {
+  color: #6b7280;
+  font-weight: 700;
+}
+
+.card {
+  padding: 22px;
+}
+
+.reason-list,
+.compact-list {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.reason-list li,
+.compact-list li {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  padding: 10px 12px;
+  background: #f9fafb;
+  border-radius: 12px;
+}
+
+.reason-list strong {
+  color: #dc2626;
+}
+
+.tree-node {
+  margin: 4px 0;
+}
+
+.tree-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 8px;
+  border-radius: 10px;
+}
+
+.tree-row:hover {
+  background: #f9fafb;
+}
+
+.node-kind {
+  width: 18px;
+  color: #6b7280;
+}
+
+.node-kind.file {
+  color: #6366f1;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.tag.bad,
+.severity-high,
+.severity-critical {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.tag.warn,
+.severity-medium {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.tag.risk {
+  background: #f3e8ff;
+  color: #6b21a8;
+}
+
+.card-title-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+}
+
+.lead {
+  font-size: 17px;
+  color: #374151;
+}
+
+.evidence-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.evidence {
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  border-radius: 14px;
+  padding: 12px;
+}
+
+pre {
+  overflow-x: auto;
+  background: #111827;
+  color: #f9fafb;
+  padding: 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.table-list {
+  display: grid;
+  gap: 12px;
+}
+
+.row-card {
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.row-card p {
+  margin: 8px 0 0;
+}
+
+.repo-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.compare-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  max-width: 720px;
+}
+
+.compare-form label {
+  display: grid;
+  gap: 6px;
+  font-weight: 700;
+}
+
+.compare-form input[type="text"],
+.compare-form input:not([type]) {
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.checkbox-row {
+  display: flex !important;
+  grid-template-columns: none !important;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px !important;
+}
+
+.primary-button {
+  width: fit-content;
+  border: 0;
+  background: #111827;
+  color: white;
+  padding: 11px 16px;
+  border-radius: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.primary-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.commits-details {
+  margin-top: 18px;
+}
+
+.commits-details summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.compare-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 520px) 1fr;
+  gap: 22px;
+  align-items: start;
+  margin-top: 18px;
+}
+
+.selector-row {
+  display: flex;
+  gap: 8px;
+}
+
+.selector-row button {
+  border: 1px solid #d1d5db;
+  background: white;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.selector-row button.active {
+  background: #111827;
+  border-color: #111827;
+  color: white;
+}
+
+.selector-row button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.compare-summary {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #f9fafb;
+}
+
+.compare-summary > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.commit-panel {
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  background: #f9fafb;
+  padding: 14px;
+}
+
+.commit-panel-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.commit-panel-header h3 {
+  margin: 0;
+}
+
+.commit-timeline {
+  display: grid;
+  max-height: 520px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.commit-row {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 10px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  border-radius: 12px;
+  padding: 8px;
+  cursor: pointer;
+}
+
+.commit-row:hover {
+  background: white;
+}
+
+.commit-row.selected-base {
+  background: #eef2ff;
+}
+
+.commit-row.selected-head {
+  background: #fef3c7;
+}
+
+.commit-graph {
+  position: relative;
+  min-height: 36px;
+}
+
+.commit-line {
+  position: absolute;
+  left: 12px;
+  top: -10px;
+  bottom: -10px;
+  width: 2px;
+  background: #d1d5db;
+}
+
+.commit-dot {
+  position: absolute;
+  left: 7px;
+  top: 9px;
+  width: 12px;
+  height: 12px;
+  background: #6366f1;
+  border: 3px solid white;
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px #c7d2fe;
+}
+
+.commit-head-label {
+  position: absolute;
+  left: 24px;
+  top: 5px;
+  font-size: 10px;
+  font-weight: 900;
+  color: #6366f1;
+}
+
+.commit-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.commit-title {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.commit-title span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.commit-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+@media (max-width: 1000px) {
+  .compare-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.branch-selector {
+  margin-top: 18px;
+  max-width: 520px;
+}
+
+.branch-selector label {
+  display: grid;
+  gap: 6px;
+  font-weight: 800;
+}
+
+.branch-selector select {
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: white;
+  font: inherit;
+}
+
+.repository-card {
+  overflow: hidden;
+}
+
+.graph-first-layout {
+  grid-template-columns: minmax(280px, 420px) 1fr;
+  align-items: stretch;
+}
+
+.compare-control-panel {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 4px 0;
+}
+
+.local-toggle {
+  width: fit-content;
+  border: 1px solid #e5e7eb;
+  background: white;
+  color: #111827;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.local-toggle.active {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+.compare-summary-large {
+  font-size: 16px;
+}
+
+.compare-help {
+  max-width: 360px;
+  margin: 0;
+}
+
+.git-graph-panel {
+  padding: 16px;
+  background:
+    radial-gradient(circle at top left, rgba(99, 102, 241, 0.06), transparent 35%),
+    #f9fafb;
+}
+
+.git-graph-panel .commit-panel-header {
+  align-items: center;
+}
+
+.git-graph-panel .commit-panel-header p {
+  margin: 4px 0 0;
+}
+
+.graph-ref-selector {
+  display: grid;
+  gap: 6px;
+  min-width: 260px;
+  font-weight: 800;
+}
+
+.graph-ref-selector select {
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: white;
+  font: inherit;
+}
+
+.git-graph-timeline {
+  max-height: 620px;
+  gap: 2px;
+}
+
+.graph-row {
+  grid-template-columns: 88px minmax(260px, 1fr) 130px 90px;
+  align-items: center;
+  min-height: 44px;
+  padding: 7px 10px;
+  position: relative;
+}
+
+.working-tree-row {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+}
+
+.graph-row:hover {
+  background: white;
+}
+
+.graph-cell {
+  position: relative;
+  height: 44px;
+  width: 82px;
+  display: block;
+}
+
+.graph-lane {
+  position: absolute;
+  top: -13px;
+  bottom: -13px;
+  width: 3px;
+  border-radius: 999px;
+  opacity: 0.24;
+  background: #cbd5e1;
+}
+
+.graph-lane.active,
+.graph-lane.merge-active {
+  opacity: 0.95;
+}
+
+.graph-dot {
+  position: absolute;
+  top: 14px;
+  width: 14px;
+  height: 14px;
+  border: 3px solid white;
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.14);
+  z-index: 2;
+}
+
+.local-dot {
+  border-radius: 6px;
+  transform: rotate(45deg);
+}
+
+.graph-merge-arc {
+  position: absolute;
+  left: 24px;
+  top: 11px;
+  width: 30px;
+  height: 20px;
+  border-top: 3px solid currentColor;
+  border-left: 3px solid currentColor;
+  border-radius: 14px 0 0 0;
+  opacity: 0.75;
+}
+
+.lane-blue {
+  background: #3b82f6;
+  color: #3b82f6;
+}
+
+.lane-pink {
+  background: #db2777;
+  color: #db2777;
+}
+
+.lane-green {
+  background: #22c55e;
+  color: #22c55e;
+}
+
+.lane-yellow {
+  background: #f59e0b;
+  color: #f59e0b;
+}
+
+.lane-purple {
+  background: #8b5cf6;
+  color: #8b5cf6;
+}
+
+.lane-cyan {
+  background: #06b6d4;
+  color: #06b6d4;
+}
+
+.graph-commit-main {
+  min-width: 0;
+}
+
+.ref-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 8px;
+  padding: 2px 7px;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.ref-local {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.ref-remote {
+  background: #fce7f3;
+  color: #be185d;
+}
+
+.ref-tag {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.commit-date,
+.commit-short {
+  color: #6b7280;
+  font-size: 13px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.selected-base .graph-dot {
+  box-shadow: 0 0 0 4px #c7d2fe;
+}
+
+.selected-head .graph-dot {
+  box-shadow: 0 0 0 4px #fde68a;
+}
+
+@media (max-width: 1100px) {
+  .graph-first-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .graph-row {
+    grid-template-columns: 82px minmax(220px, 1fr);
+  }
+
+  .commit-date,
+  .commit-short {
+    display: none;
+  }
+}

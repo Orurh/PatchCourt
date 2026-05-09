@@ -12,40 +12,57 @@ import (
 )
 
 type Options struct {
-	DataDir string
-	Addr    string
-	Stderr  io.Writer
+	DataDir   string
+	Root      string
+	Workspace string
+	Addr      string
+	Stderr    io.Writer
 }
 
 func Serve(ctx context.Context, opts Options) error {
-	if opts.DataDir == "" {
-		return fmt.Errorf("bundle data directory is required")
+	if opts.DataDir == "" && opts.Root == "" {
+		return fmt.Errorf("either bundle data directory or project root is required")
 	}
 
 	if opts.Addr == "" {
 		opts.Addr = "127.0.0.1:8787"
 	}
 
-	info, err := os.Stat(opts.DataDir)
-	if err != nil {
-		return fmt.Errorf("read bundle data directory %s: %w", opts.DataDir, err)
-	}
-	if !info.IsDir() {
-		return fmt.Errorf("bundle data path is not a directory: %s", opts.DataDir)
-	}
-
 	mux := http.NewServeMux()
 
-	registerJSONFile(mux, "/api/manifest", opts.DataDir, "manifest.json")
-	registerJSONFile(mux, "/api/review", opts.DataDir, "review.json")
-	registerJSONFile(mux, "/api/project/before", opts.DataDir, "project-before.json")
-	registerJSONFile(mux, "/api/project/after", opts.DataDir, "project-after.json")
-	registerJSONFile(mux, "/api/graph", opts.DataDir, "graph.json")
-	registerJSONFile(mux, "/api/runtime", opts.DataDir, "runtime.json")
-	registerJSONFile(mux, "/api/tree", opts.DataDir, "tree.json")
-	registerJSONFile(mux, "/api/findings", opts.DataDir, "findings.json")
-	registerJSONFile(mux, "/api/contracts", opts.DataDir, "contracts.json")
-	registerJSONFile(mux, "/api/dependencies", opts.DataDir, "dependencies.json")
+	if opts.DataDir != "" {
+		info, err := os.Stat(opts.DataDir)
+		if err != nil {
+			return fmt.Errorf("read bundle data directory %s: %w", opts.DataDir, err)
+		}
+		if !info.IsDir() {
+			return fmt.Errorf("bundle data path is not a directory: %s", opts.DataDir)
+		}
+
+		registerJSONFile(mux, "/api/manifest", opts.DataDir, "manifest.json")
+		registerJSONFile(mux, "/api/review", opts.DataDir, "review.json")
+		registerJSONFile(mux, "/api/project/before", opts.DataDir, "project-before.json")
+		registerJSONFile(mux, "/api/project/after", opts.DataDir, "project-after.json")
+		registerJSONFile(mux, "/api/graph", opts.DataDir, "graph.json")
+		registerJSONFile(mux, "/api/runtime", opts.DataDir, "runtime.json")
+		registerJSONFile(mux, "/api/tree", opts.DataDir, "tree.json")
+		registerJSONFile(mux, "/api/findings", opts.DataDir, "findings.json")
+		registerJSONFile(mux, "/api/contracts", opts.DataDir, "contracts.json")
+		registerJSONFile(mux, "/api/dependencies", opts.DataDir, "dependencies.json")
+	}
+
+	if opts.Root != "" {
+		info, err := os.Stat(opts.Root)
+		if err != nil {
+			return fmt.Errorf("read project root %s: %w", opts.Root, err)
+		}
+		if !info.IsDir() {
+			return fmt.Errorf("project root is not a directory: %s", opts.Root)
+		}
+
+		registerGitRoutes(mux, opts.Root)
+		registerReviewRoutes(mux, opts)
+	}
 
 	mux.HandleFunc("/api/health", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSONBytes(w, http.StatusOK, []byte(`{"status":"ok"}`+"\n"))
@@ -70,7 +87,20 @@ func Serve(ctx context.Context, opts Options) error {
     "/api/tree",
     "/api/findings",
     "/api/contracts",
-    "/api/dependencies"
+    "/api/dependencies",
+    "/api/git/status",
+    "/api/git/branches",
+    "/api/git/refs",
+    "/api/git/commits",
+    "/api/reviews",
+    "/api/reviews/latest/manifest",
+    "/api/reviews/latest/review",
+    "/api/reviews/latest/graph",
+    "/api/reviews/latest/runtime",
+    "/api/reviews/latest/tree",
+    "/api/reviews/latest/findings",
+    "/api/reviews/latest/contracts",
+    "/api/reviews/latest/dependencies"
   ]
 }`+"\n"))
 	})
