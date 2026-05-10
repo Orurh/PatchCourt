@@ -93,11 +93,12 @@ func TestWriteReviewText_PrintsVerdictBlock(t *testing.T) {
 	got := out.String()
 
 	require.Contains(t, got, "Verdict:")
-	require.Contains(t, got, "architecture: mixed")
+	require.Contains(t, got, "architecture: mixed proven impact")
 	require.Contains(t, got, "risk:         medium")
-	require.Contains(t, got, "main concerns:")
+	require.Contains(t, got, "real problems introduced:")
 	require.Contains(t, got, "Removed public contract symbol")
-	require.Contains(t, got, "improvements:")
+	require.Contains(t, got, "verified improvements:")
+	require.Contains(t, got, "needs review / AI follow-up:")
 	require.Contains(t, got, "Removed policy violation finding: architecture.domain.cameras")
 	require.True(t, strings.Index(got, "Verdict:") < strings.Index(got, "Summary:"))
 }

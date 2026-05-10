@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -16,6 +17,7 @@ type Options struct {
 	Root      string
 	Workspace string
 	Addr      string
+	ViewerDir string
 	Stderr    io.Writer
 }
 
@@ -68,13 +70,18 @@ func Serve(ctx context.Context, opts Options) error {
 		writeJSONBytes(w, http.StatusOK, []byte(`{"status":"ok"}`+"\n"))
 	})
 
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/" {
-			http.NotFound(w, r)
-			return
+	if opts.ViewerDir != "" {
+		if err := registerViewerRoutes(mux, opts.ViewerDir); err != nil {
+			return err
 		}
+	} else {
+		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/" {
+				http.NotFound(w, r)
+				return
+			}
 
-		writeJSONBytes(w, http.StatusOK, []byte(`{
+			writeJSONBytes(w, http.StatusOK, []byte(`{
   "name": "PatchCourt bundle API",
   "endpoints": [
     "/api/health",
@@ -104,7 +111,8 @@ func Serve(ctx context.Context, opts Options) error {
     "/api/reviews/latest/dependencies"
   ]
 }`+"\n"))
-	})
+		})
+	}
 
 	server := &http.Server{
 		Addr:              opts.Addr,
@@ -119,7 +127,12 @@ func Serve(ctx context.Context, opts Options) error {
 
 	if opts.Stderr != nil {
 		fmt.Fprintf(opts.Stderr, "PatchCourt bundle API listening on http://%s\n", listener.Addr().String())
-		fmt.Fprintf(opts.Stderr, "Serving bundle data from: %s\n", opts.DataDir)
+		if opts.ViewerDir != "" {
+			fmt.Fprintf(opts.Stderr, "Serving viewer from: %s\n", opts.ViewerDir)
+		}
+		if opts.DataDir != "" {
+			fmt.Fprintf(opts.Stderr, "Serving bundle data from: %s\n", opts.DataDir)
+		}
 	}
 
 	errCh := make(chan error, 1)
@@ -145,6 +158,46 @@ func Serve(ctx context.Context, opts Options) error {
 
 		return fmt.Errorf("serve bundle API: %w", err)
 	}
+}
+
+func registerViewerRoutes(mux *http.ServeMux, viewerDir string) error {
+	info, err := os.Stat(viewerDir)
+	if err != nil {
+		return fmt.Errorf("read viewer directory %s: %w", viewerDir, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("viewer path is not a directory: %s", viewerDir)
+	}
+
+	indexPath := filepath.Join(viewerDir, "index.html")
+	if _, err := os.Stat(indexPath); err != nil {
+		return fmt.Errorf("viewer index.html not found in %s: %w", viewerDir, err)
+	}
+
+	fileServer := http.FileServer(http.Dir(viewerDir))
+
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			http.NotFound(w, r)
+			return
+		}
+
+		cleanPath := filepath.Clean(strings.TrimPrefix(r.URL.Path, "/"))
+		if cleanPath == "." || cleanPath == "" {
+			http.ServeFile(w, r, indexPath)
+			return
+		}
+
+		fullPath := filepath.Join(viewerDir, cleanPath)
+		if info, err := os.Stat(fullPath); err == nil && !info.IsDir() {
+			fileServer.ServeHTTP(w, r)
+			return
+		}
+
+		http.ServeFile(w, r, indexPath)
+	})
+
+	return nil
 }
 
 func registerJSONFile(mux *http.ServeMux, route string, dir string, filename string) {

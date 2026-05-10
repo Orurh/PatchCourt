@@ -41,6 +41,15 @@ HEAD ?= HEAD
 GO ?= go
 DOT ?= dot
 OPEN ?= xdg-open
+NPM ?= npm
+
+VIEWER_DIR ?= ../../web/viewer
+VIEWER_DIST ?= $(VIEWER_DIR)/dist
+OPEN_ADDR ?= 127.0.0.1:8787
+OPEN_WORKSPACE ?= /tmp/patchcourt-viewer-workspace
+OPEN_BASE ?= $(BASE)
+OPEN_HEAD ?=
+OPEN_REVIEW_NOW ?= false
 
 .PHONY: help
 help:
@@ -125,6 +134,26 @@ help:
 	@echo "  make open-camera-demo"
 	@echo "      Open bad and better camera-service review HTML reports."
 	@echo ""
+	@echo "Viewer/open targets:"
+	@echo ""
+	@echo "  make viewer-build"
+	@echo "      Build the React viewer into $(VIEWER_DIST)."
+	@echo ""
+	@echo "  make open-project PROJECT=/path/repo BASE=origin/main"
+	@echo "      Build PatchCourt and viewer, start local viewer/API, and create an initial worktree review."
+	@echo ""
+	@echo "  make open-project-nobrowser PROJECT=/path/repo BASE=origin/main"
+	@echo "      Same as open-project, but do not open the browser."
+	@echo ""
+	@echo "  make open-project-review PROJECT=/path/repo BASE=origin/main"
+	@echo "      Start local viewer/API and create an initial worktree review."
+	@echo ""
+	@echo "  make open-project-review-nobrowser PROJECT=/path/repo BASE=origin/main"
+	@echo "      Same as open-project-review, but do not open the browser."
+	@echo ""
+	@echo "  make open-self BASE=HEAD"
+	@echo "      Open PatchCourt self-review in the local viewer."
+	@echo ""
 	@echo "Optional overrides:"
 	@echo "  CONFIG=/path/.patchcourt.yaml"
 	@echo "  OUT=/path/.patchcourt/out"
@@ -132,6 +161,10 @@ help:
 	@echo "  BASE=origin/main"
 	@echo "  HEAD=HEAD"
 	@echo "  OPEN=gio\\ open"
+	@echo "  OPEN_ADDR=127.0.0.1:8787"
+	@echo "  OPEN_WORKSPACE=/tmp/patchcourt-viewer-workspace"
+	@echo "  VIEWER_DIR=../../web/viewer"
+	@echo "  VIEWER_DIST=../../web/viewer/dist"
 
 .PHONY: require-project
 require-project:
@@ -386,3 +419,80 @@ release-check: ci camera-demo self-review
 .PHONY: bench-runtime
 bench-runtime:
 	./scripts/bench_runtime.sh
+
+.PHONY: viewer-build
+viewer-build:
+	cd "$(VIEWER_DIR)" && $(NPM) run build
+
+.PHONY: open-project
+open-project: build viewer-build require-project
+	$(BIN) open "$(PROJECT)" \
+		--addr "$(OPEN_ADDR)" \
+		--workspace "$(OPEN_WORKSPACE)" \
+		--viewer-dir "$(VIEWER_DIST)" \
+		--base "$(OPEN_BASE)" \
+		--head "$(OPEN_HEAD)" \
+		--worktree \
+		--config "$(CONFIG)" \
+		--review-now=$(OPEN_REVIEW_NOW)
+
+.PHONY: open-project-nobrowser
+open-project-nobrowser: build viewer-build require-project
+	$(BIN) open "$(PROJECT)" \
+		--addr "$(OPEN_ADDR)" \
+		--workspace "$(OPEN_WORKSPACE)" \
+		--viewer-dir "$(VIEWER_DIST)" \
+		--base "$(OPEN_BASE)" \
+		--head "$(OPEN_HEAD)" \
+		--worktree \
+		--config "$(CONFIG)" \
+		--review-now=$(OPEN_REVIEW_NOW) \
+		--no-browser
+
+.PHONY: open-self
+open-self: build viewer-build
+	$(BIN) open "." \
+		--addr "$(OPEN_ADDR)" \
+		--workspace "$(OPEN_WORKSPACE)" \
+		--viewer-dir "$(VIEWER_DIST)" \
+		--base "$(OPEN_BASE)" \
+		--head "$(OPEN_HEAD)" \
+		--worktree \
+		--review-now=$(OPEN_REVIEW_NOW)
+
+.PHONY: open-self-nobrowser
+open-self-nobrowser: build viewer-build
+	$(BIN) open "." \
+		--addr "$(OPEN_ADDR)" \
+		--workspace "$(OPEN_WORKSPACE)" \
+		--viewer-dir "$(VIEWER_DIST)" \
+		--base "$(OPEN_BASE)" \
+		--head "$(OPEN_HEAD)" \
+		--worktree \
+		--review-now=$(OPEN_REVIEW_NOW) \
+		--no-browser
+
+.PHONY: open-project-review
+open-project-review: build viewer-build require-project
+	$(BIN) open "$(PROJECT)" \
+		--addr "$(OPEN_ADDR)" \
+		--workspace "$(OPEN_WORKSPACE)" \
+		--viewer-dir "$(VIEWER_DIST)" \
+		--base "$(OPEN_BASE)" \
+		--head "$(OPEN_HEAD)" \
+		--worktree \
+		--config "$(CONFIG)" \
+		--review-now=true
+
+.PHONY: open-project-review-nobrowser
+open-project-review-nobrowser: build viewer-build require-project
+	$(BIN) open "$(PROJECT)" \
+		--addr "$(OPEN_ADDR)" \
+		--workspace "$(OPEN_WORKSPACE)" \
+		--viewer-dir "$(VIEWER_DIST)" \
+		--base "$(OPEN_BASE)" \
+		--head "$(OPEN_HEAD)" \
+		--worktree \
+		--config "$(CONFIG)" \
+		--review-now=true \
+		--no-browser

@@ -2216,3 +2216,788 @@ pre {
     min-height: 560px;
   }
 }
+
+/* Architecture map filtering */
+
+.architecture-map-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  align-items: center;
+}
+
+.tree-mode-toggle.small {
+  gap: 4px;
+  padding: 3px;
+}
+
+.tree-mode-toggle.small button {
+  padding: 6px 9px;
+  font-size: 12px;
+}
+
+.architecture-map-empty {
+  display: grid;
+  gap: 4px;
+  margin-top: 14px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 16px;
+  background: #f8fafc;
+  padding: 14px 16px;
+}
+
+.architecture-map-empty strong {
+  color: #111827;
+}
+
+.architecture-map-empty span {
+  color: #64748b;
+  font-size: 13px;
+}
+
+/* Compact package dependency map */
+
+.architecture-node {
+  width: 220px;
+  min-height: 92px;
+  gap: 6px;
+  padding: 11px 12px;
+}
+
+.architecture-node strong {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 18px;
+  letter-spacing: -0.025em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.architecture-node-path {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  color: #64748b;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.architecture-node-type {
+  padding: 2px 7px;
+  font-size: 10px;
+}
+
+.architecture-node-meta {
+  gap: 5px;
+  font-size: 12px;
+}
+
+.architecture-edge-label {
+  min-width: 78px;
+  gap: 1px;
+  padding: 6px 8px;
+  border-radius: 12px;
+}
+
+.architecture-edge-label span {
+  font-size: 10px;
+}
+
+.architecture-edge-label strong {
+  font-size: 12px;
+}
+
+.architecture-edge {
+  stroke-width: 2.6;
+}
+
+.architecture-edge.added,
+.architecture-edge.increased,
+.architecture-edge.changed,
+.architecture-edge.removed,
+.architecture-edge.decreased {
+  stroke-width: 3.4;
+}
+
+.architecture-edge.selected {
+  stroke-width: 4.4;
+}
+
+.architecture-map-stage {
+  min-height: 560px;
+}
+
+/* Make architecture edges feel attached to nodes */
+
+.architecture-map-svg {
+  pointer-events: none;
+}
+
+.architecture-edge {
+  pointer-events: stroke;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.architecture-edge:hover {
+  stroke: #111827;
+  stroke-width: 5;
+  opacity: 1;
+  filter: drop-shadow(0 14px 18px rgba(15, 23, 42, 0.28));
+}
+
+.architecture-edge.selected {
+  stroke: #111827;
+  opacity: 1;
+  filter: drop-shadow(0 16px 22px rgba(15, 23, 42, 0.32));
+}
+
+.architecture-edge-label {
+  z-index: 8;
+  border-color: #111827;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow:
+    0 20px 42px rgba(15, 23, 42, 0.24),
+    0 0 0 2px rgba(17, 24, 39, 0.08);
+}
+
+.architecture-node {
+  z-index: 5;
+}
+
+.architecture-node:hover {
+  z-index: 9;
+}
+
+/* Keep changed edges visible, but avoid label clutter. */
+.architecture-edge.added,
+.architecture-edge.increased,
+.architecture-edge.changed {
+  opacity: 0.82;
+}
+
+.architecture-edge.removed,
+.architecture-edge.decreased {
+  opacity: 0.82;
+}
+
+/* Architecture map deps-like routing override */
+
+.architecture-map-stage {
+  isolation: isolate;
+}
+
+.architecture-map-svg {
+  z-index: 3;
+  pointer-events: none;
+}
+
+.architecture-edge {
+  pointer-events: stroke;
+  cursor: pointer;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  opacity: 0.76;
+}
+
+.architecture-edge.added,
+.architecture-edge.increased,
+.architecture-edge.changed {
+  stroke: #dc2626;
+  opacity: 0.92;
+}
+
+.architecture-edge.removed,
+.architecture-edge.decreased {
+  stroke: #16a34a;
+  opacity: 0.92;
+}
+
+.architecture-edge:hover,
+.architecture-edge.selected {
+  stroke: #111827;
+  stroke-width: 5;
+  opacity: 1;
+  filter: drop-shadow(0 12px 16px rgba(15, 23, 42, 0.32));
+}
+
+.architecture-node {
+  z-index: 5;
+}
+
+.architecture-node:hover {
+  z-index: 9;
+}
+
+/* React Flow architecture map */
+
+.architecture-flow-card {
+  min-width: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(99, 102, 241, 0.12), transparent 30%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.94));
+  padding: 16px;
+  box-shadow: 0 22px 52px rgba(15, 23, 42, 0.08);
+}
+
+.architecture-flow-stage {
+  height: 680px;
+  margin-top: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(226, 232, 240, 0.92);
+  border-radius: 22px;
+  background:
+    repeating-linear-gradient(
+      135deg,
+      rgba(99, 102, 241, 0.05) 0,
+      rgba(99, 102, 241, 0.05) 1px,
+      transparent 1px,
+      transparent 22px
+    ),
+    #f8fafc;
+}
+
+.architecture-flow-node {
+  width: 240px;
+  display: grid;
+  gap: 5px;
+  border: 1px solid rgba(147, 197, 253, 0.92);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.98);
+  padding: 11px 13px;
+  box-shadow:
+    0 18px 34px rgba(15, 23, 42, 0.12),
+    inset 4px 0 0 #60a5fa;
+}
+
+.architecture-flow-node.changed {
+  border-color: rgba(96, 165, 250, 0.98);
+  box-shadow:
+    0 20px 38px rgba(37, 99, 235, 0.16),
+    inset 4px 0 0 #2563eb;
+}
+
+.architecture-flow-node.risky {
+  border-color: rgba(216, 180, 254, 0.98);
+  box-shadow:
+    0 20px 38px rgba(126, 34, 206, 0.16),
+    inset 4px 0 0 #a855f7;
+}
+
+.architecture-flow-node-kind {
+  width: fit-content;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #3730a3;
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.architecture-flow-node strong {
+  overflow: hidden;
+  color: #111827;
+  font-size: 17px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.architecture-flow-node code {
+  overflow: hidden;
+  color: #64748b;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.architecture-flow-node span {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.react-flow__edge.architecture-flow-edge .react-flow__edge-path {
+  stroke-width: 2.6;
+}
+
+.react-flow__edge.architecture-flow-edge.added .react-flow__edge-path,
+.react-flow__edge.architecture-flow-edge.changed .react-flow__edge-path,
+.react-flow__edge.architecture-flow-edge.increased .react-flow__edge-path {
+  stroke: #dc2626;
+  stroke-width: 3.2;
+}
+
+.react-flow__edge.architecture-flow-edge.removed .react-flow__edge-path,
+.react-flow__edge.architecture-flow-edge.decreased .react-flow__edge-path {
+  stroke: #16a34a;
+  stroke-width: 3.2;
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: #111827 !important;
+  stroke-width: 4 !important;
+}
+
+.react-flow__edge-textbg {
+  fill: rgba(255, 255, 255, 0.92);
+}
+
+.react-flow__edge-text {
+  fill: #111827;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+/* React Flow selected edge label */
+
+.architecture-flow-edge-label {
+  position: absolute;
+  z-index: 20;
+  display: grid;
+  gap: 2px;
+  min-width: 76px;
+  border: 1px solid #111827;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.96);
+  padding: 6px 8px;
+  text-align: center;
+  box-shadow: 0 16px 30px rgba(15, 23, 42, 0.18);
+  pointer-events: all;
+}
+
+.architecture-flow-edge-label span {
+  color: #6366f1;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.architecture-flow-edge-label strong {
+  color: #111827;
+  font-size: 12px;
+}
+
+/* Architecture flow grouping controls */
+
+.architecture-flow-card .architecture-map-actions {
+  align-items: center;
+}
+
+.architecture-flow-card .tree-mode-toggle.small {
+  white-space: nowrap;
+}
+
+/* Architecture Flow layout polish */
+
+.architecture-flow-stage {
+  height: 760px;
+}
+
+.react-flow__edge.architecture-flow-edge .react-flow__edge-path {
+  stroke: #94a3b8;
+  stroke-width: 2.2;
+  opacity: 0.52;
+}
+
+.react-flow__edge.architecture-flow-edge.added .react-flow__edge-path {
+  stroke: #dc2626;
+  stroke-width: 3.2;
+  opacity: 0.88;
+}
+
+.react-flow__edge.architecture-flow-edge.changed .react-flow__edge-path {
+  stroke: #f59e0b;
+  stroke-width: 3.1;
+  opacity: 0.88;
+}
+
+.react-flow__edge.architecture-flow-edge.increased .react-flow__edge-path {
+  stroke: #ea580c;
+  stroke-width: 3.2;
+  opacity: 0.88;
+}
+
+.react-flow__edge.architecture-flow-edge.removed .react-flow__edge-path,
+.react-flow__edge.architecture-flow-edge.decreased .react-flow__edge-path {
+  stroke: #16a34a;
+  stroke-width: 3.2;
+  opacity: 0.88;
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: #111827 !important;
+  stroke-width: 4.6 !important;
+  opacity: 1 !important;
+}
+
+.react-flow__handle {
+  width: 7px;
+  height: 7px;
+  border: 2px solid #111827;
+  background: #fff;
+}
+
+/* Architecture Flow semantic colors */
+
+.tree-legend-item.edge-added::before {
+  background: #dc2626;
+}
+
+.tree-legend-item.edge-changed::before {
+  background: #f59e0b;
+}
+
+.tree-legend-item.edge-removed::before {
+  background: #16a34a;
+}
+
+.tree-legend-item.node-changed::before {
+  background: #3b82f6;
+}
+
+.tree-legend-item.node-risk::before {
+  background: #a855f7;
+}
+
+.architecture-flow-node {
+  border-color: rgba(203, 213, 225, 0.96);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.94));
+  box-shadow:
+    0 18px 34px rgba(15, 23, 42, 0.11),
+    inset 4px 0 0 #cbd5e1;
+}
+
+.architecture-flow-node.changed {
+  border-color: rgba(96, 165, 250, 0.98);
+  background:
+    linear-gradient(180deg, rgba(239, 246, 255, 0.98), rgba(219, 234, 254, 0.72));
+  box-shadow:
+    0 20px 38px rgba(37, 99, 235, 0.14),
+    inset 4px 0 0 #3b82f6;
+}
+
+.architecture-flow-node.risky {
+  border-color: rgba(192, 132, 252, 0.98);
+  background:
+    linear-gradient(180deg, rgba(250, 245, 255, 0.98), rgba(243, 232, 255, 0.74));
+  box-shadow:
+    0 20px 38px rgba(126, 34, 206, 0.15),
+    inset 4px 0 0 #a855f7;
+}
+
+.architecture-flow-node.changed.risky {
+  border-color: rgba(248, 113, 113, 0.98);
+  background:
+    linear-gradient(180deg, rgba(255, 247, 237, 0.98), rgba(254, 226, 226, 0.76));
+  box-shadow:
+    0 22px 42px rgba(220, 38, 38, 0.14),
+    inset 4px 0 0 #dc2626;
+}
+
+.architecture-flow-node-kind {
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.architecture-flow-node.changed .architecture-flow-node-kind {
+  background: rgba(59, 130, 246, 0.14);
+  color: #1d4ed8;
+}
+
+.architecture-flow-node.risky .architecture-flow-node-kind {
+  background: rgba(168, 85, 247, 0.14);
+  color: #6b21a8;
+}
+
+/* Dense mode for All deps / package graph */
+
+.architecture-flow-card.dense .architecture-flow-stage {
+  height: 820px;
+}
+
+.architecture-flow-card.dense .architecture-flow-node {
+  width: 210px;
+  gap: 4px;
+  padding: 9px 11px;
+  border-radius: 15px;
+}
+
+.architecture-flow-card.dense .architecture-flow-node strong {
+  font-size: 15px;
+}
+
+.architecture-flow-card.dense .architecture-flow-node code {
+  font-size: 10px;
+}
+
+.architecture-flow-card.dense .architecture-flow-node span {
+  font-size: 11px;
+}
+
+.architecture-flow-card.dense .architecture-flow-node-kind {
+  padding: 2px 6px;
+  font-size: 9px;
+}
+
+.architecture-flow-card.dense .react-flow__edge.architecture-flow-edge .react-flow__edge-path {
+  stroke-width: 1.8;
+  opacity: 0.42;
+}
+
+.architecture-flow-card.dense .react-flow__edge.architecture-flow-edge.added .react-flow__edge-path,
+.architecture-flow-card.dense .react-flow__edge.architecture-flow-edge.changed .react-flow__edge-path,
+.architecture-flow-card.dense .react-flow__edge.architecture-flow-edge.increased .react-flow__edge-path {
+  stroke-width: 2.4;
+  opacity: 0.78;
+}
+
+.architecture-flow-card.dense .react-flow__edge.selected .react-flow__edge-path {
+  stroke-width: 4.2 !important;
+  opacity: 1 !important;
+}
+
+/* Architecture Flow rounded edge polish */
+
+.react-flow__edge.architecture-flow-edge .react-flow__edge-path {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.architecture-flow-card.dense .react-flow__edge.architecture-flow-edge .react-flow__edge-path {
+  opacity: 0.36;
+}
+
+.architecture-flow-card.dense .react-flow__edge.architecture-flow-edge.added .react-flow__edge-path {
+  opacity: 0.82;
+}
+
+.architecture-flow-card.dense .react-flow__edge.architecture-flow-edge.changed .react-flow__edge-path {
+  opacity: 0.82;
+}
+
+.architecture-flow-card.dense .react-flow__edge.architecture-flow-edge.removed .react-flow__edge-path,
+.architecture-flow-card.dense .react-flow__edge.architecture-flow-edge.decreased .react-flow__edge-path {
+  opacity: 0.82;
+}
+
+/* React Flow selected architecture node */
+
+.react-flow__node.selected .architecture-flow-node {
+  border-color: #111827;
+  box-shadow:
+    0 24px 48px rgba(15, 23, 42, 0.22),
+    0 0 0 3px rgba(17, 24, 39, 0.08),
+    inset 4px 0 0 #111827;
+}
+
+/* Architecture impact overview */
+
+.section-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.impact-counts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.impact-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.impact-column {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.impact-column h3 {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+
+.impact-column.worse {
+  border-color: rgba(239, 68, 68, 0.28);
+  background: rgba(254, 242, 242, 0.72);
+}
+
+.impact-column.needs-review {
+  border-color: rgba(245, 158, 11, 0.34);
+  background: rgba(255, 251, 235, 0.76);
+}
+
+.impact-column.better {
+  border-color: rgba(34, 197, 94, 0.28);
+  background: rgba(240, 253, 244, 0.72);
+}
+
+.impact-column.debt {
+  border-color: rgba(100, 116, 139, 0.24);
+  background: rgba(248, 250, 252, 0.8);
+}
+
+.impact-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.impact-list li {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.impact-list strong {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.impact-list code {
+  overflow-wrap: anywhere;
+  white-space: normal;
+  font-size: 11px;
+}
+
+.impact-list p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.impact-item-title {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+@media (max-width: 1180px) {
+  .impact-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .section-title-row {
+    flex-direction: column;
+  }
+
+  .impact-counts {
+    justify-content: flex-start;
+  }
+
+  .impact-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Adaptive architecture impact layout */
+
+.impact-status-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0 18px;
+}
+
+.impact-status-card {
+  display: grid;
+  gap: 6px;
+  min-height: 116px;
+  padding: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 18px;
+  background: rgba(248, 250, 252, 0.82);
+}
+
+.impact-status-card span {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.impact-status-card strong {
+  font-size: 30px;
+  line-height: 1;
+}
+
+.impact-status-card p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.impact-status-card.ok {
+  border-color: rgba(34, 197, 94, 0.22);
+  background: rgba(240, 253, 244, 0.7);
+}
+
+.impact-status-card.bad {
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(254, 242, 242, 0.76);
+}
+
+.impact-status-card.good {
+  border-color: rgba(34, 197, 94, 0.3);
+  background: rgba(240, 253, 244, 0.76);
+}
+
+.impact-status-card.warn {
+  border-color: rgba(245, 158, 11, 0.35);
+  background: rgba(255, 251, 235, 0.82);
+}
+
+.impact-status-card.debt {
+  border-color: rgba(100, 116, 139, 0.28);
+  background: rgba(248, 250, 252, 0.92);
+}
+
+.impact-proof-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.impact-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+  gap: 14px;
+}
+
+@media (max-width: 1180px) {
+  .impact-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .impact-main-grid,
+  .impact-proof-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .impact-status-grid {
+    grid-template-columns: 1fr;
+  }
+}

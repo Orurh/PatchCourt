@@ -49,6 +49,14 @@ func TestWriteReviewContext_RendersDeterministicContextPack(t *testing.T) {
 						ID:    "architecture.domain.cameras",
 					},
 				},
+				NeedsReview: []reportmodel.ReviewImpactItem{
+					{
+						Kind:       "contract_delivery_impact",
+						Title:      "Public contract changed with delivery/API impact",
+						Detail:     "method::ICamera::Status",
+						Suggestion: "Verify migration and tests.",
+					},
+				},
 			},
 			ContractChanges: []contracts.SymbolChange{
 				{
@@ -104,8 +112,15 @@ func TestWriteReviewContext_RendersDeterministicContextPack(t *testing.T) {
 	require.Contains(t, got, "- `api`")
 	require.Contains(t, got, "- `cameras`")
 	require.Contains(t, got, "## Architecture impact")
+	require.Contains(t, got, "### Real problems introduced")
+	require.Contains(t, got, "### Verified improvements")
+	require.Contains(t, got, "### Needs review / AI follow-up")
 	require.Contains(t, got, "Removed public contract symbol")
 	require.Contains(t, got, "architecture.domain.cameras")
+	require.Contains(t, got, "## AI follow-up prompt")
+	require.Contains(t, got, "Do not invent files, dependencies, symbols, call sites, tests, or findings not listed in this context pack.")
+	require.Contains(t, got, "contract_delivery_impact: Public contract changed with delivery/API impact")
+	require.Contains(t, got, "Verify migration and tests.")
 	require.Contains(t, got, "## Contract changes")
 	require.Contains(t, got, "method::ICamera::Status")
 	require.Contains(t, got, "## Dependency changes")

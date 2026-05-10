@@ -507,8 +507,8 @@ public:
 	requireContractImpactedFile(t, impact.ImpactedFiles, "src/api/camera_routes.cc", "likely_method_reference")
 	requireContractImpactedFile(t, impact.ImpactedFiles, "src/infrastructure/cameras/sony/sony_camera_manager.h", "likely_implementation")
 
-	if findImpactItem(result.Impact.Worse, "contract_signature_changed") == nil {
-		t.Fatalf("expected signature change with impacted callers in Worse: %#v", result.Impact.Worse)
+	if findImpactItem(result.Impact.NeedsReview, "contract_delivery_impact") == nil {
+		t.Fatalf("expected signature change with impacted callers in NeedsReview: %#v", result.Impact.NeedsReview)
 	}
 }
 

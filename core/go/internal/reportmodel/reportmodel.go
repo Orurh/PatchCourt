@@ -135,6 +135,7 @@ type ReviewResult struct {
 type ReviewImpactReport struct {
 	Worse         []ReviewImpactItem `json:"worse"`
 	Better        []ReviewImpactItem `json:"better"`
+	NeedsReview   []ReviewImpactItem `json:"needs_review,omitempty"`
 	UnchangedDebt []ReviewImpactItem `json:"unchanged_debt"`
 }
 

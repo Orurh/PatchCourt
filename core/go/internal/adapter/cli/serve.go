@@ -12,6 +12,7 @@ type serveOptions struct {
 	root      string
 	workspace string
 	addr      string
+	viewerDir string
 }
 
 func (r *Runner) newServeCommand(ctx context.Context, rootOpts *rootOptions) *cobra.Command {
@@ -26,6 +27,7 @@ func (r *Runner) newServeCommand(ctx context.Context, rootOpts *rootOptions) *co
 				Root:      opts.root,
 				Workspace: opts.workspace,
 				Addr:      opts.addr,
+				ViewerDir: opts.viewerDir,
 				Stderr:    r.stderr,
 			})
 		},
@@ -35,6 +37,7 @@ func (r *Runner) newServeCommand(ctx context.Context, rootOpts *rootOptions) *co
 	cmd.Flags().StringVar(&opts.root, "root", "", "path to a git project root for project/review API")
 	cmd.Flags().StringVar(&opts.workspace, "workspace", "", "directory for generated review bundles")
 	cmd.Flags().StringVar(&opts.addr, "addr", "127.0.0.1:8787", "address for the bundle API server")
+	cmd.Flags().StringVar(&opts.viewerDir, "viewer-dir", "", "directory with built PatchCourt viewer assets")
 
 	return cmd
 }

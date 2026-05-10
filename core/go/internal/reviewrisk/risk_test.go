@@ -179,6 +179,18 @@ func TestCalculate_ScoresContractAndDependencyChanges(t *testing.T) {
 				SymbolKey: "method::ICameraAdapter::RunPreflight",
 			},
 		},
+		ContractImpacts: []ContractImpact{
+			{
+				SymbolKey:        "method::ICameraAdapter::RunPreflight",
+				ChangeKind:       string(contracts.ChangeKindSignatureChanged),
+				DeliveryImpacted: true,
+			},
+			{
+				SymbolKey:        "method::ICameraAdapter::RunPreflight",
+				ChangeKind:       string(contracts.ChangeKindModifiersChanged),
+				DeliveryImpacted: true,
+			},
+		},
 		DependencyChanges: []depdiff.DependencyChange{
 			{
 				Kind: depdiff.DependencyChangeKindAdded,
@@ -343,7 +355,7 @@ func TestCalculate_DoesNotScoreChangedFindingWhenEvidenceNetDecreases(t *testing
 	require.Empty(t, score.Reasons)
 }
 
-func TestCalculate_ScoresDiscoveryHintEvidenceGrowthAsDiscoverySignal(t *testing.T) {
+func TestCalculate_DoesNotScoreDiscoveryHintEvidenceGrowthAsHardRisk(t *testing.T) {
 	score := Calculate(Input{
 		FindingChanges: []findingdiff.FindingChange{
 			{
@@ -377,9 +389,7 @@ func TestCalculate_ScoresDiscoveryHintEvidenceGrowthAsDiscoverySignal(t *testing
 		},
 	})
 
-	require.Equal(t, 2, score.Points)
+	require.Equal(t, 0, score.Points)
 	require.Equal(t, LevelLow, score.Level)
-	require.Len(t, score.Reasons, 1)
-	require.Equal(t, "discovery signal gained evidence: discovery.shared_candidate.application.constants (+2 net evidence)", score.Reasons[0].Message)
-	require.Equal(t, 2, score.Reasons[0].Points)
+	require.Empty(t, score.Reasons)
 }

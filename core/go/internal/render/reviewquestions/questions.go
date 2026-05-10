@@ -2,132 +2,92 @@ package reviewquestions
 
 import (
 	"fmt"
-	"path/filepath"
-	"strings"
 
-	"github.com/orurh/patchcourt/internal/diff/contract"
+	contracts "github.com/orurh/patchcourt/internal/diff/contract"
 	"github.com/orurh/patchcourt/internal/platform/pathmatch"
 	"github.com/orurh/patchcourt/internal/reportmodel"
 )
 
-type Question struct {
-	Text string
-}
+const defaultLimit = 8
 
-func Build(result reportmodel.ReviewResult, limit int) []Question {
-	if limit <= 0 {
-		return nil
-	}
-
-	questions := make([]Question, 0, limit)
+func Build(result reportmodel.ReviewResult) []string {
+	questions := make([]string, 0)
 
 	for _, item := range result.Impact.Worse {
-		if len(questions) >= limit {
-			return questions
-		}
-
-		text := fmt.Sprintf("Check whether this regression is intentional: %s", item.Title)
-		if item.ID != "" {
-			text += fmt.Sprintf(" `%s`", item.ID)
-		}
-		if item.Detail != "" {
-			text += " — " + item.Detail
-		}
-
-		questions = append(questions, Question{Text: text})
+		questions = append(questions, fmt.Sprintf(
+			"How should we address the proven architecture problem `%s` (%s)?",
+			item.Kind,
+			impactQuestionDetail(item),
+		))
 	}
 
-	askedContracts := make(map[string]struct{})
-
-	for _, change := range result.ContractChanges {
-		if len(questions) >= limit {
-			return questions
-		}
-
-		switch change.Kind {
-		case contracts.ChangeKindRemoved, contracts.ChangeKindSignatureChanged, contracts.ChangeKindModifiersChanged:
-			if change.SymbolKey == "" {
-				continue
-			}
-
-			if _, ok := askedContracts[change.SymbolKey]; ok {
-				continue
-			}
-			askedContracts[change.SymbolKey] = struct{}{}
-
-			if hasRelatedChangedTest(result.ChangedFiles, change) {
-				questions = append(questions, Question{
-					Text: fmt.Sprintf("Public contract changed `%s`; test-like files changed in this patch. Verify they actually cover this contract migration.", change.SymbolKey),
-				})
-			} else {
-				questions = append(questions, Question{
-					Text: fmt.Sprintf("Public contract changed `%s`, but no test-like files changed. Verify callers and add or update tests.", change.SymbolKey),
-				})
-			}
-		}
+	for _, item := range result.Impact.NeedsReview {
+		questions = append(questions, fmt.Sprintf(
+			"Is `%s` intentional architecture change or accidental drift (%s)?",
+			item.Kind,
+			impactQuestionDetail(item),
+		))
 	}
 
-	if len(questions) == 0 {
-		questions = append(questions, Question{
-			Text: "No specific high-signal questions generated from the current facts.",
-		})
+	questions = append(questions, contractReviewQuestions(result.ContractChanges, result.ChangedFiles)...)
+
+	if len(result.Impact.Worse) == 0 &&
+		len(result.Impact.NeedsReview) == 0 &&
+		len(result.ContractChanges) == 0 &&
+		len(result.Impact.UnchangedDebt) > 0 {
+		questions = append(questions, "No patch-specific architecture issue was proven. Should any existing debt be tracked separately from this patch?")
+	}
+
+	if len(questions) > defaultLimit {
+		return questions[:defaultLimit]
 	}
 
 	return questions
 }
 
-func hasRelatedChangedTest(changedFiles []string, change contracts.SymbolChange) bool {
-	candidates := contractFiles(change)
-	if len(candidates) == 0 {
-		return anyTestLikeFileChanged(changedFiles)
+func contractReviewQuestions(changes []contracts.SymbolChange, changedFiles []string) []string {
+	if len(changes) == 0 {
+		return nil
 	}
 
-	for _, changedFile := range changedFiles {
-		if !pathmatch.IsTestLikeFile(changedFile) {
+	hasTests := hasTestLikeChangedFile(changedFiles)
+
+	questions := make([]string, 0, len(changes))
+	for _, change := range changes {
+		if !isReviewRelevantContractChange(change.Kind) {
 			continue
 		}
 
-		changedBase := normalizedBaseName(changedFile)
-		for _, candidate := range candidates {
-			candidateBase := normalizedBaseName(candidate)
-			if changedBase == candidateBase ||
-				strings.Contains(changedBase, candidateBase) ||
-				strings.Contains(candidateBase, changedBase) {
-				return true
-			}
+		if hasTests {
+			questions = append(questions, fmt.Sprintf(
+				"Public contract changed `%s`, and test-like files changed in this patch. Verify callers and add or update tests if the compatibility or migration path is not covered.",
+				change.SymbolKey,
+			))
+			continue
 		}
+
+		questions = append(questions, fmt.Sprintf(
+			"Public contract changed `%s`, but no test-like files changed. Verify callers and add or update tests for compatibility or migration coverage.",
+			change.SymbolKey,
+		))
 	}
 
-	return false
+	return questions
 }
 
-func contractFiles(change contracts.SymbolChange) []string {
-	seen := make(map[string]struct{})
-	files := make([]string, 0, 2)
-
-	add := func(file string) {
-		if file == "" {
-			return
-		}
-		if _, ok := seen[file]; ok {
-			return
-		}
-		seen[file] = struct{}{}
-		files = append(files, file)
+func isReviewRelevantContractChange(kind contracts.ChangeKind) bool {
+	switch kind {
+	case contracts.ChangeKindRemoved,
+		contracts.ChangeKindSignatureChanged,
+		contracts.ChangeKindModifiersChanged:
+		return true
+	default:
+		return false
 	}
-
-	if change.Before != nil {
-		add(change.Before.File)
-	}
-	if change.After != nil {
-		add(change.After.File)
-	}
-
-	return files
 }
 
-func anyTestLikeFileChanged(changedFiles []string) bool {
-	for _, file := range changedFiles {
+func hasTestLikeChangedFile(files []string) bool {
+	for _, file := range files {
 		if pathmatch.IsTestLikeFile(file) {
 			return true
 		}
@@ -136,13 +96,18 @@ func anyTestLikeFileChanged(changedFiles []string) bool {
 	return false
 }
 
-func normalizedBaseName(file string) string {
-	base := strings.ToLower(filepath.Base(strings.ReplaceAll(file, "\\", "/")))
-	ext := filepath.Ext(base)
-	base = strings.TrimSuffix(base, ext)
-	base = strings.TrimSuffix(base, "_test")
-	base = strings.TrimPrefix(base, "test_")
-	base = strings.TrimPrefix(base, "mock_")
-	base = strings.TrimSuffix(base, "_mock")
-	return base
+func impactQuestionDetail(item reportmodel.ReviewImpactItem) string {
+	if item.Detail != "" {
+		return item.Detail
+	}
+
+	if item.ID != "" {
+		return item.ID
+	}
+
+	if item.Title != "" {
+		return item.Title
+	}
+
+	return "no detail"
 }

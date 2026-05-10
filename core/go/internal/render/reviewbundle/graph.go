@@ -1,17 +1,21 @@
 package reviewbundle
 
 import (
+	"path"
+	"sort"
+	"strings"
+
 	"github.com/orurh/patchcourt/internal/diff/dep"
 	"github.com/orurh/patchcourt/internal/diff/finding"
 	"github.com/orurh/patchcourt/internal/model"
 	"github.com/orurh/patchcourt/internal/reportmodel"
-	"sort"
 )
 
 const graphSchemaVersion = "patchcourt.review_graph.v1"
 
 type ReviewGraph struct {
 	SchemaVersion string            `json:"schema_version"`
+	Source        string            `json:"source,omitempty"`
 	Nodes         []ReviewGraphNode `json:"nodes"`
 	Edges         []ReviewGraphEdge `json:"edges"`
 }
@@ -107,11 +111,151 @@ func BuildReviewGraph(result reportmodel.ReviewResult) ReviewGraph {
 		return left < right
 	})
 
+	if len(nodeRows) == 0 && len(edges) == 0 {
+		return buildAutoDependencyReviewGraph(result)
+	}
+
 	return ReviewGraph{
 		SchemaVersion: graphSchemaVersion,
+		Source:        "layer_graph",
 		Nodes:         nodeRows,
 		Edges:         edges,
 	}
+}
+
+func buildAutoDependencyReviewGraph(result reportmodel.ReviewResult) ReviewGraph {
+	beforeCounts := moduleEdgeCountsFromProject(result.BeforeProject)
+	afterCounts := moduleEdgeCountsFromProject(result.AfterProject)
+	keys := mergedAutoGraphKeys(beforeCounts, afterCounts)
+
+	nodes := make(map[string]*ReviewGraphNode)
+	edges := make([]ReviewGraphEdge, 0, len(keys))
+
+	for _, key := range keys {
+		from, to := splitAutoGraphKey(key)
+		if from == "" || to == "" || from == to {
+			continue
+		}
+
+		beforeCount := beforeCounts[key]
+		afterCount := afterCounts[key]
+		movement := graphMovement(beforeCount, afterCount)
+
+		edges = append(edges, ReviewGraphEdge{
+			From:        from,
+			To:          to,
+			BeforeCount: beforeCount,
+			AfterCount:  afterCount,
+			Movement:    movement,
+		})
+
+		fromNode := ensureGraphNode(nodes, from)
+		toNode := ensureGraphNode(nodes, to)
+
+		fromNode.BeforeDependencyCount += beforeCount
+		fromNode.AfterDependencyCount += afterCount
+		toNode.BeforeDependencyCount += beforeCount
+		toNode.AfterDependencyCount += afterCount
+
+		if movement != "unchanged" {
+			fromNode.Changed = true
+			toNode.Changed = true
+		}
+	}
+
+	nodeRows := make([]ReviewGraphNode, 0, len(nodes))
+	for _, node := range nodes {
+		nodeRows = append(nodeRows, *node)
+	}
+
+	sort.Slice(nodeRows, func(i, j int) bool {
+		return nodeRows[i].ID < nodeRows[j].ID
+	})
+
+	sort.Slice(edges, func(i, j int) bool {
+		left := edges[i].From + "->" + edges[i].To
+		right := edges[j].From + "->" + edges[j].To
+		return left < right
+	})
+
+	return ReviewGraph{
+		SchemaVersion: graphSchemaVersion,
+		Source:        "auto_dependency_graph",
+		Nodes:         nodeRows,
+		Edges:         edges,
+	}
+}
+
+func moduleEdgeCountsFromProject(project *model.ProjectModel) map[string]int {
+	counts := make(map[string]int)
+	if project == nil {
+		return counts
+	}
+
+	for _, dependency := range project.Dependencies {
+		if dependency.External || !dependency.Resolved {
+			continue
+		}
+		if dependency.FromFile == "" || dependency.ToFile == "" {
+			continue
+		}
+
+		from := autoModuleID(dependency.FromFile)
+		to := autoModuleID(dependency.ToFile)
+		if from == "" || to == "" || from == to {
+			continue
+		}
+
+		counts[autoGraphKey(from, to)]++
+	}
+
+	return counts
+}
+
+func autoModuleID(file string) string {
+	file = strings.Trim(path.Clean(strings.Trim(file, "/")), ".")
+	if file == "" || file == "/" {
+		return ""
+	}
+
+	dir := path.Dir(file)
+	if dir == "." || dir == "/" {
+		return path.Base(file)
+	}
+
+	return dir
+}
+
+func mergedAutoGraphKeys(left map[string]int, right map[string]int) []string {
+	seen := make(map[string]struct{}, len(left)+len(right))
+
+	for key := range left {
+		seen[key] = struct{}{}
+	}
+	for key := range right {
+		seen[key] = struct{}{}
+	}
+
+	keys := make([]string, 0, len(seen))
+	for key := range seen {
+		keys = append(keys, key)
+	}
+
+	sort.Strings(keys)
+	return keys
+}
+
+func autoGraphKey(from string, to string) string {
+	return from + "\x00" + to
+}
+
+func splitAutoGraphKey(key string) (string, string) {
+	parts := strings.SplitN(key, "\x00", 2)
+	if len(parts) != 2 {
+		return "", ""
+	}
+
+	return parts[0], parts[1]
 }
 
 func layerEdgeCountsFromProject(project *model.ProjectModel) map[string]int {

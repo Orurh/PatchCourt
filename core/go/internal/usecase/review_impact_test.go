@@ -112,9 +112,10 @@ func TestBuildReviewImpactReport_DoesNotPutNoisyRemovedDependenciesInBetter(t *t
 
 	impact := BuildReviewImpactReport(result, nil, nil)
 
-	require.Len(t, impact.Better, 1)
-	require.Equal(t, "dependency_removed", impact.Better[0].Kind)
-	require.Equal(t, "include|src/domain/a.h|src/cameras/b.h", impact.Better[0].ID)
+	require.Empty(t, impact.Better)
+	require.Len(t, impact.NeedsReview, 1)
+	require.Equal(t, "dependency_removed_needs_review", impact.NeedsReview[0].Kind)
+	require.Equal(t, "include|src/domain/a.h|src/cameras/b.h", impact.NeedsReview[0].ID)
 }
 
 func TestBuildReviewImpactReport_DoesNotPutAllowedAddedCrossLayerDependencyInWorse(t *testing.T) {

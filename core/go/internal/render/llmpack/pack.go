@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 
 	"github.com/orurh/patchcourt/internal/diff/contract"
 	"github.com/orurh/patchcourt/internal/diff/dep"
@@ -62,6 +63,9 @@ func WriteReviewContext(w io.Writer, input ReviewContextInput) {
 	fmt.Fprintln(w)
 
 	writeArchitectureImpact(w, result.Impact, limit)
+	fmt.Fprintln(w)
+
+	writeAIFollowUpPrompt(w, result, limit)
 	fmt.Fprintln(w)
 
 	writeContractChanges(w, result.ContractChanges, limit)
@@ -305,14 +309,20 @@ func sortedKeys(values map[string]struct{}) []string {
 func writeArchitectureImpact(w io.Writer, impact reportmodel.ReviewImpactReport, limit int) {
 	fmt.Fprintln(w, "## Architecture impact")
 	fmt.Fprintln(w)
-
-	writeImpactItems(w, "### Worse", impact.Worse, limit)
+	fmt.Fprintln(w, "PatchCourt only marks problems and improvements when it has policy-backed or high-confidence evidence.")
+	fmt.Fprintln(w, "Other architecture movements are listed as review items for human or AI follow-up.")
 	fmt.Fprintln(w)
 
-	writeImpactItems(w, "### Better", impact.Better, limit)
+	writeImpactItems(w, "### Real problems introduced", impact.Worse, limit)
 	fmt.Fprintln(w)
 
-	writeImpactItems(w, "### Unchanged debt", impact.UnchangedDebt, limit)
+	writeImpactItems(w, "### Verified improvements", impact.Better, limit)
+	fmt.Fprintln(w)
+
+	writeImpactItems(w, "### Needs review / AI follow-up", impact.NeedsReview, limit)
+	fmt.Fprintln(w)
+
+	writeImpactItems(w, "### Existing debt", impact.UnchangedDebt, limit)
 }
 
 func writeImpactItems(w io.Writer, title string, items []reportmodel.ReviewImpactItem, limit int) {
@@ -345,6 +355,172 @@ func writeImpactItems(w io.Writer, title string, items []reportmodel.ReviewImpac
 			fmt.Fprintf(w, "- ... %d more\n", len(items)-limit)
 			return
 		}
+	}
+}
+func writeAIFollowUpPrompt(w io.Writer, result reportmodel.ReviewResult, limit int) {
+	fmt.Fprintln(w, "## AI follow-up prompt")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Use this prompt for a follow-up AI review or fix pass:")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "```text")
+	fmt.Fprintln(w, "You are reviewing a patch using PatchCourt evidence.")
+	fmt.Fprintln(w, "Do not invent files, dependencies, symbols, call sites, tests, or findings not listed in this context pack.")
+	fmt.Fprintln(w)
+
+	if len(result.Impact.Worse) == 0 {
+		fmt.Fprintln(w, "PatchCourt found no proven architecture regression in this patch.")
+	} else {
+		fmt.Fprintf(w, "PatchCourt found %d proven architecture problem(s). Treat these as the highest-priority issues.\n", len(result.Impact.Worse))
+	}
+
+	if len(result.Impact.Better) == 0 {
+		fmt.Fprintln(w, "PatchCourt found no policy-backed verified architecture improvement.")
+	} else {
+		fmt.Fprintf(w, "PatchCourt found %d verified architecture improvement(s). Preserve these while making fixes.\n", len(result.Impact.Better))
+	}
+
+	if len(result.Impact.NeedsReview) > 0 {
+		fmt.Fprintln(w)
+		fmt.Fprintf(w, "The patch has %d architecture-relevant item(s) that need review. They are not proven bad by PatchCourt, but they may require migration, tests, explanation, or architecture cleanup.\n", len(result.Impact.NeedsReview))
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "Review these themes:")
+
+		groups := buildAIFollowUpGroups(result.Impact.NeedsReview)
+		for i, group := range groups {
+			writeAIFollowUpGroup(w, i+1, group, limit)
+		}
+	} else {
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "PatchCourt found no needs-review architecture items.")
+	}
+
+	if len(result.Impact.UnchangedDebt) > 0 {
+		fmt.Fprintln(w)
+		fmt.Fprintf(w, "There are %d existing debt item(s) not introduced by this patch. Do not blame the patch for them, but avoid making them worse.\n", len(result.Impact.UnchangedDebt))
+	}
+
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Your task:")
+	if len(result.Impact.NeedsReview) > 0 {
+		fmt.Fprintln(w, "1. Explain whether each review theme is intentional refactor/migration or accidental architecture drift.")
+		fmt.Fprintln(w, "2. Identify missing tests, compatibility checks, or architecture cleanup steps using only the evidence listed here.")
+		fmt.Fprintln(w, "3. Propose minimal code changes only when the evidence supports them.")
+		fmt.Fprintln(w, "4. If evidence is insufficient, say exactly what file/call site/test should be inspected next.")
+	} else {
+		fmt.Fprintln(w, "1. Confirm that there is no patch-specific architecture action required from the listed evidence.")
+		fmt.Fprintln(w, "2. Do not propose code changes unless they are supported by listed facts.")
+		fmt.Fprintln(w, "3. Note existing debt separately and do not blame this patch for it.")
+	}
+	fmt.Fprintln(w, "```")
+}
+
+type aiFollowUpGroup struct {
+	Key   string
+	Title string
+	Why   string
+	Ask   string
+	Items []reportmodel.ReviewImpactItem
+}
+
+func buildAIFollowUpGroups(items []reportmodel.ReviewImpactItem) []aiFollowUpGroup {
+	groups := make(map[string]*aiFollowUpGroup)
+	order := make([]string, 0)
+
+	for _, item := range items {
+		key, title, why, ask := aiFollowUpGroupInfo(item)
+
+		group, ok := groups[key]
+		if !ok {
+			group = &aiFollowUpGroup{
+				Key:   key,
+				Title: title,
+				Why:   why,
+				Ask:   ask,
+				Items: make([]reportmodel.ReviewImpactItem, 0),
+			}
+			groups[key] = group
+			order = append(order, key)
+		}
+
+		group.Items = append(group.Items, item)
+	}
+
+	result := make([]aiFollowUpGroup, 0, len(order))
+	for _, key := range order {
+		result = append(result, *groups[key])
+	}
+
+	return result
+}
+
+func aiFollowUpGroupInfo(item reportmodel.ReviewImpactItem) (key string, title string, why string, ask string) {
+	kind := item.Kind
+
+	switch {
+	case strings.HasPrefix(kind, "contract_"):
+		return "contract",
+			"Contract boundary / API migration",
+			"Public contracts changed, but PatchCourt cannot prove this is a regression without migration, compatibility, and call-site context.",
+			"Verify whether behavior was intentionally migrated to replacement contracts, whether API compatibility is preserved, and what tests should cover the migration."
+
+	case strings.HasPrefix(kind, "dependency_"):
+		return "dependency",
+			"Dependency movement",
+			"Include/import dependencies changed. PatchCourt can prove the movement, but not whether it is better or worse without architecture intent.",
+			"Explain whether the dependency movement is intentional, whether it follows the intended layering, and whether any moved dependency should be replaced, isolated, or documented."
+
+	case strings.HasPrefix(kind, "layer_edge_"):
+		return "layer_edge",
+			"Layer graph movement",
+			"Layer edge counts changed. Count movement alone is not proof of improvement or regression.",
+			"Check whether the layer movement matches the intended architecture and whether it reduced known debt or introduced accidental coupling."
+
+	case strings.HasPrefix(kind, "discovery_signal_"):
+		return "discovery",
+			"Discovery signals",
+			"Heuristic architecture signals changed. These are review candidates, not proven violations.",
+			"Verify whether the signal reflects real architecture drift, misplaced shared/config code, or an intentional project-specific layout."
+
+	default:
+		return "other",
+			"Other review items",
+			"PatchCourt found architecture-relevant review items that do not fit a stronger proven category.",
+			"Review the listed evidence and decide whether follow-up code changes, tests, or documentation are needed."
+	}
+}
+
+func writeAIFollowUpGroup(w io.Writer, index int, group aiFollowUpGroup, limit int) {
+	fmt.Fprintf(w, "\nTheme %d: %s\n", index, group.Title)
+	fmt.Fprintf(w, "Why it matters: %s\n", group.Why)
+	fmt.Fprintf(w, "Ask AI: %s\n", group.Ask)
+	fmt.Fprintln(w, "Items:")
+
+	for _, item := range limited(group.Items, limit) {
+		writeAIFollowUpItem(w, item)
+	}
+
+	writeIndentedMore(w, len(group.Items), limit, "")
+}
+
+func writeAIFollowUpItem(w io.Writer, item reportmodel.ReviewImpactItem) {
+	fmt.Fprintf(w, "- %s: %s", item.Kind, item.Title)
+
+	if item.ID != "" {
+		fmt.Fprintf(w, " [%s]", item.ID)
+	}
+
+	if item.Detail != "" {
+		fmt.Fprintf(w, " — %s", item.Detail)
+	}
+
+	fmt.Fprintln(w)
+
+	if item.Suggestion != "" {
+		fmt.Fprintf(w, "  Suggested review: %s\n", item.Suggestion)
+	}
+
+	if len(item.Evidence) > 0 {
+		fmt.Fprintf(w, "  Evidence items: %d\n", len(item.Evidence))
 	}
 }
 
@@ -683,9 +859,17 @@ func writeReviewQuestions(w io.Writer, result reportmodel.ReviewResult, limit in
 	fmt.Fprintln(w, "## Review questions")
 	fmt.Fprintln(w)
 
-	for _, question := range reviewquestions.Build(result, limit) {
-		fmt.Fprintf(w, "- %s\n", question.Text)
+	questions := reviewquestions.Build(result)
+	if len(questions) == 0 {
+		fmt.Fprintln(w, "- No specific high-signal questions generated from the current facts.")
+		return
 	}
+
+	for _, question := range limited(questions, limit) {
+		fmt.Fprintf(w, "- %s\n", question)
+	}
+
+	writeIndentedMore(w, len(questions), limit, "")
 }
 
 func reviewRelevantDependencyChanges(changes []depdiff.DependencyChange) []depdiff.DependencyChange {

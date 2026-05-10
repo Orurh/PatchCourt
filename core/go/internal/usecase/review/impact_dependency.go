@@ -34,7 +34,8 @@ func worseDependencyChanges(changes []depdiff.DependencyChange, policyIndex poli
 
 	return items
 }
-func betterDependencyChanges(changes []depdiff.DependencyChange) []ReviewImpactItem {
+
+func betterDependencyChanges(changes []depdiff.DependencyChange, beforePolicyIndex policyViolationEdgeIndex) []ReviewImpactItem {
 	items := make([]ReviewImpactItem, 0)
 
 	for _, change := range changes {
@@ -47,9 +48,13 @@ func betterDependencyChanges(changes []depdiff.DependencyChange) []ReviewImpactI
 			continue
 		}
 
+		if !isPolicyViolationDependency(beforePolicyIndex, *dep) {
+			continue
+		}
+
 		items = append(items, ReviewImpactItem{
 			Kind:   "dependency_removed",
-			Title:  "Removed dependency",
+			Title:  "Removed forbidden dependency",
 			Detail: dependencyImpactDetail(*dep),
 			ID:     change.Key,
 		})
@@ -57,6 +62,65 @@ func betterDependencyChanges(changes []depdiff.DependencyChange) []ReviewImpactI
 
 	return items
 }
+
+func needsReviewDependencyChanges(
+	changes []depdiff.DependencyChange,
+	afterPolicyIndex policyViolationEdgeIndex,
+	beforePolicyIndex policyViolationEdgeIndex,
+) []ReviewImpactItem {
+	items := make([]ReviewImpactItem, 0)
+
+	for _, change := range changes {
+		switch change.Kind {
+		case depdiff.DependencyChangeKindAdded:
+			if change.After == nil {
+				continue
+			}
+
+			dep := change.After
+			if !isReviewRelevantDependency(*dep) {
+				continue
+			}
+
+			if isPolicyViolationDependency(afterPolicyIndex, *dep) {
+				continue
+			}
+
+			items = append(items, ReviewImpactItem{
+				Kind:       "dependency_added_needs_review",
+				Title:      "Dependency added; verify architecture intent",
+				Detail:     dependencyImpactDetail(*dep),
+				ID:         change.Key,
+				Suggestion: "This dependency is not proven forbidden by policy, but it changes the architecture graph and should be reviewed in context.",
+			})
+
+		case depdiff.DependencyChangeKindRemoved:
+			if change.Before == nil {
+				continue
+			}
+
+			dep := change.Before
+			if !isReviewRelevantDependency(*dep) {
+				continue
+			}
+
+			if isPolicyViolationDependency(beforePolicyIndex, *dep) {
+				continue
+			}
+
+			items = append(items, ReviewImpactItem{
+				Kind:       "dependency_removed_needs_review",
+				Title:      "Dependency removed; verify whether this is a real improvement",
+				Detail:     dependencyImpactDetail(*dep),
+				ID:         change.Key,
+				Suggestion: "A dependency disappeared, but PatchCourt cannot prove this is better unless it removed a known policy violation or known debt.",
+			})
+		}
+	}
+
+	return items
+}
+
 func isReviewRelevantDependency(dep model.DependencyEdge) bool {
 	if dep.External {
 		return false
@@ -72,15 +136,12 @@ func isReviewRelevantDependency(dep model.DependencyEdge) bool {
 
 	return true
 }
+
 func dependencyImpactDetail(dep model.DependencyEdge) string {
 	target := dep.ToFile
 	if target == "" {
 		target = dep.Target
 	}
 
-	if dep.FromLayer != "" || dep.ToLayer != "" {
-		return fmt.Sprintf("%s -> %s (%s -> %s)", dep.FromFile, target, dep.FromLayer, dep.ToLayer)
-	}
-
-	return fmt.Sprintf("%s -> %s", dep.FromFile, target)
+	return fmt.Sprintf("%s -> %s (%s -> %s)", dep.FromFile, target, dep.FromLayer, dep.ToLayer)
 }

@@ -18,6 +18,10 @@ func worseFindingChanges(changes []findingdiff.FindingChange) []ReviewImpactItem
 			}
 
 			finding := change.After
+			if finding.Kind == model.FindingKindDiscoveryHint {
+				continue
+			}
+
 			items = append(items, ReviewImpactItem{
 				Kind:       "finding_added",
 				Severity:   string(finding.Severity),
@@ -35,6 +39,10 @@ func worseFindingChanges(changes []findingdiff.FindingChange) []ReviewImpactItem
 			}
 
 			finding := change.After
+			if finding.Kind == model.FindingKindDiscoveryHint {
+				continue
+			}
+
 			items = append(items, ReviewImpactItem{
 				Kind:       "finding_worsened",
 				Severity:   string(finding.Severity),
@@ -50,6 +58,80 @@ func worseFindingChanges(changes []findingdiff.FindingChange) []ReviewImpactItem
 
 	return items
 }
+func needsReviewFindingChanges(changes []findingdiff.FindingChange) []ReviewImpactItem {
+	items := make([]ReviewImpactItem, 0)
+
+	for _, change := range changes {
+		switch change.Kind {
+		case findingdiff.FindingChangeKindAdded:
+			if change.After == nil || change.After.Kind != model.FindingKindDiscoveryHint {
+				continue
+			}
+
+			finding := change.After
+			items = append(items, ReviewImpactItem{
+				Kind:       "discovery_signal_added",
+				Severity:   string(finding.Severity),
+				Title:      "Discovery signal added; verify architecture intent",
+				Detail:     finding.Title,
+				ID:         change.ID,
+				Risk:       finding.Risk,
+				Suggestion: finding.Suggestion,
+				Evidence:   finding.Evidence,
+			})
+
+		case findingdiff.FindingChangeKindRemoved:
+			if change.Before == nil || change.Before.Kind != model.FindingKindDiscoveryHint {
+				continue
+			}
+
+			finding := change.Before
+			items = append(items, ReviewImpactItem{
+				Kind:       "discovery_signal_removed",
+				Severity:   string(finding.Severity),
+				Title:      "Discovery signal removed; verify whether this is a real improvement",
+				Detail:     finding.Title,
+				ID:         change.ID,
+				Risk:       finding.Risk,
+				Suggestion: finding.Suggestion,
+				Evidence:   finding.Evidence,
+			})
+
+		case findingdiff.FindingChangeKindChanged:
+			if change.After != nil && change.After.Kind == model.FindingKindDiscoveryHint && findingChangeGotWorse(change) {
+				finding := change.After
+				items = append(items, ReviewImpactItem{
+					Kind:       "discovery_signal_changed",
+					Severity:   string(finding.Severity),
+					Title:      "Discovery signal changed; verify architecture intent",
+					Detail:     changedFindingDetail(change),
+					ID:         change.ID,
+					Risk:       finding.Risk,
+					Suggestion: finding.Suggestion,
+					Evidence:   changedFindingEvidence(change, finding.Evidence),
+				})
+				continue
+			}
+
+			if change.Before != nil && change.Before.Kind == model.FindingKindDiscoveryHint && findingChangeGotBetter(change) {
+				finding := change.Before
+				items = append(items, ReviewImpactItem{
+					Kind:       "discovery_signal_changed",
+					Severity:   string(finding.Severity),
+					Title:      "Discovery signal changed; verify architecture intent",
+					Detail:     changedFindingDetail(change),
+					ID:         change.ID,
+					Risk:       finding.Risk,
+					Suggestion: finding.Suggestion,
+					Evidence:   change.RemovedEvidence,
+				})
+			}
+		}
+	}
+
+	return items
+}
+
 func betterFindingChanges(changes []findingdiff.FindingChange) []ReviewImpactItem {
 	items := make([]ReviewImpactItem, 0)
 
@@ -61,6 +143,10 @@ func betterFindingChanges(changes []findingdiff.FindingChange) []ReviewImpactIte
 			}
 
 			finding := change.Before
+			if finding.Kind == model.FindingKindDiscoveryHint {
+				continue
+			}
+
 			items = append(items, ReviewImpactItem{
 				Kind:       "finding_removed",
 				Severity:   string(finding.Severity),
@@ -78,6 +164,10 @@ func betterFindingChanges(changes []findingdiff.FindingChange) []ReviewImpactIte
 			}
 
 			finding := change.Before
+			if finding.Kind == model.FindingKindDiscoveryHint {
+				continue
+			}
+
 			items = append(items, ReviewImpactItem{
 				Kind:       "finding_weakened",
 				Severity:   string(finding.Severity),

@@ -114,6 +114,29 @@ func (s Service) Run(ctx context.Context, req Request) (*ReviewResult, error) {
 
 	return result, nil
 }
+func riskContractImpacts(impacts []reportmodel.ContractImpact) []risk.ContractImpact {
+	if len(impacts) == 0 {
+		return nil
+	}
+
+	result := make([]risk.ContractImpact, 0, len(impacts))
+	for _, impact := range impacts {
+		files := make([]risk.ContractImpactedFile, 0, len(impact.ImpactedFiles))
+		for _, file := range impact.ImpactedFiles {
+			files = append(files, risk.ContractImpactedFile{File: file.File})
+		}
+
+		result = append(result, risk.ContractImpact{
+			SymbolKey:        impact.SymbolKey,
+			ChangeKind:       impact.ChangeKind,
+			TestsChanged:     impact.TestsChanged,
+			DeliveryImpacted: impact.DeliveryImpacted,
+			ImpactedFiles:    files,
+		})
+	}
+
+	return result
+}
 
 func buildReviewSummary(
 	contractChanges []contracts.SymbolChange,

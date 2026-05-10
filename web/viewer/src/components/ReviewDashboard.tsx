@@ -7,6 +7,7 @@ import type {
   FindingChange,
   FindingsReport,
   ReviewGraph,
+  ReviewImpactItem,
   ReviewResult,
   RuntimeReport,
   TreeReport,
@@ -86,6 +87,8 @@ function Overview({ review }: { review: ReviewResult }) {
         )}
       </section>
 
+      <ImpactOverview review={review} />
+
       <section className="card">
         <h2>Changed files</h2>
         {review.changed_files?.length ? (
@@ -101,6 +104,158 @@ function Overview({ review }: { review: ReviewResult }) {
         )}
       </section>
     </section>
+  )
+}
+function ImpactOverview({ review }: { review: ReviewResult }) {
+  const impact = review.impact
+  const worse = impact?.worse ?? []
+  const better = impact?.better ?? []
+  const needsReview = impact?.needs_review ?? []
+  const unchangedDebt = impact?.unchanged_debt ?? []
+
+  if (!worse.length && !better.length && !needsReview.length && !unchangedDebt.length) {
+    return (
+      <section className="card">
+        <h2>Architecture impact</h2>
+        <p className="muted">No architecture impact items.</p>
+      </section>
+    )
+  }
+
+  return (
+    <section className="card">
+      <div className="section-title-row">
+        <div>
+          <p className="eyebrow">Architecture case file</p>
+          <h2>Architecture impact</h2>
+          <p className="muted">
+            PatchCourt marks problems and improvements only when it has policy-backed or high-confidence evidence.
+            Other architecture movements are shown as review items for human or AI follow-up.
+          </p>
+        </div>
+      </div>
+
+      <div className="impact-status-grid">
+        <ImpactStatusCard
+          tone={worse.length ? 'bad' : 'ok'}
+          label="Real problems introduced"
+          value={worse.length}
+          text={worse.length ? 'Proven regressions found.' : 'No proven new architecture problem.'}
+        />
+        <ImpactStatusCard
+          tone={better.length ? 'good' : 'neutral'}
+          label="Verified improvements"
+          value={better.length}
+          text={better.length ? 'Proven improvements found.' : 'No policy-backed improvement proven.'}
+        />
+        <ImpactStatusCard
+          tone={needsReview.length ? 'warn' : 'neutral'}
+          label="Needs review / AI follow-up"
+          value={needsReview.length}
+          text={needsReview.length ? 'Important changes without a hard verdict.' : 'No review candidates.'}
+        />
+        <ImpactStatusCard
+          tone={unchangedDebt.length ? 'debt' : 'neutral'}
+          label="Existing debt"
+          value={unchangedDebt.length}
+          text={unchangedDebt.length ? 'Pre-existing issues not caused by this patch.' : 'No unchanged debt items.'}
+        />
+      </div>
+
+      {(worse.length > 0 || better.length > 0) && (
+        <div className="impact-proof-grid">
+          {worse.length > 0 && (
+            <ImpactColumn
+              title="Real problems introduced"
+              tone="worse"
+              items={worse}
+              empty="No proven new architecture problem."
+            />
+          )}
+          {better.length > 0 && (
+            <ImpactColumn
+              title="Verified improvements"
+              tone="better"
+              items={better}
+              empty="No verified improvements."
+            />
+          )}
+        </div>
+      )}
+
+      <div className="impact-main-grid">
+        <ImpactColumn
+          title="Needs review / AI follow-up"
+          tone="needs-review"
+          items={needsReview}
+          empty="No ambiguous review candidates."
+        />
+        <ImpactColumn
+          title="Existing debt"
+          tone="debt"
+          items={unchangedDebt}
+          empty="No unchanged debt."
+        />
+      </div>
+    </section>
+  )
+}
+
+function ImpactStatusCard({
+  tone,
+  label,
+  value,
+  text,
+}: {
+  tone: string
+  label: string
+  value: number
+  text: string
+}) {
+  return (
+    <div className={`impact-status-card ${tone}`}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <p>{text}</p>
+    </div>
+  )
+}
+
+function ImpactColumn({
+  title,
+  tone,
+  items,
+  empty,
+}: {
+  title: string
+  tone: string
+  items: ReviewImpactItem[]
+  empty: string
+}) {
+  return (
+    <div className={`impact-column ${tone}`}>
+      <h3>{title}</h3>
+      {items.length ? (
+        <ul className="impact-list">
+          {items.slice(0, 10).map((item, index) => (
+            <li key={`${item.kind}-${item.id ?? item.detail ?? item.title}-${index}`}>
+              <div className="impact-item-title">
+                <span className="tag">{item.kind}</span>
+                {item.severity && <span className="tag">{item.severity}</span>}
+              </div>
+              <strong>{item.title}</strong>
+              {item.detail && <code>{item.detail}</code>}
+              {item.risk && <p>{item.risk}</p>}
+              {item.suggestion && <p className="muted">{item.suggestion}</p>}
+              {item.evidence?.length ? <span className="muted">{item.evidence.length} evidence items</span> : null}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="muted">{empty}</p>
+      )}
+      {items.length > 10 && <p className="muted">+{items.length - 10} more items in JSON.</p>}
+    </div>
   )
 }
 

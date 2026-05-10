@@ -16,6 +16,24 @@ export interface RiskReason {
   points: number
 }
 
+export interface ReviewImpactItem {
+  kind: string
+  severity?: string
+  title: string
+  detail?: string
+  id?: string
+  risk?: string
+  suggestion?: string
+  evidence?: Evidence[]
+}
+
+export interface ReviewImpactReport {
+  worse?: ReviewImpactItem[]
+  better?: ReviewImpactItem[]
+  needs_review?: ReviewImpactItem[]
+  unchanged_debt?: ReviewImpactItem[]
+}
+
 export interface ReviewResult {
   schema_version: string
   risk: {
@@ -24,6 +42,7 @@ export interface ReviewResult {
     reasons?: RiskReason[]
   }
   summary: ReviewSummary
+  impact?: ReviewImpactReport
   changed_files?: string[]
 }
 
@@ -68,6 +87,7 @@ export interface ReviewGraphEdge {
 
 export interface ReviewGraph {
   schema_version: string
+  source?: string
   nodes: ReviewGraphNode[]
   edges: ReviewGraphEdge[]
 }

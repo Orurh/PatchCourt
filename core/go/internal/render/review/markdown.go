@@ -236,7 +236,16 @@ func writeMarkdownLayerEdgeChanges(w io.Writer, changes []depdiff.LayerEdgeChang
 }
 
 func writeMarkdownDependencyChanges(w io.Writer, changes []depdiff.DependencyChange) {
+	relevant := reviewRelevantDependencyChanges(changes)
+	hidden := len(changes) - len(relevant)
+
 	fmt.Fprintln(w, "## Dependency changes")
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "- Review-relevant: `%d`\n", len(relevant))
+	fmt.Fprintf(w, "- Raw total: `%d`\n", len(changes))
+	if hidden > 0 {
+		fmt.Fprintf(w, "- Hidden low-level: `%d`\n", hidden)
+	}
 	fmt.Fprintln(w)
 
 	if len(changes) == 0 {
@@ -244,7 +253,12 @@ func writeMarkdownDependencyChanges(w io.Writer, changes []depdiff.DependencyCha
 		return
 	}
 
-	limit := len(changes)
+	if len(relevant) == 0 {
+		fmt.Fprintln(w, "_No review-relevant dependency changes._")
+		return
+	}
+
+	limit := len(relevant)
 	if limit > 20 {
 		limit = 20
 	}
@@ -253,7 +267,7 @@ func writeMarkdownDependencyChanges(w io.Writer, changes []depdiff.DependencyCha
 	fmt.Fprintln(w, "| --- | --- | --- | --- | --- |")
 
 	for i := 0; i < limit; i++ {
-		change := changes[i]
+		change := relevant[i]
 
 		dep := change.After
 		if dep == nil {
@@ -285,8 +299,8 @@ func writeMarkdownDependencyChanges(w io.Writer, changes []depdiff.DependencyCha
 		)
 	}
 
-	if len(changes) > limit {
-		fmt.Fprintf(w, "\n_... %d more dependency change(s)_\n", len(changes)-limit)
+	if len(relevant) > limit {
+		fmt.Fprintf(w, "\n_... %d more review-relevant dependency change(s)_\n", len(relevant)-limit)
 	}
 }
 
@@ -361,14 +375,20 @@ func shellQuote(value string) string {
 func writeMarkdownImpact(w io.Writer, impact reportmodel.ReviewImpactReport) {
 	fmt.Fprintln(w, "## Architecture impact")
 	fmt.Fprintln(w)
-
-	writeMarkdownImpactSection(w, "### Worse", impact.Worse)
+	fmt.Fprintln(w, "PatchCourt only marks problems and improvements when it has policy-backed or high-confidence evidence.")
+	fmt.Fprintln(w, "Other architecture movements are listed as review items for human or AI follow-up.")
 	fmt.Fprintln(w)
 
-	writeMarkdownImpactSection(w, "### Better", impact.Better)
+	writeMarkdownImpactSection(w, "### Real problems introduced", impact.Worse)
 	fmt.Fprintln(w)
 
-	writeMarkdownImpactSection(w, "### Unchanged debt", impact.UnchangedDebt)
+	writeMarkdownImpactSection(w, "### Verified improvements", impact.Better)
+	fmt.Fprintln(w)
+
+	writeMarkdownImpactSection(w, "### Needs review / AI follow-up", impact.NeedsReview)
+	fmt.Fprintln(w)
+
+	writeMarkdownImpactSection(w, "### Existing debt", impact.UnchangedDebt)
 }
 
 func writeMarkdownImpactSection(w io.Writer, title string, items []reportmodel.ReviewImpactItem) {

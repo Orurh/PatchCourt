@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { ReviewGraph, ReviewGraphEdge, TreeNode, TreeReport } from '../types'
+import { ArchitectureFlow } from './ArchitectureFlow'
 
 type TreeMode = 'single' | 'compare'
 
@@ -15,15 +16,20 @@ interface FlatTreeNode {
 }
 
 export function ProjectTree({ tree, graph }: Props) {
-  const [mode, setMode] = useState<TreeMode>('single')
   const [selectedNodeKey, setSelectedNodeKey] = useState(nodeKey(tree.root))
   const [selectedEdgeKey, setSelectedEdgeKey] = useState<string | null>(null)
+  const [selectedGraphNodeID, setSelectedGraphNodeID] = useState<string | null>(null)
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set())
+  const [dependencyScope, setDependencyScope] = useState<'changed' | 'all'>('changed')
 
   const selectedNode = useMemo(() => findNodeByKey(tree.root, selectedNodeKey), [tree.root, selectedNodeKey])
   const selectedEdge = useMemo(
     () => graph.edges.find((edge) => graphEdgeKey(edge) === selectedEdgeKey) ?? null,
     [graph.edges, selectedEdgeKey],
+  )
+  const selectedGraphNode = useMemo(
+    () => graph.nodes.find((node) => node.id === selectedGraphNodeID) ?? null,
+    [graph.nodes, selectedGraphNodeID],
   )
 
   function toggleNode(key: string) {
@@ -47,27 +53,26 @@ export function ProjectTree({ tree, graph }: Props) {
           <p className="muted">Layers/modules as 2.5D nodes, dependency movement as arrows, files as drill-down.</p>
         </div>
 
-        <div className="tree-mode-toggle">
-          <button type="button" className={mode === 'single' ? 'active' : ''} onClick={() => setMode('single')}>
-            Single 2.5D
-          </button>
-          <button type="button" className={mode === 'compare' ? 'active' : ''} onClick={() => setMode('compare')}>
-            Compare
-          </button>
-        </div>
+        <span className="tag">interactive map</span>
       </div>
 
       <MapLegend />
 
       <div className="architecture-map-layout">
-        <ArchitectureMap
+        <ArchitectureFlow
           graph={graph}
-          mode={mode}
           selectedEdgeKey={selectedEdgeKey}
+          selectedNodeID={selectedGraphNodeID}
           onSelectEdge={setSelectedEdgeKey}
+          onSelectNode={setSelectedGraphNodeID}
         />
 
-        <TreeDetailsPanel node={selectedNode} edge={selectedEdge} />
+        <TreeDetailsPanel
+          node={selectedNode}
+          graphNode={selectedGraphNode}
+          graph={graph}
+          edge={selectedEdge}
+        />
       </div>
 
       <details className="file-tree-drilldown">
@@ -82,27 +87,11 @@ export function ProjectTree({ tree, graph }: Props) {
           onSelectNode={(key) => {
             setSelectedNodeKey(key)
             setSelectedEdgeKey(null)
+            setSelectedGraphNodeID(null)
           }}
         />
       </details>
     </section>
-  )
-}
-
-function TreeLegend() {
-  return (
-    <div className="tree-impact-legend">
-      <div>
-        <strong>How to read this tree</strong>
-        <span>Focus on colored nodes first. Neutral nodes are project context.</span>
-      </div>
-
-      <div className="tree-legend-items">
-        <span className="tree-legend-item changed">Patch changed</span>
-        <span className="tree-legend-item risky">Finding / risk</span>
-        <span className="tree-legend-item neutral">Context</span>
-      </div>
-    </div>
   )
 }
 
@@ -115,38 +104,75 @@ function MapLegend() {
       </div>
 
       <div className="tree-legend-items">
-        <span className="tree-legend-item changed">Changed edge</span>
-        <span className="tree-legend-item risky">Finding / risk</span>
-        <span className="tree-legend-item neutral">Unchanged context</span>
+        <span className="tree-legend-item edge-added">Added dependency</span>
+        <span className="tree-legend-item edge-changed">Changed dependency</span>
+        <span className="tree-legend-item edge-removed">Removed dependency</span>
+        <span className="tree-legend-item node-changed">Touched module</span>
+        <span className="tree-legend-item node-risk">Risk / finding</span>
       </div>
     </div>
   )
 }
 
+const ARCHITECTURE_NODE_WIDTH = 220
+const ARCHITECTURE_ROW_GAP = 112
+
 function ArchitectureMap({
   graph,
   mode,
+  dependencyScope,
+  onDependencyScopeChange,
   selectedEdgeKey,
   onSelectEdge,
 }: {
   graph: ReviewGraph
   mode: TreeMode
+  dependencyScope: 'changed' | 'all'
+  onDependencyScopeChange: (scope: 'changed' | 'all') => void
   selectedEdgeKey: string | null
   onSelectEdge: (key: string) => void
 }) {
-  const layout = buildArchitectureMapLayout(graph)
+  const visibleGraph = useMemo(() => filterArchitectureGraph(graph, dependencyScope), [graph, dependencyScope])
+  const layout = buildArchitectureMapLayout(visibleGraph)
   const width = 1180
-  const height = Math.max(520, layout.rows * 150 + 150)
+  const height = Math.max(520, layout.rows * ARCHITECTURE_ROW_GAP + 120)
 
   return (
     <section className={['architecture-map-card', mode === 'compare' ? 'compare' : ''].join(' ')}>
       <div className="tree-pane-header">
         <div>
           <h3>{mode === 'compare' ? 'Architecture compare map' : 'Architecture dependency map'}</h3>
-          <p className="muted">Click an arrow to inspect dependency evidence. Changed/risky areas are visually raised.</p>
+          <p className="muted">Click an arrow to inspect dependency evidence. Edge labels appear only for the selected dependency.</p>
         </div>
-        <span className="tag">{graph.nodes.length} nodes / {graph.edges.length} edges</span>
+        <div className="architecture-map-actions">
+          {graph.source && <span className="tag">{graph.source}</span>}
+          <span className="tag">{visibleGraph.nodes.length}/{graph.nodes.length} nodes</span>
+          <span className="tag">{visibleGraph.edges.length}/{graph.edges.length} edges</span>
+          <div className="tree-mode-toggle small">
+            <button
+              type="button"
+              className={dependencyScope === 'changed' ? 'active' : ''}
+              onClick={() => onDependencyScopeChange('changed')}
+            >
+              Changed only
+            </button>
+            <button
+              type="button"
+              className={dependencyScope === 'all' ? 'active' : ''}
+              onClick={() => onDependencyScopeChange('all')}
+            >
+              All deps
+            </button>
+          </div>
+        </div>
       </div>
+
+      {visibleGraph.edges.length === 0 ? (
+        <div className="architecture-map-empty">
+          <strong>No dependency edges to show.</strong>
+          <span>Try switching to All deps or generate a review with dependency changes.</span>
+        </div>
+      ) : null}
 
       <div className="architecture-map-stage">
         <svg
@@ -185,7 +211,10 @@ function ArchitectureMap({
                 ].join(' ')}
                 d={architectureEdgePath(edgeLayout.from, edgeLayout.to, bend)}
                 markerEnd="url(#architecture-arrow-head)"
-              />
+                onClick={() => onSelectEdge(key)}
+              >
+                <title>{`${edgeLayout.edge.from} -> ${edgeLayout.edge.to}: ${edgeLayout.edge.movement} (${edgeLayout.edge.before_count ?? 0} -> ${edgeLayout.edge.after_count ?? 0})`}</title>
+              </path>
             )
           })}
         </svg>
@@ -207,7 +236,8 @@ function ArchitectureMap({
             title={nodeLayout.node.id}
           >
             <span className="architecture-node-type">{nodeLayout.column}</span>
-            <strong>{nodeLayout.node.label || nodeLayout.node.id}</strong>
+            <strong>{compactModuleLabel(nodeLayout.node.label || nodeLayout.node.id)}</strong>
+            <code className="architecture-node-path">{nodeLayout.node.id}</code>
             <span className="architecture-node-meta">
               <span>{nodeLayout.node.before_dependency_count ?? 0} → {nodeLayout.node.after_dependency_count ?? 0}</span>
               {(nodeLayout.node.finding_count ?? 0) > 0 && <span className="tag bad">findings {nodeLayout.node.finding_count}</span>}
@@ -218,7 +248,10 @@ function ArchitectureMap({
 
         {layout.edges.map((edgeLayout, index) => {
           const key = graphEdgeKey(edgeLayout.edge)
-          const selected = selectedEdgeKey === key
+          if (selectedEdgeKey !== key) {
+            return null
+          }
+
           const label = architectureEdgeLabelPoint(edgeLayout.from, edgeLayout.to, edgeBend(index))
 
           return (
@@ -228,7 +261,7 @@ function ArchitectureMap({
               className={[
                 'architecture-edge-label',
                 edgeLayout.edge.movement,
-                selected ? 'selected' : '',
+                'selected',
                 edgeLayout.edge.finding_ids?.length ? 'has-findings' : '',
               ].join(' ')}
               style={{
@@ -246,6 +279,34 @@ function ArchitectureMap({
       </div>
     </section>
   )
+}
+
+function filterArchitectureGraph(graph: ReviewGraph, scope: 'changed' | 'all'): ReviewGraph {
+  if (scope === 'all') {
+    return graph
+  }
+
+  const changedEdges = graph.edges.filter((edge) => edge.movement !== 'unchanged' || (edge.finding_ids?.length ?? 0) > 0)
+
+  if (changedEdges.length === 0) {
+    return {
+      ...graph,
+      nodes: graph.nodes.slice(0, 18),
+      edges: graph.edges.slice(0, 32),
+    }
+  }
+
+  const nodeIDs = new Set<string>()
+  for (const edge of changedEdges) {
+    nodeIDs.add(edge.from)
+    nodeIDs.add(edge.to)
+  }
+
+  return {
+    ...graph,
+    nodes: graph.nodes.filter((node) => nodeIDs.has(node.id)),
+    edges: changedEdges,
+  }
 }
 
 interface ArchitectureNodeLayout {
@@ -267,10 +328,24 @@ function buildArchitectureMapLayout(graph: ReviewGraph) {
 
   const nodes = [...graph.nodes].sort((a, b) => architectureNodeWeight(b) - architectureNodeWeight(a) || a.id.localeCompare(b.id))
 
-  const sourceNodes = nodes.filter((node) => sources.has(node.id) && !targets.has(node.id))
-  const targetNodes = nodes.filter((node) => targets.has(node.id) && !sources.has(node.id))
+  const sourceOnlyNodes = nodes.filter((node) => sources.has(node.id) && !targets.has(node.id))
+  const targetOnlyNodes = nodes.filter((node) => targets.has(node.id) && !sources.has(node.id))
   const bothNodes = nodes.filter((node) => sources.has(node.id) && targets.has(node.id))
   const isolatedNodes = nodes.filter((node) => !sources.has(node.id) && !targets.has(node.id))
+
+  const outgoing = new Map<string, number>()
+  const incoming = new Map<string, number>()
+
+  for (const edge of graph.edges) {
+    outgoing.set(edge.from, (outgoing.get(edge.from) ?? 0) + 1)
+    incoming.set(edge.to, (incoming.get(edge.to) ?? 0) + 1)
+  }
+
+  const leftBothNodes = bothNodes.filter((node) => (outgoing.get(node.id) ?? 0) >= (incoming.get(node.id) ?? 0))
+  const rightBothNodes = bothNodes.filter((node) => (outgoing.get(node.id) ?? 0) < (incoming.get(node.id) ?? 0))
+
+  const sourceNodes = sourceOnlyNodes.concat(leftBothNodes)
+  const targetNodes = targetOnlyNodes.concat(rightBothNodes, isolatedNodes)
 
   const layouts: ArchitectureNodeLayout[] = []
   const addColumn = (items: typeof nodes, x: number, column: ArchitectureNodeLayout['column']) => {
@@ -278,15 +353,14 @@ function buildArchitectureMapLayout(graph: ReviewGraph) {
       layouts.push({
         node,
         x,
-        y: 95 + index * 135,
+        y: 72 + index * ARCHITECTURE_ROW_GAP,
         column,
       })
     })
   }
 
-  addColumn(sourceNodes, 70, 'source')
-  addColumn(bothNodes.concat(isolatedNodes), 430, 'both')
-  addColumn(targetNodes, 790, 'target')
+  addColumn(sourceNodes, 72, 'source')
+  addColumn(targetNodes, 650, 'target')
 
   const byID = new Map(layouts.map((item) => [item.node.id, item]))
   const edgeLayouts: ArchitectureEdgeLayout[] = graph.edges
@@ -298,7 +372,7 @@ function buildArchitectureMapLayout(graph: ReviewGraph) {
     })
     .filter((edge): edge is ArchitectureEdgeLayout => edge !== null)
 
-  const maxRows = Math.max(sourceNodes.length, targetNodes.length, bothNodes.length + isolatedNodes.length, 1)
+  const maxRows = Math.max(sourceNodes.length, targetNodes.length, 1)
 
   return {
     nodes: layouts,
@@ -312,21 +386,44 @@ function architectureNodeWeight(node: ReviewGraph['nodes'][number]) {
 }
 
 function architectureEdgePath(from: ArchitectureNodeLayout, to: ArchitectureNodeLayout, bend: number) {
-  const startX = from.x + 270
-  const startY = from.y + 54
+  const startX = from.x + ARCHITECTURE_NODE_WIDTH
+  const startY = from.y + 46
   const endX = to.x
-  const endY = to.y + 54
-  const c1 = startX + Math.max(90, Math.abs(endX - startX) * 0.32)
-  const c2 = endX - Math.max(90, Math.abs(endX - startX) * 0.32)
+  const endY = to.y + 46
 
-  return `M ${startX} ${startY} C ${c1} ${startY + bend}, ${c2} ${endY - bend}, ${endX} ${endY}`
+  const leftX = Math.min(startX, endX)
+  const rightX = Math.max(startX, endX)
+  const laneX = leftX + (rightX - leftX) * 0.5 + bend * 0.25
+  const exitX = startX + (endX >= startX ? 30 : -30)
+  const enterX = endX + (endX >= startX ? -30 : 30)
+
+  return [
+    `M ${startX} ${startY}`,
+    `L ${exitX} ${startY}`,
+    `L ${laneX} ${startY}`,
+    `L ${laneX} ${endY}`,
+    `L ${enterX} ${endY}`,
+    `L ${endX} ${endY}`,
+  ].join(' ')
 }
 
 function architectureEdgeLabelPoint(from: ArchitectureNodeLayout, to: ArchitectureNodeLayout, bend: number) {
+  const startX = from.x + ARCHITECTURE_NODE_WIDTH
+  const endX = to.x
+
   return {
-    x: (from.x + to.x) / 2 + 170,
+    x: (startX + endX) / 2,
     y: (from.y + to.y) / 2 + 34 + bend * 0.16,
   }
+}
+
+function compactModuleLabel(value: string) {
+  const parts = value.split('/').filter(Boolean)
+  if (parts.length <= 2) {
+    return value
+  }
+
+  return parts.slice(-2).join('/')
 }
 
 function TreePane({
@@ -604,12 +701,25 @@ function edgeBend(index: number) {
   return pattern[index % pattern.length]
 }
 
-function TreeDetailsPanel({ node, edge }: { node: TreeNode | null; edge: ReviewGraphEdge | null }) {
+function TreeDetailsPanel({
+  node,
+  graphNode,
+  graph,
+  edge,
+}: {
+  node: TreeNode | null
+  graphNode: ReviewGraph['nodes'][number] | null
+  graph: ReviewGraph
+  edge: ReviewGraphEdge | null
+}) {
+  const incoming = graphNode ? graph.edges.filter((item) => item.to === graphNode.id) : []
+  const outgoing = graphNode ? graph.edges.filter((item) => item.from === graphNode.id) : []
+
   return (
     <aside className="tree-details-panel">
       <div>
         <p className="eyebrow">Details</p>
-        <h3>{edge ? 'Dependency edge' : 'Tree node'}</h3>
+        <h3>{edge ? 'Dependency edge' : graphNode ? 'Architecture module' : 'Tree node'}</h3>
       </div>
 
       {edge ? (
@@ -626,6 +736,39 @@ function TreeDetailsPanel({ node, edge }: { node: TreeNode | null; edge: ReviewG
               <div className="detail-chip-list">
                 {edge.finding_ids.map((id) => (
                   <code key={id}>{id}</code>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : graphNode ? (
+        <div className="details-stack">
+          <DetailRow label="Module" value={graphNode.id} code />
+          <DetailRow label="Changed" value={graphNode.changed ? 'yes' : 'no'} />
+          <DetailRow label="Before deps" value={String(graphNode.before_dependency_count ?? 0)} />
+          <DetailRow label="After deps" value={String(graphNode.after_dependency_count ?? 0)} />
+          <DetailRow label="Findings" value={String(graphNode.finding_count ?? 0)} />
+          <DetailRow label="Risk points" value={String(graphNode.risk_points ?? 0)} />
+          <DetailRow label="Incoming edges" value={String(incoming.length)} />
+          <DetailRow label="Outgoing edges" value={String(outgoing.length)} />
+
+          {outgoing.length ? (
+            <div className="detail-row">
+              <span className="muted">Outgoing</span>
+              <div className="detail-chip-list">
+                {outgoing.slice(0, 8).map((item) => (
+                  <code key={`out-${graphEdgeKey(item)}`}>{item.to} · {item.movement}</code>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {incoming.length ? (
+            <div className="detail-row">
+              <span className="muted">Incoming</span>
+              <div className="detail-chip-list">
+                {incoming.slice(0, 8).map((item) => (
+                  <code key={`in-${graphEdgeKey(item)}`}>{item.from} · {item.movement}</code>
                 ))}
               </div>
             </div>
