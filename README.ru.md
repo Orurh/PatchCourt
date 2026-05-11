@@ -6,42 +6,49 @@
 
 **Patch сделал архитектуру лучше или хуже?**
 
-PatchCourt анализирует архитектурный эффект изменений в C++-проекте: отделяет **новый риск** от **старого legacy-долга** и показывает evidence до конкретных файлов, `#include`/`import` связей, слоёв, публичных контрактов, findings и review-вопросов.
+PatchCourt анализирует архитектурный эффект изменений в C++-проекте: отделяет **новый риск** от **старого legacy-долга** и показывает evidence до конкретных файлов, `#include`/`import` связей, слоёв, публичных контрактов, findings, runtime-risk сигналов и review-вопросов.
 
 <br/>
 
 [![Go](https://img.shields.io/badge/Go-1.24+-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://go.dev/)
 [![C++](https://img.shields.io/badge/Focus-C++_Architecture-00599C?style=for-the-badge&logo=cplusplus&logoColor=white)](https://isocpp.org/)
 [![SARIF](https://img.shields.io/badge/SARIF-Code_Scanning-6f42c1?style=for-the-badge)](https://sarifweb.azurewebsites.net/)
-[![Alpha](https://img.shields.io/badge/status-v0.2.0--alpha-orange?style=for-the-badge)](#фокус-релиза-v020-alpha)
+[![Alpha](https://img.shields.io/badge/status-v0.2.2--alpha-orange?style=for-the-badge)](#фокус-релиза-v022-alpha)
 
-[Русская версия](README.ru.md)
+[English version](README.md)
+
 </div>
 
 ---
 
 ## Зачем нужен PatchCourt
 
-В больших C++-проектах архитектура обычно ломается не взрывом, а дрейфом.
+В больших C++-проектах архитектура обычно ломается не одним большим коммитом, а постепенным дрейфом.
 
-Сначала API подключает конкретную Sony-реализацию. Потом `domain` начинает знать про `infrastructure`. Потом публичный интерфейс меняется без тестов. Потом dependency cycle становится «ну он всегда был». А на review уже никто не понимает, кто принёс новый риск, а что было старым долгом.
+Сначала API подключает конкретную vendor-реализацию. Потом `domain` начинает знать про `infrastructure`. Потом публичный интерфейс меняется без связанных тестов. Потом dependency cycle становится «ну он всегда был». А на review уже непонятно, patch принёс новый риск или просто задел старый долг.
 
-PatchCourt нужен именно для этого места: показать, что изменил конкретный patch.
+PatchCourt нужен именно для этого места:
 
 ```text
 Что стало хуже?
 Что стало лучше?
 Что было старым legacy-долгом?
 Где конкретный evidence?
-Что reviewer должен спросить в PR/MR?
+Что reviewer должен проверить первым?
 ```
 
-PatchCourt — не компилятор, не clang-tidy, не замена человеку и не «AI reviewer».
+PatchCourt — не компилятор, не clang-tidy, не security scanner, не замена человеку и не «AI reviewer».
 
 Это deterministic evidence engine для архитектурного review.
 
 ```text
-facts -> dependency graph -> architecture rules -> diff -> findings -> review artifacts
+facts
+  -> dependency graph
+  -> architecture rules
+  -> patch diff
+  -> findings
+  -> review bundle
+  -> local viewer / JSON / LLM context / SARIF
 ```
 
 ---
@@ -52,7 +59,7 @@ PatchCourt отвечает на один вопрос:
 
 > Сделал ли этот C++ patch архитектуру лучше или хуже?
 
-И отвечает не общими словами, а структурированным evidence:
+И отвечает не общими словами, а structured evidence:
 
 | Сигнал | Пример |
 |---|---|
@@ -60,10 +67,11 @@ PatchCourt отвечает на один вопрос:
 | Новый layer edge | `domain -> infrastructure` |
 | Изменился публичный контракт | `method::ICameraAdapter::RunPreflight` |
 | Нет связанных тестовых изменений | public interface changed, tests did not |
+| Runtime architecture risk | `this` захвачен в async callback |
 | Старый долг | cycle уже был до patch’а |
 | Улучшение | запрещённая зависимость удалена |
 
-Самое важное — разделение:
+Самое важное разделение:
 
 ```text
 Worse          -> стало хуже из-за этого patch’а
@@ -75,94 +83,174 @@ Unchanged debt -> долг уже был раньше
 
 ---
 
-## Пример review
-
-Плохой patch:
-
-```cpp
-// src/api/camera_routes.cc
-#include "src/cameras/sony/sony_camera_manager.h"
-```
-
-PatchCourt может показать:
-
-```text
-Risk: HIGH
-
-Worse:
-  [HIGH] API layer now depends on Sony camera implementation
-  [HIGH] Domain layer now depends on infrastructure
-  [HIGH] Public interface changed: ICameraAdapter::RunPreflight
-  [MEDIUM] Public contract changed without related test-like files
-
-Better:
-  none
-
-Unchanged debt:
-  existing unrelated architecture debt
-```
-
-И сразу дать evidence:
-
-```text
-Dependency:
-  src/api/camera_routes.cc
-    -> src/cameras/sony/sony_camera_manager.h
-
-Layer edge:
-  api -> cameras
-
-Contract:
-  method::ICameraAdapter::RunPreflight
-```
-
-PatchCourt не пытается доказать, что patch «правильный» или «неправильный».
-
-Он делает архитектурный эффект patch’а видимым.
-
----
-
-## Быстрый demo-сценарий
-
-Склонировать проект и запустить camera-service demo:
+## Быстрый старт из исходников
 
 ```bash
 git clone https://github.com/orurh/PatchCourt.git
 cd PatchCourt/core/go
 
+make build
+make viewer-build
+```
+
+Запустить лёгкий анализ проекта с default/auto-discovered configuration:
+
+```bash
+./bin/patchcourt check . --out .patchcourt/out/check
+```
+
+Или через Makefile:
+
+```bash
+make check PROJECT=. CONFIG=
+```
+
+`CONFIG=` специально отключает явный `.patchcourt.yaml` и позволяет PatchCourt использовать default/auto-discovered configuration.
+
+---
+
+## Workflow с local viewer
+
+Самый удобный review workflow сейчас — local viewer:
+
+```bash
+cd PatchCourt/core/go
+
+./bin/patchcourt open . \
+  --base origin/main \
+  --worktree \
+  --review-now
+```
+
+PatchCourt запускает локальный API/viewer server и создаёт initial review bundle.
+
+Viewer assets ищутся автоматически:
+
+```text
+./viewer-dist
+viewer-dist рядом с patchcourt binary
+web/viewer/dist в dev checkout
+```
+
+Headless-режим:
+
+```bash
+./bin/patchcourt open . \
+  --base origin/main \
+  --worktree \
+  --review-now \
+  --no-browser
+```
+
+Проверки API, пока server запущен:
+
+```bash
+curl -s http://127.0.0.1:8787/api/health
+curl -s http://127.0.0.1:8787/api/reviews/latest/graph | jq '{nodes: (.nodes | length), edges: (.edges | length)}'
+```
+
+---
+
+## Workflow с review bundle
+
+PatchCourt может записать self-contained review bundle:
+
+```bash
+./bin/patchcourt review \
+  --base origin/main \
+  --worktree \
+  --root . \
+  --out .patchcourt/out/latest
+```
+
+Bundle содержит:
+
+```text
+manifest.json
+review.json
+project-before.json
+project-after.json
+graph.json
+runtime.json
+tree.json
+findings.json
+contracts.json
+dependencies.json
+review-context.md
+patchcourt.sarif
+```
+
+Этот bundle — source of truth для local viewer и integrations.
+
+Старый HTML-first workflow больше не основной путь. Текущее направление продукта — **bundle/data-first + local viewer**.
+
+---
+
+## Release archive workflow
+
+Собрать release archive с binary и viewer assets:
+
+```bash
+cd core/go
+make release-archive RELEASE_VERSION=v0.2.2-alpha
+```
+
+Ожидаемая структура архива:
+
+```text
+patchcourt-v0.2.2-alpha/
+  patchcourt
+  viewer-dist/
+    index.html
+    assets/...
+```
+
+После распаковки:
+
+```bash
+./patchcourt open /path/to/project --review-now
+```
+
+Для release archive не нужно вручную передавать `--viewer-dir`.
+
+---
+
+## Встроенный camera-service demo
+
+Запуск demo:
+
+```bash
+cd core/go
 make camera-demo
 ```
 
-Открыть HTML-отчёты:
+Demo генерирует bad/better review outputs в:
+
+```text
+.patchcourt/out/examples/camera-service/
+```
+
+Актуальные bundle-oriented артефакты demo:
+
+```text
+bad-review.txt
+bad-review.md
+bad/review.json
+bad/review-context.md
+bad/patchcourt.sarif
+
+better-review.txt
+better-review.md
+better/review.json
+better/review-context.md
+better/patchcourt.sarif
+```
+
+Открывать старые static demo reports имеет смысл только если они есть в checkout:
 
 ```bash
 make open-camera-demo
 ```
-
-Demo генерирует bad/better отчёты:
-
-```text
-.patchcourt/out/examples/camera-service/bad-review.html
-.patchcourt/out/examples/camera-service/bad-review.json
-.patchcourt/out/examples/camera-service/bad-review.md
-.patchcourt/out/examples/camera-service/bad-review.txt
-.patchcourt/out/examples/camera-service/bad-context.md
-.patchcourt/out/examples/camera-service/bad.sarif
-
-.patchcourt/out/examples/camera-service/better-review.html
-.patchcourt/out/examples/camera-service/better-review.json
-.patchcourt/out/examples/camera-service/better-review.md
-.patchcourt/out/examples/camera-service/better-review.txt
-.patchcourt/out/examples/camera-service/better-context.md
-.patchcourt/out/examples/camera-service/better.sarif
-```
-
-Смысл demo:
-
-| Patch | Что должно быть видно |
-|---|---|
-| bad patch | новый architecture drift, высокий риск |
-| better patch | меньше drift, ниже риск, часть проблем убрана |
 
 ---
 
@@ -170,79 +258,32 @@ Demo генерирует bad/better отчёты:
 
 | Артефакт | Зачем нужен |
 |---|---|
-| `review.html` | статичный человекочитаемый отчёт |
-| `review.json` | machine-readable review result |
-| `review.md` | markdown-версия отчёта |
-| `review.txt` | вывод для терминала |
-| `review-context.md` | context pack для LLM-review |
-| `patchcourt.sarif` | экспорт для CI/code scanning |
+| `manifest.json` | manifest bundle и schema version |
+| `review.json` | machine-readable PatchCourt review result |
+| `project-before.json` | модель проекта до patch’а |
+| `project-after.json` | модель проекта после patch’а |
+| `graph.json` | review graph для local viewer |
+| `tree.json` | project tree для local viewer |
+| `runtime.json` | runtime architecture risk report |
+| `findings.json` | finding changes и evidence |
+| `contracts.json` | public contract changes и impact |
+| `dependencies.json` | dependency и layer-edge changes |
+| `review-context.md` | deterministic LLM-ready context pack |
+| `patchcourt.sarif` | CI/code scanning export |
 
-SARIF — это integration/export layer.
-
-Главные PatchCourt-артефакты:
-
-```text
-review.html
-review.json
-review-context.md
-```
-
----
-
-## Основной workflow
-
-Review ветки относительно `origin/main`:
-
-```bash
-./bin/patchcourt review \
-  --base origin/main \
-  --head HEAD \
-  --format json \
-  --html-out .patchcourt/out/review.html \
-  --llm-pack \
-  --llm-pack-out .patchcourt/out/review-context.md \
-  --sarif-out .patchcourt/out/patchcourt.sarif \
-  > .patchcourt/out/review.json
-```
-
-Review текущего worktree относительно base ref:
-
-```bash
-./bin/patchcourt review \
-  --base main \
-  --worktree \
-  --format json \
-  --html-out .patchcourt/out/review.html \
-  --llm-pack \
-  --llm-pack-out .patchcourt/out/review-context.md \
-  --sarif-out .patchcourt/out/patchcourt.sarif \
-  > .patchcourt/out/review.json
-```
-
-Низкоуровневый режим `before/after`:
-
-```bash
-./bin/patchcourt review \
-  --before-root /tmp/before \
-  --after-root /tmp/after \
-  --format markdown
-```
+SARIF — integration/export layer. Главный PatchCourt-артефакт сейчас — review bundle.
 
 ---
 
 ## LLM context pack
 
-PatchCourt умеет готовить компактный deterministic context pack для LLM-assisted review:
+PatchCourt готовит deterministic context pack для LLM-assisted review:
 
-```bash
-./bin/patchcourt review \
-  --base origin/main \
-  --head HEAD \
-  --llm-pack \
-  --llm-pack-out .patchcourt/out/review-context.md
+```text
+review-context.md
 ```
 
-Внутри context pack:
+Внутри:
 
 ```text
 patch summary
@@ -253,6 +294,7 @@ architecture impact
 contract changes
 dependency changes
 finding changes
+runtime risks
 risk reasons
 review questions
 ```
@@ -264,53 +306,78 @@ LLM может сжимать, объяснять и формулировать 
 LLM не должна выдумывать файлы, символы, зависимости или findings.
 ```
 
-PatchCourt сначала собирает deterministic evidence. LLM работает поверх него.
+PatchCourt сначала собирает deterministic evidence. LLM работает поверх evidence.
 
 ---
 
-## CI integration
+## SARIF и CI
 
-PatchCourt можно запускать в CI как non-blocking architecture review assistant.
-
-Рекомендуемый режим для alpha:
+PatchCourt пишет SARIF внутрь review bundle:
 
 ```text
-generate review.html
-upload review artifacts
-upload SARIF where supported
-do not fail CI by default
+.patchcourt/out/latest/patchcourt.sarif
 ```
 
-Примеры:
+Минимальный CI flow:
+
+```yaml
+name: PatchCourt
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  patchcourt:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run PatchCourt review
+        run: |
+          patchcourt review \
+            --base origin/main \
+            --head HEAD \
+            --root . \
+            --out .patchcourt/out/latest
+
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: .patchcourt/out/latest/patchcourt.sarif
+
+      - name: Upload PatchCourt artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: patchcourt-review-bundle
+          path: .patchcourt/out/latest
+```
+
+Больше примеров:
 
 ```text
 core/go/docs/ci/github-actions.md
 core/go/docs/ci/gitlab-ci.md
 ```
 
-Минимальный GitHub Actions flow:
+Рекомендуемый alpha-режим:
 
-```yaml
-- name: Run PatchCourt review
-  run: |
-    mkdir -p .patchcourt/out
-    patchcourt review \
-      --base origin/main \
-      --head HEAD \
-      --format json \
-      --html-out .patchcourt/out/review.html \
-      --llm-pack \
-      --llm-pack-out .patchcourt/out/review-context.md \
-      --sarif-out .patchcourt/out/patchcourt.sarif \
-      > .patchcourt/out/review.json
-
-- name: Upload SARIF
-  uses: github/codeql-action/upload-sarif@v3
-  with:
-    sarif_file: .patchcourt/out/patchcourt.sarif
+```text
+generate review bundle
+upload SARIF where supported
+upload review artifacts
+do not fail CI by default
 ```
 
-Blocking mode лучше включать явно и отдельно, когда команда уже доверяет правилам проекта.
+Blocking mode лучше включать явно, когда команда уже доверяет project policy.
 
 ---
 
@@ -319,18 +386,17 @@ Blocking mode лучше включать явно и отдельно, когд
 PatchCourt умеет анализировать текущее состояние проекта:
 
 ```bash
-./bin/patchcourt check /path/to/project
+./bin/patchcourt check /path/to/project --out /path/to/project/.patchcourt/out/check
 ```
 
 Типовые артефакты:
 
 ```text
-.patchcourt/out/project-model.json
-.patchcourt/out/scan.md
-.patchcourt/out/layer-graph.json
-.patchcourt/out/layer-graph.dot
-.patchcourt/out/layer-graph.mmd
-.patchcourt/out/report.html
+project-model.json
+scan.md
+layer-graph.json
+layer-graph.dot
+layer-graph.mmd
 ```
 
 Это полезно, чтобы:
@@ -352,13 +418,15 @@ PatchCourt позволяет объяснить конкретную layer depe
 
 ```bash
 ./bin/patchcourt edge \
-  --model .patchcourt/out/project-model.json \
+  --model .patchcourt/out/check/project-model.json \
   api cameras
 ```
 
 Пример формы вывода:
 
 ```text
+PatchCourt edge
+
 Edge: api -> cameras
 Count: 3
 
@@ -370,7 +438,7 @@ Top target files:
 
 Dependencies:
   src/api/camera_routes.cc
-    -> src/cameras/sony/sony_camera_manager.h
+    -> src/cameras/sony/sony_camera_manager.h [used]
 ```
 
 Графы полезны. Evidence полезнее.
@@ -379,7 +447,14 @@ Dependencies:
 
 ## Конфигурация
 
-Архитектурные границы описываются в `.patchcourt.yaml`.
+PatchCourt может стартовать без config.
+
+```bash
+./bin/patchcourt check . --out .patchcourt/out/check
+./bin/patchcourt review --base origin/main --worktree --root . --out .patchcourt/out/latest
+```
+
+`.patchcourt.yaml` нужен, когда команда хочет явно описать architecture policy.
 
 Пример:
 
@@ -435,15 +510,13 @@ forbidden_imports:
       - src/cameras/*_impl/**
 ```
 
-Сгенерировать стартовый конфиг:
+Сгенерировать стартовый config:
 
 ```bash
-./bin/patchcourt init /path/to/project > .patchcourt.yaml
+./bin/patchcourt init /path/to/project > /path/to/project/.patchcourt.yaml
 ```
 
-Baseline mode полезен для legacy-проектов: принять текущие зависимости и не дать patch’ам ухудшать архитектуру дальше.
-
-Strict mode полезен для greenfield или cleanup-работ: сразу подсветить существующие нарушения.
+Для legacy-проектов лучше начинать с report-only review и добавлять policy постепенно.
 
 ---
 
@@ -462,9 +535,12 @@ Strict mode полезен для greenfield или cleanup-работ: сраз
 | before/after review | works |
 | git base/head review | works |
 | worktree review | works |
+| review bundle output через `--out` | works |
+| local viewer через `patchcourt open` | alpha |
+| viewer asset auto-discovery | alpha |
+| project tree / architecture graph viewer | alpha |
 | public contract diff | alpha |
-| test-like review questions | alpha |
-| `review.html` | alpha |
+| runtime architecture risk signals | alpha |
 | LLM context pack | alpha |
 | SARIF export | alpha |
 
@@ -481,7 +557,7 @@ proof of correctness
 generic security scanner
 Go linter replacement
 full AI code reviewer
-web app
+SaaS product в текущей alpha
 ```
 
 PatchCourt — это:
@@ -499,9 +575,10 @@ PatchCourt сейчас в alpha-стадии.
 Текущие ограничения:
 
 - C++ анализ lightweight и пока без Clang AST.
-- Качество include resolution зависит от `compile_commands.json` или `.patchcourt.yaml`.
+- Качество include resolution зависит от `compile_commands.json`, структуры проекта или `.patchcourt.yaml`.
 - CMake lightweight extraction не является полноценным CMake evaluator.
 - Public contract extraction эвристический.
+- Runtime risk rules намеренно осторожные и evidence-first.
 - Risk score — это приоритизация review, а не verdict корректности.
 - SARIF — export/integration layer, не core model.
 - Go support — baseline-level, не главный market focus.
@@ -509,32 +586,32 @@ PatchCourt сейчас в alpha-стадии.
 
 ---
 
-## Фокус релиза v0.2.0-alpha
+## Фокус релиза v0.2.2-alpha
 
-`v0.2.0-alpha` сфокусирован на:
+`v0.2.2-alpha` сфокусирован на том, чтобы bundle/viewer workflow стал реально удобным:
 
 ```text
-diff-aware C++ architecture review
-review.html
-review.json
-review-context.md
-patchcourt.sarif
-camera-service bad/better demo
-GitHub Actions / GitLab CI examples
-release gates через make release-check
+review bundle через --out
+local viewer через patchcourt open
+automatic viewer-dist discovery
+release archive с binary + viewer-dist
+полный review graph в open --review-now
+SARIF и LLM context как bundle artifacts
+make release-check
+make release-archive
 ```
 
 В этот релиз не входят:
 
 ```text
-Clang backend
+обязательный Clang backend
 VS Code extension
-web server
-GitHub PR bot
-GitLab native SAST JSON
+SaaS/web platform
+GitHub PR bot как основной workflow
 deep cache
 suppressions UI
 широкое расширение Go/C++ risk rules
+AI architect behavior
 ```
 
 ---
@@ -546,9 +623,11 @@ suppressions UI
 ```bash
 make help
 make ci
+make viewer-build
 make camera-demo
-make self-review BASE=HEAD
-make release-check BASE=HEAD
+make open-self-nobrowser OPEN_REVIEW_NOW=true BASE=origin/main
+make release-check
+make release-archive RELEASE_VERSION=v0.2.2-alpha
 ```
 
 Architecture guardrails проверяются тестами.
@@ -559,4 +638,4 @@ Core/usecase/analyzer пакеты должны возвращать structured 
 
 ## License
 
-TBD.
+Apache-2.0.
