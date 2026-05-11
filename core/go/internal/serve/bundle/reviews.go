@@ -74,7 +74,7 @@ func registerReviewRoutes(mux *http.ServeMux, opts Options) {
 			return
 		}
 
-		if err := replaceLatestBundle(latestDir, reviewDir, *result); err != nil {
+		if err := replaceLatestBundle(latestDir, *result); err != nil {
 			http.Error(w, fmt.Sprintf("write latest review bundle: %v", err), http.StatusInternalServerError)
 			return
 		}
@@ -148,7 +148,7 @@ func runReview(r *http.Request, root string, req CreateReviewRequest) (*reportmo
 	})
 }
 
-func replaceLatestBundle(latestDir string, reviewDir string, result reportmodel.ReviewResult) error {
+func replaceLatestBundle(latestDir string, result reportmodel.ReviewResult) error {
 	if latestDir == "" {
 		return fmt.Errorf("latest bundle directory is required")
 	}
@@ -161,7 +161,6 @@ func replaceLatestBundle(latestDir string, reviewDir string, result reportmodel.
 		return err
 	}
 
-	_ = reviewDir
 	return nil
 }
 
@@ -202,7 +201,5 @@ func latestReviewArtifacts() map[string]string {
 		"findings":       "findings.json",
 		"contracts":      "contracts.json",
 		"dependencies":   "dependencies.json",
-		"llm_context":    "review-context.md",
-		"sarif":          "patchcourt.sarif",
 	}
 }

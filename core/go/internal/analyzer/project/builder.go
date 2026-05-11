@@ -305,10 +305,6 @@ func localGoImportDir(modulePath string, importPath string) (string, bool) {
 	return pathmatch.Normalize(strings.TrimPrefix(importPath, prefix)), true
 }
 
-func resolveGoPackageFile(index resolver.FileIndex, relDir string) string {
-	return resolveGoPackageFileInModule(index, "", relDir)
-}
-
 func resolveGoPackageFileInModule(index resolver.FileIndex, moduleRelPath string, relDir string) string {
 	packageDir := joinSlashPath(moduleRelPath, relDir)
 

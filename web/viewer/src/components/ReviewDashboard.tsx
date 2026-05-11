@@ -3,7 +3,6 @@ import type {
   ContractChange,
   ContractsReport,
   DependenciesReport,
-  DependencyChange,
   FindingChange,
   FindingsReport,
   ReviewGraph,

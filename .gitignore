@@ -66,3 +66,17 @@ core/go/.patchcourt/out/
 core/go/.patchcourt/state/
 dist/
 PatchCourt_spec_v4_ru.md
+
+# PatchCourt local/generated files
+core/go/go_code_snapshot.txt
+web/viewer/react_code_snapshot.txt
+
+# Viewer dependencies/build/cache
+web/viewer/node_modules/
+web/viewer/dist/
+web/viewer/tsconfig.tsbuildinfo
+web/viewer/.vite/
+
+# PatchCourt analysis output
+core/go/.patchcourt/out/
+web/viewer/.patchcourt/out/

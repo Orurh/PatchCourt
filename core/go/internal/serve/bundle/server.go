@@ -2,6 +2,7 @@ package bundle
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -22,6 +23,31 @@ type Options struct {
 }
 
 func Serve(ctx context.Context, opts Options) error {
+	if err := normalizeServeOptions(&opts); err != nil {
+		return err
+	}
+
+	mux := http.NewServeMux()
+	if err := registerServeRoutes(mux, opts); err != nil {
+		return err
+	}
+
+	server := &http.Server{
+		Addr:              opts.Addr,
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+
+	listener, err := net.Listen("tcp", opts.Addr)
+	if err != nil {
+		return fmt.Errorf("listen on %s: %w", opts.Addr, err)
+	}
+
+	logServeStart(opts, listener)
+	return runHTTPServer(ctx, server, listener)
+}
+
+func normalizeServeOptions(opts *Options) error {
 	if opts.DataDir == "" && opts.Root == "" {
 		return fmt.Errorf("either bundle data directory or project root is required")
 	}
@@ -30,40 +56,16 @@ func Serve(ctx context.Context, opts Options) error {
 		opts.Addr = "127.0.0.1:8787"
 	}
 
-	mux := http.NewServeMux()
+	return nil
+}
 
-	if opts.DataDir != "" {
-		info, err := os.Stat(opts.DataDir)
-		if err != nil {
-			return fmt.Errorf("read bundle data directory %s: %w", opts.DataDir, err)
-		}
-		if !info.IsDir() {
-			return fmt.Errorf("bundle data path is not a directory: %s", opts.DataDir)
-		}
-
-		registerJSONFile(mux, "/api/manifest", opts.DataDir, "manifest.json")
-		registerJSONFile(mux, "/api/review", opts.DataDir, "review.json")
-		registerJSONFile(mux, "/api/project/before", opts.DataDir, "project-before.json")
-		registerJSONFile(mux, "/api/project/after", opts.DataDir, "project-after.json")
-		registerJSONFile(mux, "/api/graph", opts.DataDir, "graph.json")
-		registerJSONFile(mux, "/api/runtime", opts.DataDir, "runtime.json")
-		registerJSONFile(mux, "/api/tree", opts.DataDir, "tree.json")
-		registerJSONFile(mux, "/api/findings", opts.DataDir, "findings.json")
-		registerJSONFile(mux, "/api/contracts", opts.DataDir, "contracts.json")
-		registerJSONFile(mux, "/api/dependencies", opts.DataDir, "dependencies.json")
+func registerServeRoutes(mux *http.ServeMux, opts Options) error {
+	if err := registerBundleDataRoutes(mux, opts.DataDir); err != nil {
+		return err
 	}
 
-	if opts.Root != "" {
-		info, err := os.Stat(opts.Root)
-		if err != nil {
-			return fmt.Errorf("read project root %s: %w", opts.Root, err)
-		}
-		if !info.IsDir() {
-			return fmt.Errorf("project root is not a directory: %s", opts.Root)
-		}
-
-		registerGitRoutes(mux, opts.Root)
-		registerReviewRoutes(mux, opts)
+	if err := registerProjectRoutes(mux, opts); err != nil {
+		return err
 	}
 
 	mux.HandleFunc("/api/health", func(w http.ResponseWriter, _ *http.Request) {
@@ -71,17 +73,66 @@ func Serve(ctx context.Context, opts Options) error {
 	})
 
 	if opts.ViewerDir != "" {
-		if err := registerViewerRoutes(mux, opts.ViewerDir); err != nil {
-			return err
-		}
-	} else {
-		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path != "/" {
-				http.NotFound(w, r)
-				return
-			}
+		return registerViewerRoutes(mux, opts.ViewerDir)
+	}
 
-			writeJSONBytes(w, http.StatusOK, []byte(`{
+	registerAPIRootRoute(mux)
+	return nil
+}
+
+func registerBundleDataRoutes(mux *http.ServeMux, dataDir string) error {
+	if dataDir == "" {
+		return nil
+	}
+
+	info, err := os.Stat(dataDir)
+	if err != nil {
+		return fmt.Errorf("read bundle data directory %s: %w", dataDir, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("bundle data path is not a directory: %s", dataDir)
+	}
+
+	registerJSONFile(mux, "/api/manifest", dataDir, "manifest.json")
+	registerJSONFile(mux, "/api/review", dataDir, "review.json")
+	registerJSONFile(mux, "/api/project/before", dataDir, "project-before.json")
+	registerJSONFile(mux, "/api/project/after", dataDir, "project-after.json")
+	registerJSONFile(mux, "/api/graph", dataDir, "graph.json")
+	registerJSONFile(mux, "/api/runtime", dataDir, "runtime.json")
+	registerJSONFile(mux, "/api/tree", dataDir, "tree.json")
+	registerJSONFile(mux, "/api/findings", dataDir, "findings.json")
+	registerJSONFile(mux, "/api/contracts", dataDir, "contracts.json")
+	registerJSONFile(mux, "/api/dependencies", dataDir, "dependencies.json")
+
+	return nil
+}
+
+func registerProjectRoutes(mux *http.ServeMux, opts Options) error {
+	if opts.Root == "" {
+		return nil
+	}
+
+	info, err := os.Stat(opts.Root)
+	if err != nil {
+		return fmt.Errorf("read project root %s: %w", opts.Root, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("project root is not a directory: %s", opts.Root)
+	}
+
+	registerGitRoutes(mux, opts.Root)
+	registerReviewRoutes(mux, opts)
+	return nil
+}
+
+func registerAPIRootRoute(mux *http.ServeMux) {
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
+
+		writeJSONBytes(w, http.StatusOK, []byte(`{
   "name": "PatchCourt bundle API",
   "endpoints": [
     "/api/health",
@@ -111,30 +162,24 @@ func Serve(ctx context.Context, opts Options) error {
     "/api/reviews/latest/dependencies"
   ]
 }`+"\n"))
-		})
+	})
+}
+
+func logServeStart(opts Options, listener net.Listener) {
+	if opts.Stderr == nil {
+		return
 	}
 
-	server := &http.Server{
-		Addr:              opts.Addr,
-		Handler:           mux,
-		ReadHeaderTimeout: 5 * time.Second,
+	fmt.Fprintf(opts.Stderr, "PatchCourt bundle API listening on http://%s\n", listener.Addr().String())
+	if opts.ViewerDir != "" {
+		fmt.Fprintf(opts.Stderr, "Serving viewer from: %s\n", opts.ViewerDir)
 	}
-
-	listener, err := net.Listen("tcp", opts.Addr)
-	if err != nil {
-		return fmt.Errorf("listen on %s: %w", opts.Addr, err)
+	if opts.DataDir != "" {
+		fmt.Fprintf(opts.Stderr, "Serving bundle data from: %s\n", opts.DataDir)
 	}
+}
 
-	if opts.Stderr != nil {
-		fmt.Fprintf(opts.Stderr, "PatchCourt bundle API listening on http://%s\n", listener.Addr().String())
-		if opts.ViewerDir != "" {
-			fmt.Fprintf(opts.Stderr, "Serving viewer from: %s\n", opts.ViewerDir)
-		}
-		if opts.DataDir != "" {
-			fmt.Fprintf(opts.Stderr, "Serving bundle data from: %s\n", opts.DataDir)
-		}
-	}
-
+func runHTTPServer(ctx context.Context, server *http.Server, listener net.Listener) error {
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- server.Serve(listener)
@@ -152,7 +197,7 @@ func Serve(ctx context.Context, opts Options) error {
 		return ctx.Err()
 
 	case err := <-errCh:
-		if err == nil || err == http.ErrServerClosed {
+		if err == nil || errors.Is(err, http.ErrServerClosed) {
 			return nil
 		}
 
