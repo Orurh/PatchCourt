@@ -60,24 +60,37 @@ func writeReviewVerdictText(w io.Writer, result ReviewTextResult) {
 	fmt.Fprintln(w, "Verdict:")
 	fmt.Fprintf(w, "  architecture: %s\n", architectureVerdict(result.Impact))
 	fmt.Fprintf(w, "  risk:         %s\n", result.Risk.Level)
+	fmt.Fprintf(w, "  real problems introduced: %d\n", len(result.Impact.Worse))
+	fmt.Fprintf(w, "  verified improvements:    %d\n", len(result.Impact.Better))
+	fmt.Fprintf(w, "  needs review / AI follow-up: %d\n", len(result.Impact.NeedsReview))
+	fmt.Fprintf(w, "  existing debt: %d\n", len(result.Impact.UnchangedDebt))
 
-	writeVerdictItems(w, "  main concerns:", verdictItems(result.Impact.Worse), 3)
-	writeVerdictItems(w, "  improvements:", verdictItems(result.Impact.Better), 3)
+	writeVerdictItems(w, "  real problems introduced:", verdictItems(result.Impact.Worse), 3)
+	writeVerdictItems(w, "  verified improvements:", verdictItems(result.Impact.Better), 3)
+	writeVerdictItems(w, "  needs review / AI follow-up:", verdictItems(result.Impact.NeedsReview), 5)
 }
 
 func architectureVerdict(impact reportmodel.ReviewImpactReport) string {
 	hasWorse := len(impact.Worse) > 0
 	hasBetter := len(impact.Better) > 0
+	hasNeedsReview := len(impact.NeedsReview) > 0
+	hasDebt := len(impact.UnchangedDebt) > 0
 
 	switch {
 	case hasWorse && hasBetter:
-		return "mixed"
+		return "mixed proven impact"
 	case hasWorse:
-		return "worsened"
+		return "proven regression"
+	case hasBetter && hasNeedsReview:
+		return "verified improvements with review items"
 	case hasBetter:
-		return "improved"
+		return "verified improvement"
+	case hasNeedsReview:
+		return "needs review"
+	case hasDebt:
+		return "no proven patch impact; existing debt remains"
 	default:
-		return "unchanged"
+		return "no proven architecture impact"
 	}
 }
 
@@ -370,9 +383,11 @@ func writeContractChangesText(w io.Writer, changes []contracts.SymbolChange) {
 
 func writeReviewImpactText(w io.Writer, impact reportmodel.ReviewImpactReport) {
 	fmt.Fprintln(w, "Architecture impact:")
-	writeReviewImpactSectionText(w, "  Worse:", impact.Worse)
-	writeReviewImpactSectionText(w, "  Better:", impact.Better)
-	writeReviewImpactSectionText(w, "  Unchanged debt:", impact.UnchangedDebt)
+	fmt.Fprintln(w, "  PatchCourt only marks problems and improvements when it has policy-backed or high-confidence evidence.")
+	writeReviewImpactSectionText(w, "  Real problems introduced:", impact.Worse)
+	writeReviewImpactSectionText(w, "  Verified improvements:", impact.Better)
+	writeReviewImpactSectionText(w, "  Needs review / AI follow-up:", impact.NeedsReview)
+	writeReviewImpactSectionText(w, "  Existing debt:", impact.UnchangedDebt)
 }
 
 func writeReviewImpactSectionText(w io.Writer, title string, items []reportmodel.ReviewImpactItem) {

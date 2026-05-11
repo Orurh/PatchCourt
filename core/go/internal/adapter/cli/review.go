@@ -1,14 +1,12 @@
 package cli
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"path/filepath"
 
-	"github.com/orurh/patchcourt/internal/platform/files"
 	"github.com/orurh/patchcourt/internal/render/llmpack"
-	renderreview "github.com/orurh/patchcourt/internal/render/review"
+	"github.com/orurh/patchcourt/internal/render/reviewbundle"
 	rendersarif "github.com/orurh/patchcourt/internal/render/sarif"
 	"github.com/orurh/patchcourt/internal/usecase"
 	"github.com/spf13/cobra"
@@ -46,8 +44,9 @@ type reviewOptions struct {
 	llmPack     bool
 	llmPackPath string
 
-	htmlOut  string
 	sarifOut string
+
+	out string
 
 	format string
 }
@@ -82,14 +81,14 @@ func (r *Runner) newReviewCommand(ctx context.Context, rootOpts *rootOptions) *c
 				return err
 			}
 
-			if opts.llmPack {
-				if err := r.writeReviewLLMPack(opts, result); err != nil {
+			if opts.out != "" {
+				if err := r.writeReviewBundle(opts.out, result); err != nil {
 					return err
 				}
 			}
 
-			if opts.htmlOut != "" {
-				if err := r.writeReviewHTML(opts.htmlOut, result); err != nil {
+			if opts.llmPack {
+				if err := r.writeReviewLLMPack(opts, result); err != nil {
 					return err
 				}
 			}
@@ -129,33 +128,28 @@ func (r *Runner) newReviewCommand(ctx context.Context, rootOpts *rootOptions) *c
 	cmd.Flags().BoolVar(&opts.worktree, "worktree", false, "compare --base git ref with current working tree")
 	cmd.Flags().BoolVar(&opts.llmPack, "llm-pack", false, "write deterministic LLM review context pack")
 	cmd.Flags().StringVar(&opts.llmPackPath, "llm-pack-out", "", "path to write LLM review context pack")
-	cmd.Flags().StringVar(&opts.htmlOut, "html-out", "", "path to write the static review HTML report")
 	cmd.Flags().StringVar(&opts.sarifOut, "sarif-out", "", "path to write the SARIF report")
+	cmd.Flags().StringVar(&opts.out, "out", "", "directory to write the review analysis bundle")
 	cmd.Flags().StringVar(&opts.format, "format", string(usecase.ReviewFormatText), "output format: text, json, markdown")
 
 	return cmd
 }
 
-func (r *Runner) writeReviewHTML(outPath string, result *usecase.ReviewResult) error {
+func (r *Runner) writeReviewBundle(outDir string, result *usecase.ReviewResult) error {
 	if result == nil {
 		return fmt.Errorf("review result is nil")
 	}
 
-	if outPath == "" {
-		return fmt.Errorf("review HTML output path is required")
+	if outDir == "" {
+		return fmt.Errorf("review bundle output directory is required")
 	}
 
-	var buf bytes.Buffer
-	if err := renderreview.WriteReviewHTML(&buf, *result); err != nil {
+	if err := reviewbundle.Write(outDir, *result); err != nil {
 		return err
 	}
 
-	if err := files.WriteFileAtomic(outPath, buf.Bytes(), 0o644); err != nil {
-		return fmt.Errorf("write review HTML %s: %w", outPath, err)
-	}
-
 	if r.stderr != nil {
-		fmt.Fprintf(r.stderr, "Review HTML written: %s\n", outPath)
+		fmt.Fprintf(r.stderr, "Review bundle written: %s\n", outDir)
 	}
 
 	return nil

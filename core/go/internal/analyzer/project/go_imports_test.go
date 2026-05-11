@@ -71,3 +71,34 @@ func writeGoImportProjectTestFile(t *testing.T, root string, relPath string, con
 	require.NoError(t, os.MkdirAll(filepath.Dir(absPath), 0o755))
 	require.NoError(t, os.WriteFile(absPath, []byte(content), 0o644))
 }
+
+func TestBuild_CollectsGoDependenciesFromNestedModule(t *testing.T) {
+	root := t.TempDir()
+
+	writeGoImportProjectTestFile(t, root, "services/billing/go.mod", `module example.com/billing
+
+go 1.22
+`)
+
+	writeGoImportProjectTestFile(t, root, "services/billing/cmd/app/main.go", `package main
+
+import "example.com/billing/internal/usecase"
+
+func main() {
+	usecase.Run()
+}
+`)
+
+	writeGoImportProjectTestFile(t, root, "services/billing/internal/usecase/run.go", `package usecase
+
+func Run() {}
+`)
+
+	project, err := Build(Options{Root: root})
+	require.NoError(t, err)
+
+	dep := findDependency(project.Dependencies, "services/billing/cmd/app/main.go", "example.com/billing/internal/usecase")
+	require.NotNil(t, dep)
+	require.True(t, dep.Resolved)
+	require.Equal(t, "services/billing/internal/usecase/run.go", dep.ToFile)
+}

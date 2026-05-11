@@ -503,8 +503,11 @@ func hasReviewableSourceUnder(absRoot string, relDir string) bool {
 
 	found := false
 	_ = filepath.WalkDir(dir, func(path string, entry os.DirEntry, err error) error {
-		if err != nil || found {
-			return nil
+		if err != nil {
+			return err
+		}
+		if found {
+			return filepath.SkipAll
 		}
 
 		if entry.IsDir() {

@@ -3,91 +3,59 @@ package reviewquestions
 import (
 	"testing"
 
-	contracts "github.com/orurh/patchcourt/internal/diff/contract"
-	"github.com/orurh/patchcourt/internal/model"
 	"github.com/orurh/patchcourt/internal/reportmodel"
 	"github.com/stretchr/testify/require"
 )
 
-func TestBuild_ReturnsDefaultQuestionWhenNoSignals(t *testing.T) {
-	got := Build(reportmodel.ReviewResult{}, 10)
-
-	require.Len(t, got, 1)
-	require.Contains(t, got[0].Text, "No specific high-signal questions")
-}
-
-func TestBuild_AsksAboutWorseImpact(t *testing.T) {
-	got := Build(reportmodel.ReviewResult{
+func TestBuild_AsksAboutProvenImpact(t *testing.T) {
+	questions := Build(reportmodel.ReviewResult{
 		Impact: reportmodel.ReviewImpactReport{
 			Worse: []reportmodel.ReviewImpactItem{
 				{
-					Title:  "Added forbidden dependency",
-					ID:     "architecture.api.cameras",
-					Detail: "api -> cameras",
+					Kind:   "layer_edge_added",
+					Title:  "Added forbidden layer dependency",
+					Detail: "domain -> application",
 				},
 			},
 		},
-	}, 10)
+	})
 
-	require.Len(t, got, 1)
-	require.Contains(t, got[0].Text, "Check whether this regression is intentional")
-	require.Contains(t, got[0].Text, "architecture.api.cameras")
-	require.Contains(t, got[0].Text, "api -> cameras")
+	require.Len(t, questions, 1)
+	require.Contains(t, questions[0], "proven architecture problem")
+	require.Contains(t, questions[0], "domain -> application")
 }
 
-func TestBuild_AsksAboutContractChangeWithoutTests(t *testing.T) {
-	got := Build(reportmodel.ReviewResult{
-		ContractChanges: []contracts.SymbolChange{
-			{
-				Kind:      contracts.ChangeKindSignatureChanged,
-				SymbolKey: "method::ICameraAdapter::RunPreflight",
-				After: &model.SymbolModel{
-					File: "src/domain/interfaces/i_camera_adapter.h",
+func TestBuild_AsksAboutNeedsReviewImpact(t *testing.T) {
+	questions := Build(reportmodel.ReviewResult{
+		Impact: reportmodel.ReviewImpactReport{
+			NeedsReview: []reportmodel.ReviewImpactItem{
+				{
+					Kind:   "contract_delivery_impact",
+					Title:  "Public contract changed with delivery/API impact",
+					Detail: "method::ICameraManagerController::StartSession",
 				},
 			},
 		},
-		ChangedFiles: []string{"src/domain/interfaces/i_camera_adapter.h"},
-	}, 10)
+	})
 
-	require.Len(t, got, 1)
-	require.Contains(t, got[0].Text, "but no test-like files changed")
+	require.Len(t, questions, 1)
+	require.Contains(t, questions[0], "intentional architecture change or accidental drift")
+	require.Contains(t, questions[0], "method::ICameraManagerController::StartSession")
 }
 
-func TestBuild_AsksToVerifyChangedTests(t *testing.T) {
-	got := Build(reportmodel.ReviewResult{
-		ContractChanges: []contracts.SymbolChange{
-			{
-				Kind:      contracts.ChangeKindSignatureChanged,
-				SymbolKey: "method::ICameraAdapter::RunPreflight",
-				After: &model.SymbolModel{
-					File: "src/domain/interfaces/i_camera_adapter.h",
+func TestBuild_AsksAboutExistingDebtWhenPatchHasNoImpact(t *testing.T) {
+	questions := Build(reportmodel.ReviewResult{
+		Impact: reportmodel.ReviewImpactReport{
+			UnchangedDebt: []reportmodel.ReviewImpactItem{
+				{
+					Kind:  "unchanged_finding",
+					Title: "Existing runtime risk finding",
+					ID:    "cpp.lifetime.this_capture_async",
 				},
 			},
 		},
-		ChangedFiles: []string{
-			"src/domain/interfaces/i_camera_adapter.h",
-			"tests/i_camera_adapter_test.cc",
-		},
-	}, 10)
+	})
 
-	require.Len(t, got, 1)
-	require.Contains(t, got[0].Text, "test-like files changed")
-}
-
-func TestBuild_DeduplicatesContractQuestionsBySymbolKey(t *testing.T) {
-	got := Build(reportmodel.ReviewResult{
-		ContractChanges: []contracts.SymbolChange{
-			{
-				Kind:      contracts.ChangeKindSignatureChanged,
-				SymbolKey: "method::ICameraAdapter::StartSession",
-			},
-			{
-				Kind:      contracts.ChangeKindModifiersChanged,
-				SymbolKey: "method::ICameraAdapter::StartSession",
-			},
-		},
-	}, 10)
-
-	require.Len(t, got, 1)
-	require.Contains(t, got[0].Text, "method::ICameraAdapter::StartSession")
+	require.Len(t, questions, 1)
+	require.Contains(t, questions[0], "No patch-specific architecture issue was proven")
 }

@@ -39,6 +39,8 @@ func (r *Runner) newRootCommand(ctx context.Context) *cobra.Command {
 	cmd.AddCommand(r.newExplainCommand(ctx, &opts))
 	cmd.AddCommand(r.newEdgeCommand(ctx, &opts))
 	cmd.AddCommand(r.newCheckCommand(ctx, &opts))
+	cmd.AddCommand(r.newServeCommand(ctx, &opts))
+	cmd.AddCommand(r.newOpenCommand(ctx, &opts))
 
 	return cmd
 }

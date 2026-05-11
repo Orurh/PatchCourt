@@ -41,6 +41,15 @@ HEAD ?= HEAD
 GO ?= go
 DOT ?= dot
 OPEN ?= xdg-open
+NPM ?= npm
+
+VIEWER_DIR ?= ../../web/viewer
+VIEWER_DIST ?= $(VIEWER_DIR)/dist
+OPEN_ADDR ?= 127.0.0.1:8787
+OPEN_WORKSPACE ?= /tmp/patchcourt-viewer-workspace
+OPEN_BASE ?= $(BASE)
+OPEN_HEAD ?=
+OPEN_REVIEW_NOW ?= false
 
 .PHONY: help
 help:
@@ -125,6 +134,26 @@ help:
 	@echo "  make open-camera-demo"
 	@echo "      Open bad and better camera-service review HTML reports."
 	@echo ""
+	@echo "Viewer/open targets:"
+	@echo ""
+	@echo "  make viewer-build"
+	@echo "      Build the React viewer into $(VIEWER_DIST)."
+	@echo ""
+	@echo "  make open-project PROJECT=/path/repo BASE=origin/main"
+	@echo "      Build PatchCourt and viewer, start local viewer/API, and create an initial worktree review."
+	@echo ""
+	@echo "  make open-project-nobrowser PROJECT=/path/repo BASE=origin/main"
+	@echo "      Same as open-project, but do not open the browser."
+	@echo ""
+	@echo "  make open-project-review PROJECT=/path/repo BASE=origin/main"
+	@echo "      Start local viewer/API and create an initial worktree review."
+	@echo ""
+	@echo "  make open-project-review-nobrowser PROJECT=/path/repo BASE=origin/main"
+	@echo "      Same as open-project-review, but do not open the browser."
+	@echo ""
+	@echo "  make open-self BASE=HEAD"
+	@echo "      Open PatchCourt self-review in the local viewer."
+	@echo ""
 	@echo "Optional overrides:"
 	@echo "  CONFIG=/path/.patchcourt.yaml"
 	@echo "  OUT=/path/.patchcourt/out"
@@ -132,6 +161,10 @@ help:
 	@echo "  BASE=origin/main"
 	@echo "  HEAD=HEAD"
 	@echo "  OPEN=gio\\ open"
+	@echo "  OPEN_ADDR=127.0.0.1:8787"
+	@echo "  OPEN_WORKSPACE=/tmp/patchcourt-viewer-workspace"
+	@echo "  VIEWER_DIR=../../web/viewer"
+	@echo "  VIEWER_DIST=../../web/viewer/dist"
 
 .PHONY: require-project
 require-project:
@@ -220,10 +253,7 @@ review-html: build require-project
 		--since-last "$(PROJECT)" \
 		--config "$(CONFIG)" \
 		--format text \
-		--llm-pack \
-		--llm-pack-out "$(LLM_PACK)" \
-		--html-out "$(REVIEW_HTML)" \
-		--sarif-out "$(SARIF)" \
+		--out "$(OUT)" \
 		> "$(REVIEW_TEXT)"
 
 .PHONY: worktree-review-html
@@ -235,10 +265,7 @@ worktree-review-html: build require-project
 		--root "$(PROJECT)" \
 		--config "$(CONFIG)" \
 		--format text \
-		--llm-pack \
-		--llm-pack-out "$(LLM_PACK)" \
-		--html-out "$(REVIEW_HTML)" \
-		--sarif-out "$(SARIF)" \
+		--out "$(OUT)" \
 		> "$(REVIEW_TEXT)"
 
 .PHONY: self-review
@@ -249,10 +276,7 @@ self-review: build
 		--worktree \
 		--root "." \
 		--format text \
-		--llm-pack \
-		--llm-pack-out "$(SELF_OUT)/review-context.md" \
-		--html-out "$(SELF_OUT)/review.html" \
-		--sarif-out "$(SELF_SARIF)" \
+		--out "$(SELF_OUT)" \
 		> "$(SELF_OUT)/review.txt"
 	$(BIN) review \
 		--base "$(BASE)" \
@@ -307,10 +331,7 @@ camera-demo: build
 		--after-root examples/camera-service/after-bad \
 		--config examples/camera-service/.patchcourt.yaml \
 		--format text \
-		--llm-pack \
-		--llm-pack-out "$(CAMERA_DEMO_OUT)/bad-context.md" \
-		--html-out "$(CAMERA_DEMO_OUT)/bad-review.html" \
-		--sarif-out "$(CAMERA_DEMO_OUT)/bad.sarif" \
+		--out "$(CAMERA_DEMO_OUT)/bad" \
 		> "$(CAMERA_DEMO_OUT)/bad-review.txt"
 	$(BIN) review \
 		--before-root examples/camera-service/before \
@@ -323,16 +344,13 @@ camera-demo: build
 		--after-root examples/camera-service/after-bad \
 		--config examples/camera-service/.patchcourt.yaml \
 		--format json \
-		> "$(CAMERA_DEMO_OUT)/bad-review.json"
+		> "$(CAMERA_DEMO_OUT)/bad/review.json"
 	$(BIN) review \
 		--before-root examples/camera-service/before \
 		--after-root examples/camera-service/after-better \
 		--config examples/camera-service/.patchcourt.yaml \
 		--format text \
-		--llm-pack \
-		--llm-pack-out "$(CAMERA_DEMO_OUT)/better-context.md" \
-		--html-out "$(CAMERA_DEMO_OUT)/better-review.html" \
-		--sarif-out "$(CAMERA_DEMO_OUT)/better.sarif" \
+		--out "$(CAMERA_DEMO_OUT)/better" \
 		> "$(CAMERA_DEMO_OUT)/better-review.txt"
 	$(BIN) review \
 		--before-root examples/camera-service/before \
@@ -345,44 +363,113 @@ camera-demo: build
 		--after-root examples/camera-service/after-better \
 		--config examples/camera-service/.patchcourt.yaml \
 		--format json \
-		> "$(CAMERA_DEMO_OUT)/better-review.json"
+		> "$(CAMERA_DEMO_OUT)/better/review.json"
 	@echo "Camera demo artifacts:"
-	@echo "  $(CAMERA_DEMO_OUT)/bad-review.html"
-	@echo "  $(CAMERA_DEMO_OUT)/better-review.html"
-	@echo "  $(CAMERA_DEMO_OUT)/bad-context.md"
-	@echo "  $(CAMERA_DEMO_OUT)/better-context.md"
-	@echo "  $(CAMERA_DEMO_OUT)/bad.sarif"
-	@echo "  $(CAMERA_DEMO_OUT)/better.sarif"
+	@echo "  $(CAMERA_DEMO_OUT)/bad/review-context.md"
+	@echo "  $(CAMERA_DEMO_OUT)/better/review-context.md"
+	@echo "  $(CAMERA_DEMO_OUT)/bad/patchcourt.sarif"
+	@echo "  $(CAMERA_DEMO_OUT)/better/patchcourt.sarif"
 
 .PHONY: open-camera-demo
 open-camera-demo:
-	@test -f "$(CAMERA_DEMO_OUT)/bad-review.html" || (echo "Bad review HTML not found. Run: make camera-demo" && exit 2)
-	@test -f "$(CAMERA_DEMO_OUT)/better-review.html" || (echo "Better review HTML not found. Run: make camera-demo" && exit 2)
-	$(OPEN) "$(CAMERA_DEMO_OUT)/bad-review.html" >/dev/null 2>&1 &
-	$(OPEN) "$(CAMERA_DEMO_OUT)/better-review.html" >/dev/null 2>&1 &
 
 .PHONY: release-check
-release-check: ci camera-demo self-review
-	@test -f "$(CAMERA_DEMO_OUT)/bad-review.html" || (echo "missing $(CAMERA_DEMO_OUT)/bad-review.html" && exit 2)
-	@test -f "$(CAMERA_DEMO_OUT)/bad-review.json" || (echo "missing $(CAMERA_DEMO_OUT)/bad-review.json" && exit 2)
+release-check: ci viewer-build camera-demo self-review
+	@test -f "$(CAMERA_DEMO_OUT)/bad/review.json" || (echo "missing $(CAMERA_DEMO_OUT)/bad/review.json" && exit 2)
 	@test -f "$(CAMERA_DEMO_OUT)/bad-review.md" || (echo "missing $(CAMERA_DEMO_OUT)/bad-review.md" && exit 2)
 	@test -f "$(CAMERA_DEMO_OUT)/bad-review.txt" || (echo "missing $(CAMERA_DEMO_OUT)/bad-review.txt" && exit 2)
-	@test -f "$(CAMERA_DEMO_OUT)/bad-context.md" || (echo "missing $(CAMERA_DEMO_OUT)/bad-context.md" && exit 2)
-	@test -f "$(CAMERA_DEMO_OUT)/bad.sarif" || (echo "missing $(CAMERA_DEMO_OUT)/bad.sarif" && exit 2)
-	@test -f "$(CAMERA_DEMO_OUT)/better-review.html" || (echo "missing $(CAMERA_DEMO_OUT)/better-review.html" && exit 2)
-	@test -f "$(CAMERA_DEMO_OUT)/better-review.json" || (echo "missing $(CAMERA_DEMO_OUT)/better-review.json" && exit 2)
+	@test -f "$(CAMERA_DEMO_OUT)/bad/review-context.md" || (echo "missing $(CAMERA_DEMO_OUT)/bad/review-context.md" && exit 2)
+	@test -f "$(CAMERA_DEMO_OUT)/bad/patchcourt.sarif" || (echo "missing $(CAMERA_DEMO_OUT)/bad/patchcourt.sarif" && exit 2)
+	@test -f "$(CAMERA_DEMO_OUT)/better/review.json" || (echo "missing $(CAMERA_DEMO_OUT)/better/review.json" && exit 2)
 	@test -f "$(CAMERA_DEMO_OUT)/better-review.md" || (echo "missing $(CAMERA_DEMO_OUT)/better-review.md" && exit 2)
 	@test -f "$(CAMERA_DEMO_OUT)/better-review.txt" || (echo "missing $(CAMERA_DEMO_OUT)/better-review.txt" && exit 2)
-	@test -f "$(CAMERA_DEMO_OUT)/better-context.md" || (echo "missing $(CAMERA_DEMO_OUT)/better-context.md" && exit 2)
-	@test -f "$(CAMERA_DEMO_OUT)/better.sarif" || (echo "missing $(CAMERA_DEMO_OUT)/better.sarif" && exit 2)
-	@test -f "$(SELF_OUT)/review.html" || (echo "missing $(SELF_OUT)/review.html" && exit 2)
+	@test -f "$(CAMERA_DEMO_OUT)/better/review-context.md" || (echo "missing $(CAMERA_DEMO_OUT)/better/review-context.md" && exit 2)
+	@test -f "$(CAMERA_DEMO_OUT)/better/patchcourt.sarif" || (echo "missing $(CAMERA_DEMO_OUT)/better/patchcourt.sarif" && exit 2)
 	@test -f "$(SELF_OUT)/review.json" || (echo "missing $(SELF_OUT)/review.json" && exit 2)
 	@test -f "$(SELF_OUT)/review.md" || (echo "missing $(SELF_OUT)/review.md" && exit 2)
 	@test -f "$(SELF_OUT)/review.txt" || (echo "missing $(SELF_OUT)/review.txt" && exit 2)
 	@test -f "$(SELF_OUT)/review-context.md" || (echo "missing $(SELF_OUT)/review-context.md" && exit 2)
-	@test -f "$(SELF_SARIF)" || (echo "missing $(SELF_SARIF)" && exit 2)
+	@test -f "$(SELF_OUT)/patchcourt.sarif" || (echo "missing $(SELF_OUT)/patchcourt.sarif" && exit 2)
+	@test -f "$(VIEWER_DIST)/index.html" || (echo "missing $(VIEWER_DIST)/index.html" && exit 2)
 	@echo "PatchCourt release-check passed."
 
 .PHONY: bench-runtime
 bench-runtime:
 	./scripts/bench_runtime.sh
+
+.PHONY: viewer-build
+viewer-build:
+	cd "$(VIEWER_DIR)" && $(NPM) run build
+
+.PHONY: open-project
+open-project: build viewer-build require-project
+	$(BIN) open "$(PROJECT)" \
+		--addr "$(OPEN_ADDR)" \
+		--workspace "$(OPEN_WORKSPACE)" \
+		--viewer-dir "$(VIEWER_DIST)" \
+		--base "$(OPEN_BASE)" \
+		--head "$(OPEN_HEAD)" \
+		--worktree \
+		--config "$(CONFIG)" \
+		--review-now=$(OPEN_REVIEW_NOW)
+
+.PHONY: open-project-nobrowser
+open-project-nobrowser: build viewer-build require-project
+	$(BIN) open "$(PROJECT)" \
+		--addr "$(OPEN_ADDR)" \
+		--workspace "$(OPEN_WORKSPACE)" \
+		--viewer-dir "$(VIEWER_DIST)" \
+		--base "$(OPEN_BASE)" \
+		--head "$(OPEN_HEAD)" \
+		--worktree \
+		--config "$(CONFIG)" \
+		--review-now=$(OPEN_REVIEW_NOW) \
+		--no-browser
+
+.PHONY: open-self
+open-self: build viewer-build
+	$(BIN) open "." \
+		--addr "$(OPEN_ADDR)" \
+		--workspace "$(OPEN_WORKSPACE)" \
+		--viewer-dir "$(VIEWER_DIST)" \
+		--base "$(OPEN_BASE)" \
+		--head "$(OPEN_HEAD)" \
+		--worktree \
+		--review-now=$(OPEN_REVIEW_NOW)
+
+.PHONY: open-self-nobrowser
+open-self-nobrowser: build viewer-build
+	$(BIN) open "." \
+		--addr "$(OPEN_ADDR)" \
+		--workspace "$(OPEN_WORKSPACE)" \
+		--viewer-dir "$(VIEWER_DIST)" \
+		--base "$(OPEN_BASE)" \
+		--head "$(OPEN_HEAD)" \
+		--worktree \
+		--review-now=$(OPEN_REVIEW_NOW) \
+		--no-browser
+
+.PHONY: open-project-review
+open-project-review: build viewer-build require-project
+	$(BIN) open "$(PROJECT)" \
+		--addr "$(OPEN_ADDR)" \
+		--workspace "$(OPEN_WORKSPACE)" \
+		--viewer-dir "$(VIEWER_DIST)" \
+		--base "$(OPEN_BASE)" \
+		--head "$(OPEN_HEAD)" \
+		--worktree \
+		--config "$(CONFIG)" \
+		--review-now=true
+
+.PHONY: open-project-review-nobrowser
+open-project-review-nobrowser: build viewer-build require-project
+	$(BIN) open "$(PROJECT)" \
+		--addr "$(OPEN_ADDR)" \
+		--workspace "$(OPEN_WORKSPACE)" \
+		--viewer-dir "$(VIEWER_DIST)" \
+		--base "$(OPEN_BASE)" \
+		--head "$(OPEN_HEAD)" \
+		--worktree \
+		--config "$(CONFIG)" \
+		--review-now=true \
+		--no-browser

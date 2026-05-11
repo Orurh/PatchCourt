@@ -3,7 +3,9 @@ package project
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/orurh/patchcourt/internal/analyzer/lang/cpp"
@@ -147,9 +149,18 @@ func collectCPPDependencies(absRoot string, project *model.ProjectModel, cppIncl
 	return nil
 }
 
+type goModuleRoot struct {
+	AbsPath    string
+	RelPath    string
+	ModulePath string
+}
+
 func collectGoDependencies(absRoot string, project *model.ProjectModel, fileIndex resolver.FileIndex) error {
-	modulePath := goanalysis.ModulePath(absRoot)
-	if modulePath == "" {
+	modules, err := discoverGoModuleRoots(absRoot)
+	if err != nil {
+		return err
+	}
+	if len(modules) == 0 {
 		return nil
 	}
 
@@ -157,6 +168,11 @@ func collectGoDependencies(absRoot string, project *model.ProjectModel, fileInde
 		file := &project.Files[i]
 
 		if file.Language != model.LanguageGo {
+			continue
+		}
+
+		module, ok := goModuleForFile(modules, file.Path)
+		if !ok {
 			continue
 		}
 
@@ -175,7 +191,8 @@ func collectGoDependencies(absRoot string, project *model.ProjectModel, fileInde
 				Usage:    model.DependencyUsageUnknown,
 			}
 
-			if !strings.HasPrefix(importPath, modulePath+"/") {
+			relDir, local := localGoImportDir(module.ModulePath, importPath)
+			if !local {
 				edge.External = true
 				edge.Resolved = false
 				edge.ResolutionSource = model.ResolutionSourceNone
@@ -184,10 +201,7 @@ func collectGoDependencies(absRoot string, project *model.ProjectModel, fileInde
 				continue
 			}
 
-			relDir := strings.TrimPrefix(importPath, modulePath+"/")
-			relDir = pathmatch.Normalize(relDir)
-
-			if resolved := resolveGoPackageFile(fileIndex, relDir); resolved != "" {
+			if resolved := resolveGoPackageFileInModule(fileIndex, module.RelPath, relDir); resolved != "" {
 				edge.ToFile = resolved
 				edge.Resolved = true
 				edge.ResolutionSource = model.ResolutionSourceHeuristic
@@ -205,10 +219,98 @@ func collectGoDependencies(absRoot string, project *model.ProjectModel, fileInde
 	return nil
 }
 
-func resolveGoPackageFile(index resolver.FileIndex, relDir string) string {
+func discoverGoModuleRoots(absRoot string) ([]goModuleRoot, error) {
+	modules := make([]goModuleRoot, 0)
+
+	err := filepath.WalkDir(absRoot, func(currentPath string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+
+		if entry.IsDir() {
+			if currentPath != absRoot && shouldSkipDir(entry.Name()) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		if entry.Name() != "go.mod" {
+			return nil
+		}
+
+		moduleAbs := filepath.Dir(currentPath)
+		modulePath := goanalysis.ModulePath(moduleAbs)
+		if modulePath == "" {
+			return nil
+		}
+
+		relPath, err := filepath.Rel(absRoot, moduleAbs)
+		if err != nil {
+			return fmt.Errorf("relative go module root: %w", err)
+		}
+
+		relPath = pathmatch.Normalize(relPath)
+		if relPath == "." {
+			relPath = ""
+		}
+
+		modules = append(modules, goModuleRoot{
+			AbsPath:    moduleAbs,
+			RelPath:    relPath,
+			ModulePath: modulePath,
+		})
+
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("discover go modules: %w", err)
+	}
+
+	sort.Slice(modules, func(i, j int) bool {
+		if len(modules[i].RelPath) != len(modules[j].RelPath) {
+			return len(modules[i].RelPath) > len(modules[j].RelPath)
+		}
+		return modules[i].RelPath < modules[j].RelPath
+	})
+
+	return modules, nil
+}
+
+func goModuleForFile(modules []goModuleRoot, filePath string) (goModuleRoot, bool) {
+	filePath = pathmatch.Normalize(filePath)
+
+	for _, module := range modules {
+		if module.RelPath == "" {
+			return module, true
+		}
+
+		if filePath == module.RelPath || strings.HasPrefix(filePath, module.RelPath+"/") {
+			return module, true
+		}
+	}
+
+	return goModuleRoot{}, false
+}
+
+func localGoImportDir(modulePath string, importPath string) (string, bool) {
+	if importPath == modulePath {
+		return "", true
+	}
+
+	prefix := modulePath + "/"
+	if !strings.HasPrefix(importPath, prefix) {
+		return "", false
+	}
+
+	return pathmatch.Normalize(strings.TrimPrefix(importPath, prefix)), true
+}
+
+func resolveGoPackageFileInModule(index resolver.FileIndex, moduleRelPath string, relDir string) string {
+	packageDir := joinSlashPath(moduleRelPath, relDir)
+
 	candidates := []string{
-		relDir + "/doc.go",
-		relDir + "/main.go",
+		joinSlashPath(packageDir, "doc.go"),
+		joinSlashPath(packageDir, "main.go"),
 	}
 
 	for _, candidate := range candidates {
@@ -217,9 +319,13 @@ func resolveGoPackageFile(index resolver.FileIndex, relDir string) string {
 		}
 	}
 
-	prefix := relDir + "/"
+	prefix := packageDir
+	if prefix != "" {
+		prefix += "/"
+	}
+
 	for _, file := range index.Files() {
-		if !strings.HasPrefix(file, prefix) {
+		if prefix != "" && !strings.HasPrefix(file, prefix) {
 			continue
 		}
 
@@ -235,6 +341,20 @@ func resolveGoPackageFile(index resolver.FileIndex, relDir string) string {
 	}
 
 	return ""
+}
+
+func joinSlashPath(left string, right string) string {
+	left = strings.Trim(pathmatch.Normalize(left), "/")
+	right = strings.Trim(pathmatch.Normalize(right), "/")
+
+	switch {
+	case left == "":
+		return right
+	case right == "":
+		return left
+	default:
+		return path.Join(left, right)
+	}
 }
 
 func shouldSkipDir(name string) bool {

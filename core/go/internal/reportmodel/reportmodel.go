@@ -117,6 +117,9 @@ type ReviewSummary struct {
 }
 
 type ReviewResult struct {
+	BeforeProject *model.ProjectModel `json:"-"`
+	AfterProject  *model.ProjectModel `json:"-"`
+
 	SchemaVersion     string                      `json:"schema_version"`
 	Summary           ReviewSummary               `json:"summary"`
 	Risk              risk.Score                  `json:"risk"`
@@ -132,6 +135,7 @@ type ReviewResult struct {
 type ReviewImpactReport struct {
 	Worse         []ReviewImpactItem `json:"worse"`
 	Better        []ReviewImpactItem `json:"better"`
+	NeedsReview   []ReviewImpactItem `json:"needs_review,omitempty"`
 	UnchangedDebt []ReviewImpactItem `json:"unchanged_debt"`
 }
 
