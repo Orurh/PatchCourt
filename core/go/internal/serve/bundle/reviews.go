@@ -125,26 +125,14 @@ func validateCreateReviewRequest(req *CreateReviewRequest) error {
 }
 
 func runReview(r *http.Request, root string, req CreateReviewRequest) (*reportmodel.ReviewResult, error) {
-	roots, err := materializeReviewRoots(r.Context(), root, req.Base, req.Head, req.Worktree)
-	if err != nil {
-		return nil, err
-	}
-	defer os.RemoveAll(roots.TempDir)
-
-	configPath := req.ConfigPath
-	if configPath == "" {
-		candidate := filepath.Join(root, ".patchcourt.yaml")
-		if _, err := os.Stat(candidate); err == nil {
-			configPath = candidate
-		}
-	}
-
 	app := usecase.NewWithOptions(usecase.FactoryOptions{})
 
 	return app.RunReview(r.Context(), usecase.ReviewRequest{
-		BeforeRoot: roots.BeforeRoot,
-		AfterRoot:  roots.AfterRoot,
-		ConfigPath: configPath,
+		GitRoot:    root,
+		BaseRef:    req.Base,
+		HeadRef:    req.Head,
+		Worktree:   req.Worktree,
+		ConfigPath: req.ConfigPath,
 	})
 }
 

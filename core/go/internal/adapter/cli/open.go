@@ -77,14 +77,12 @@ func (r *Runner) runOpen(ctx context.Context, opts openOptions) error {
 		return fmt.Errorf("project root is not a directory: %s", root)
 	}
 
-	viewerDir := resolveViewerDir(opts.viewerDir)
-	baseURL := serverBaseURL(opts.addr)
-
-	if viewerDir == "" && r.stderr != nil {
-		fmt.Fprintln(r.stderr, "PatchCourt viewer assets were not found.")
-		fmt.Fprintln(r.stderr, "Run `cd ../../web/viewer && npm run build`, or pass --viewer-dir.")
-		fmt.Fprintln(r.stderr, "Starting API server only.")
+	viewerDir, err := resolveViewerDir(opts.viewerDir)
+	if err != nil {
+		return err
 	}
+
+	baseURL := serverBaseURL(opts.addr)
 
 	serverCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -134,37 +132,6 @@ func (r *Runner) runOpen(ctx context.Context, opts openOptions) error {
 	}
 
 	return <-errCh
-}
-
-func resolveViewerDir(explicit string) string {
-	if explicit != "" {
-		if hasViewerIndex(explicit) {
-			return explicit
-		}
-		return ""
-	}
-
-	candidates := []string{
-		filepath.Join("..", "..", "web", "viewer", "dist"),
-		filepath.Join("web", "viewer", "dist"),
-		filepath.Join("..", "web", "viewer", "dist"),
-	}
-
-	for _, candidate := range candidates {
-		if hasViewerIndex(candidate) {
-			if abs, err := filepath.Abs(candidate); err == nil {
-				return abs
-			}
-			return candidate
-		}
-	}
-
-	return ""
-}
-
-func hasViewerIndex(dir string) bool {
-	info, err := os.Stat(filepath.Join(dir, "index.html"))
-	return err == nil && !info.IsDir()
 }
 
 func serverBaseURL(addr string) string {

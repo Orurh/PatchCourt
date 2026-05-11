@@ -50,6 +50,9 @@ OPEN_WORKSPACE ?= /tmp/patchcourt-viewer-workspace
 OPEN_BASE ?= $(BASE)
 OPEN_HEAD ?=
 OPEN_REVIEW_NOW ?= false
+RELEASE_VERSION ?= v0.2.2-alpha
+RELEASE_ROOT ?= ./.patchcourt/release/$(RELEASE_VERSION)
+RELEASE_PACKAGE ?= patchcourt-$(RELEASE_VERSION)
 
 .PHONY: help
 help:
@@ -473,3 +476,15 @@ open-project-review-nobrowser: build viewer-build require-project
 		--config "$(CONFIG)" \
 		--review-now=true \
 		--no-browser
+
+.PHONY: release-archive
+release-archive: release-check
+	rm -rf "$(RELEASE_ROOT)"
+	mkdir -p "$(RELEASE_ROOT)/$(RELEASE_PACKAGE)"
+	cp "$(BIN)" "$(RELEASE_ROOT)/$(RELEASE_PACKAGE)/patchcourt"
+	cp -r "$(VIEWER_DIST)" "$(RELEASE_ROOT)/$(RELEASE_PACKAGE)/viewer-dist"
+	tar -czf "$(RELEASE_ROOT)/$(RELEASE_PACKAGE)-$$(go env GOOS)-$$(go env GOARCH).tar.gz" \
+		-C "$(RELEASE_ROOT)" \
+		"$(RELEASE_PACKAGE)"
+	@echo "Release archive:"
+	@echo "  $(RELEASE_ROOT)/$(RELEASE_PACKAGE)-$$(go env GOOS)-$$(go env GOARCH).tar.gz"
