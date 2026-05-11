@@ -1,8 +1,0 @@
-digraph godep {
-rankdir="LR"
-splines=ortho
-nodesep=0.4
-ranksep=0.8
-node [shape="box",style="rounded,filled"]
-edge [arrowsize="0.5"]
-}

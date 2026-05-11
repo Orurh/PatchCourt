@@ -80,3 +80,24 @@ web/viewer/.vite/
 # PatchCourt analysis output
 core/go/.patchcourt/out/
 web/viewer/.patchcourt/out/
+
+# PatchCourt generated outputs
+core/go/.patchcourt/out/
+core/go/.patchcourt/release/
+web/viewer/dist/
+web/viewer/tsconfig.tsbuildinfo
+web/viewer/node_modules/
+
+# PatchCourt generated artifacts
+core/go/.patchcourt/
+core/go/out/
+core/go/bin/
+
+# Release/build outputs
+dist/
+
+# Viewer generated artifacts
+web/viewer/node_modules/
+web/viewer/dist/
+web/viewer/tsconfig.tsbuildinfo
+web/viewer/.vite/
