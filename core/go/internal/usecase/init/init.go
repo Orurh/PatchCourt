@@ -15,6 +15,7 @@ type Request struct {
 	Root       string
 	Strict     bool
 	Preset     string
+	Suggest    bool
 	Write      bool
 	Force      bool
 	OutputPath string
@@ -59,14 +60,16 @@ func (s Service) Run(ctx context.Context, req Request) (*Result, error) {
 		logx.String("operation", "init"),
 		logx.String("root", absRoot),
 		logx.String("preset", req.Preset),
+		logx.String("suggest", fmt.Sprint(req.Suggest)),
 	)
 
 	logger.Debug("discovering project architecture")
 
 	result, err := discovery.GenerateInitConfig(discovery.InitOptions{
-		Root:   absRoot,
-		Strict: req.Strict,
-		Preset: req.Preset,
+		Root:    absRoot,
+		Strict:  req.Strict,
+		Preset:  req.Preset,
+		Suggest: req.Suggest,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("generate init config: %w", err)

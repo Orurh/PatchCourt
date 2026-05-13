@@ -15,6 +15,7 @@ import (
 type initOptions struct {
 	strict     bool
 	preset     string
+	suggest    bool
 	write      bool
 	force      bool
 	outputPath string
@@ -38,6 +39,7 @@ func (r *Runner) newInitCommand(ctx context.Context, rootOpts *rootOptions) *cob
 				Root:       root,
 				Strict:     opts.strict,
 				Preset:     opts.preset,
+				Suggest:    opts.suggest,
 				Write:      opts.write,
 				Force:      opts.force,
 				OutputPath: opts.outputPath,
@@ -58,6 +60,7 @@ func (r *Runner) newInitCommand(ctx context.Context, rootOpts *rootOptions) *cob
 
 	cmd.Flags().BoolVar(&opts.strict, "strict", false, "generate strict config without inferred may_depend_on baseline")
 	cmd.Flags().StringVar(&opts.preset, "preset", "", "init preset: auto, go-clean, nested-cpp")
+	cmd.Flags().BoolVar(&opts.suggest, "suggest", false, "suggest layers from the current project structure")
 	cmd.Flags().BoolVar(&opts.write, "write", false, "write generated config to .patchcourt.yaml")
 	cmd.Flags().BoolVar(&opts.force, "force", false, "overwrite existing config when used with --write")
 	cmd.Flags().StringVar(&opts.outputPath, "out", "", "output config path when used with --write")

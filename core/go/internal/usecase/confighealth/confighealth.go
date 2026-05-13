@@ -47,7 +47,7 @@ func Build(project *model.ProjectModel, configPath string, graphNodeCount int, g
 		health.Warnings = append(health.Warnings, reportmodel.ConfigHealthWarning{
 			Code:    "config.low_layer_coverage",
 			Message: "Configured layers match very few internal resolved dependencies.",
-			Hint:    "The config may be outdated or too narrow. Try running without --config or regenerate .patchcourt.yaml.",
+			Hint:    "The config may be outdated or too narrow. Try: patchcourt init . --suggest --write --force",
 		})
 	}
 
