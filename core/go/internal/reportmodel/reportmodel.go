@@ -45,6 +45,8 @@ type CheckReport struct {
 	GraphNodeCount int `json:"graph_node_count"`
 	GraphEdgeCount int `json:"graph_edge_count"`
 
+	ConfigHealth ConfigHealth `json:"config_health"`
+
 	Artifacts []CheckArtifact `json:"artifacts,omitempty"`
 
 	TopFindings      []FindingSummary `json:"top_findings,omitempty"`
@@ -58,6 +60,23 @@ type FindingSummary struct {
 	Kind     string `json:"kind,omitempty"`
 	Severity string `json:"severity,omitempty"`
 	Title    string `json:"title,omitempty"`
+}
+
+type ConfigHealth struct {
+	ConfigPath                   string                `json:"config_path,omitempty"`
+	ConfigExplicit               bool                  `json:"config_explicit"`
+	InternalResolvedDependencies int                   `json:"internal_resolved_dependencies"`
+	LayerAnnotatedDependencies   int                   `json:"layer_annotated_dependencies"`
+	LayerCoveragePercent         float64               `json:"layer_coverage_percent"`
+	GraphNodeCount               int                   `json:"graph_node_count"`
+	GraphEdgeCount               int                   `json:"graph_edge_count"`
+	Warnings                     []ConfigHealthWarning `json:"warnings,omitempty"`
+}
+
+type ConfigHealthWarning struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+	Hint    string `json:"hint,omitempty"`
 }
 
 type EdgeSummary struct {

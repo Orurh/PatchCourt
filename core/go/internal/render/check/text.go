@@ -28,6 +28,9 @@ func WriteCheckReportText(w io.Writer, result reportmodel.CheckReport) {
 	writeStructuredCheckSummary(w, result)
 	fmt.Fprintln(w)
 
+	writeStructuredConfigHealth(w, result.ConfigHealth)
+	fmt.Fprintln(w)
+
 	writeStructuredCheckArtifacts(w, result.Artifacts)
 	fmt.Fprintln(w)
 
@@ -55,6 +58,45 @@ func writeStructuredCheckSummary(w io.Writer, result reportmodel.CheckReport) {
 	fmt.Fprintf(w, "  findings:         %d\n", result.FindingCount)
 	fmt.Fprintf(w, "  graph nodes:      %d\n", result.GraphNodeCount)
 	fmt.Fprintf(w, "  graph edges:      %d\n", result.GraphEdgeCount)
+}
+
+func writeStructuredConfigHealth(w io.Writer, health reportmodel.ConfigHealth) {
+	fmt.Fprintln(w, "Config health:")
+
+	if health.InternalResolvedDependencies == 0 {
+		fmt.Fprintln(w, "  internal resolved dependencies: 0")
+		if len(health.Warnings) == 0 {
+			fmt.Fprintln(w, "  warnings: none")
+		}
+		return
+	}
+
+	fmt.Fprintf(
+		w,
+		"  layer coverage: %d / %d dependencies (%.1f%%)\n",
+		health.LayerAnnotatedDependencies,
+		health.InternalResolvedDependencies,
+		health.LayerCoveragePercent,
+	)
+
+	if health.ConfigExplicit && health.ConfigPath != "" {
+		fmt.Fprintf(w, "  config source: explicit (%s)\n", health.ConfigPath)
+	} else {
+		fmt.Fprintln(w, "  config source: defaults/auto-discovery")
+	}
+
+	if len(health.Warnings) == 0 {
+		fmt.Fprintln(w, "  warnings: none")
+		return
+	}
+
+	fmt.Fprintln(w, "  warnings:")
+	for _, warning := range health.Warnings {
+		fmt.Fprintf(w, "    - %s: %s\n", warning.Code, warning.Message)
+		if warning.Hint != "" {
+			fmt.Fprintf(w, "      hint: %s\n", warning.Hint)
+		}
+	}
 }
 
 func writeStructuredCheckArtifacts(w io.Writer, artifacts []reportmodel.CheckArtifact) {
