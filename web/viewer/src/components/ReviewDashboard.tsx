@@ -40,6 +40,8 @@ export function ReviewDashboard({ review, graph, tree, runtime, findings, contra
 
   return (
     <>
+      <ConfigHealthBanner review={review} />
+
       <nav className="tabs">
         {tabs.map(([tab, label]) => (
           <button key={tab} className={activeTab === tab ? 'active' : ''} onClick={() => setActiveTab(tab)}>
@@ -55,6 +57,47 @@ export function ReviewDashboard({ review, graph, tree, runtime, findings, contra
       {activeTab === 'contracts' && <ContractsView contracts={contracts} />}
       {activeTab === 'dependencies' && <DependenciesView dependencies={dependencies} />}
     </>
+  )
+}
+
+function ConfigHealthBanner({ review }: { review: ReviewResult }) {
+  const health = review.config_health
+  const warnings = health?.warnings ?? []
+
+  if (!health || warnings.length === 0) {
+    return null
+  }
+
+  const coverage = Number.isFinite(health.layer_coverage_percent)
+    ? health.layer_coverage_percent.toFixed(1)
+    : '0.0'
+
+  return (
+    <section className="config-health-banner">
+      <div>
+        <p className="eyebrow">Configuration health</p>
+        <h2>Low layer coverage</h2>
+        <p>
+          Only <strong>{health.layer_annotated_dependencies}</strong> of{' '}
+          <strong>{health.internal_resolved_dependencies}</strong> internal resolved dependencies have layer annotations
+          {' '}({coverage}%).
+        </p>
+        {health.config_explicit && health.config_path && (
+          <p className="muted">
+            Config: <code>{health.config_path}</code>
+          </p>
+        )}
+      </div>
+
+      <div className="config-health-warning-list">
+        {warnings.map((warning) => (
+          <div key={warning.code} className="config-health-warning">
+            <strong>{warning.message}</strong>
+            {warning.hint && <span>{warning.hint}</span>}
+          </div>
+        ))}
+      </div>
+    </section>
   )
 }
 

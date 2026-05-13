@@ -142,6 +142,7 @@ type ReviewResult struct {
 	SchemaVersion     string                      `json:"schema_version"`
 	Summary           ReviewSummary               `json:"summary"`
 	Risk              risk.Score                  `json:"risk"`
+	ConfigHealth      ConfigHealth                `json:"config_health"`
 	Impact            ReviewImpactReport          `json:"impact"`
 	ChangedFiles      []string                    `json:"changed_files,omitempty"`
 	ContractChanges   []contracts.SymbolChange    `json:"contract_changes"`

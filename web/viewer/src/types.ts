@@ -34,6 +34,23 @@ export interface ReviewImpactReport {
   unchanged_debt?: ReviewImpactItem[]
 }
 
+export interface ConfigHealthWarning {
+  code: string
+  message: string
+  hint?: string
+}
+
+export interface ConfigHealth {
+  config_path?: string
+  config_explicit: boolean
+  internal_resolved_dependencies: number
+  layer_annotated_dependencies: number
+  layer_coverage_percent: number
+  graph_node_count: number
+  graph_edge_count: number
+  warnings?: ConfigHealthWarning[]
+}
+
 export interface ReviewResult {
   schema_version: string
   risk: {
@@ -42,6 +59,7 @@ export interface ReviewResult {
     reasons?: RiskReason[]
   }
   summary: ReviewSummary
+  config_health?: ConfigHealth
   impact?: ReviewImpactReport
   changed_files?: string[]
 }

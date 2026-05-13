@@ -12,6 +12,7 @@ import (
 	"github.com/orurh/patchcourt/internal/reportmodel"
 	"github.com/orurh/patchcourt/internal/reviewrisk"
 	"github.com/orurh/patchcourt/internal/state"
+	"github.com/orurh/patchcourt/internal/usecase/confighealth"
 )
 
 type ReviewSummary = reportmodel.ReviewSummary
@@ -96,12 +97,15 @@ func (s Service) Run(ctx context.Context, req Request) (*ReviewResult, error) {
 		FindingChanges:    changeSet.FindingChanges,
 	})
 
+	graphNodeCount, graphEdgeCount := reviewLayerGraphSize(afterProject)
+
 	result := &ReviewResult{
 		BeforeProject:     beforeProject,
 		AfterProject:      afterProject,
 		SchemaVersion:     reportmodel.ReviewResultSchemaVersion,
 		Summary:           buildReviewSummary(changeSet.ContractChanges, changeSet.DependencyChanges, changeSet.LayerEdgeChanges, changeSet.FindingChanges),
 		Risk:              reviewRisk,
+		ConfigHealth:      confighealth.Build(afterProject, req.ConfigPath, graphNodeCount, graphEdgeCount),
 		ChangedFiles:      changeSet.ChangedFiles,
 		ContractChanges:   changeSet.ContractChanges,
 		ContractImpacts:   BuildContractImpacts(changeSet.ContractChanges, afterProject, changeSet.ChangedFiles),
@@ -176,4 +180,31 @@ func changedFindingGotWorseForSummary(change findingdiff.FindingChange) bool {
 
 func isHighOrCritical(severity model.Severity) bool {
 	return severity == model.SeverityHigh || severity == model.SeverityCritical
+}
+
+func reviewLayerGraphSize(project *model.ProjectModel) (int, int) {
+	if project == nil {
+		return 0, 0
+	}
+
+	nodes := make(map[string]struct{})
+	edges := make(map[string]struct{})
+
+	for _, dependency := range project.Dependencies {
+		if dependency.External || !dependency.Resolved {
+			continue
+		}
+		if dependency.FromLayer == "" || dependency.ToLayer == "" {
+			continue
+		}
+		if dependency.FromLayer == dependency.ToLayer {
+			continue
+		}
+
+		nodes[dependency.FromLayer] = struct{}{}
+		nodes[dependency.ToLayer] = struct{}{}
+		edges[dependency.FromLayer+"\x00"+dependency.ToLayer] = struct{}{}
+	}
+
+	return len(nodes), len(edges)
 }

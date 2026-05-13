@@ -2242,3 +2242,52 @@ pre {
     grid-template-columns: 1fr;
   }
 }
+
+.config-health-banner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.8fr);
+  gap: 18px;
+  align-items: start;
+  margin: 0 0 18px;
+  padding: 18px;
+  border: 1px solid rgba(245, 158, 11, 0.36);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top left, rgba(245, 158, 11, 0.12), transparent 34%),
+    rgba(255, 247, 237, 0.72);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+}
+
+.config-health-banner h2 {
+  margin: 4px 0 8px;
+}
+
+.config-health-banner p {
+  margin: 0;
+}
+
+.config-health-warning-list {
+  display: grid;
+  gap: 10px;
+}
+
+.config-health-warning {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.58);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+}
+
+.config-health-warning span {
+  color: #6b7280;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 840px) {
+  .config-health-banner {
+    grid-template-columns: 1fr;
+  }
+}
