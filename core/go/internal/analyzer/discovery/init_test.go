@@ -238,3 +238,88 @@ func TestGenerateInitConfig_NestedCPPPreset(t *testing.T) {
 	assertContains(t, yaml, `      - client`)
 	assertContains(t, yaml, `      - gopro_camera`)
 }
+
+func TestGenerateInitConfig_SuggestsCurrentProjectStructure(t *testing.T) {
+	root := t.TempDir()
+
+	writeFile(t, root, "go.mod", `module example.com/project
+
+go 1.26
+`)
+	writeFile(t, root, "cmd/app/main.go", `package main
+
+import _ "example.com/project/internal/adapter/cli"
+`)
+	writeFile(t, root, "internal/adapter/cli/root.go", `package cli
+
+import _ "example.com/project/internal/usecase"
+`)
+	writeFile(t, root, "internal/usecase/app.go", `package usecase
+
+import _ "example.com/project/internal/model"
+`)
+	writeFile(t, root, "internal/analyzer/project/builder.go", `package project
+
+import _ "example.com/project/internal/model"
+`)
+	writeFile(t, root, "internal/model/project.go", `package model
+`)
+	writeFile(t, root, "internal/render/check/text.go", `package check
+
+import _ "example.com/project/internal/reportmodel"
+`)
+	writeFile(t, root, "internal/reportmodel/reportmodel.go", `package reportmodel
+
+import _ "example.com/project/internal/model"
+`)
+
+	result, err := GenerateInitConfig(InitOptions{
+		Root:    root,
+		Suggest: true,
+	})
+	if err != nil {
+		t.Fatalf("GenerateInitConfig failed: %v", err)
+	}
+
+	yaml := result.ConfigYAML
+
+	assertContains(t, yaml, `# Suggested config: layers are inferred from the current project structure.`)
+	assertContains(t, yaml, `# Use this to replace outdated or too narrow .patchcourt.yaml files.`)
+
+	assertContains(t, yaml, `internal_adapter:`)
+	assertContains(t, yaml, `      - "internal/adapter/**"`)
+	assertContains(t, yaml, `internal_usecase:`)
+	assertContains(t, yaml, `      - "internal/usecase/**"`)
+	assertContains(t, yaml, `internal_analyzer:`)
+	assertContains(t, yaml, `      - "internal/analyzer/**"`)
+	assertContains(t, yaml, `internal_model:`)
+	assertContains(t, yaml, `      - "internal/model/**"`)
+	assertContains(t, yaml, `internal_render:`)
+	assertContains(t, yaml, `      - "internal/render/**"`)
+	assertContains(t, yaml, `internal_reportmodel:`)
+	assertContains(t, yaml, `      - "internal/reportmodel/**"`)
+
+	assertContains(t, yaml, `      - internal_usecase`)
+	assertContains(t, yaml, `      - internal_model`)
+	assertContains(t, yaml, `      - internal_reportmodel`)
+}
+
+func TestGenerateInitConfig_RejectsSuggestWithPreset(t *testing.T) {
+	root := t.TempDir()
+
+	writeFile(t, root, "internal/model/project.go", `package model
+`)
+
+	_, err := GenerateInitConfig(InitOptions{
+		Root:    root,
+		Suggest: true,
+		Preset:  "go-clean",
+	})
+	if err == nil {
+		t.Fatalf("expected suggest with preset to fail")
+	}
+
+	if !strings.Contains(err.Error(), "--suggest cannot be combined with preset") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
