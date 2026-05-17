@@ -2243,6 +2243,101 @@ pre {
   }
 }
 
+/* Dependency evidence drilldown */
+
+.edge-evidence-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.dependency-evidence-card {
+  display: grid;
+  gap: 8px;
+  padding: 11px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+}
+
+.dependency-evidence-card.added {
+  box-shadow: inset 3px 0 0 #dc2626;
+}
+
+.dependency-evidence-card.removed {
+  box-shadow: inset 3px 0 0 #16a34a;
+}
+
+.dependency-evidence-card.changed {
+  box-shadow: inset 3px 0 0 #f59e0b;
+}
+
+.dependency-evidence-title {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.dependency-evidence-title code,
+.dependency-evidence-files code {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.dependency-evidence-files,
+.dependency-evidence-layers {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+}
+
+.dependency-evidence-files span,
+.dependency-evidence-layers span {
+  color: #64748b;
+}
+
+.dependency-evidence-layers {
+  color: #64748b;
+  font-weight: 800;
+}
+
+/* Clickable module edge navigation */
+
+.edge-chip-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #111827;
+  padding: 6px 10px;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.04);
+}
+
+.edge-chip-button:hover {
+  border-color: #111827;
+  background: #f8fafc;
+}
+
+.edge-chip-button code {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.edge-chip-button span {
+  color: #64748b;
+}
+
 .config-health-banner {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(280px, 0.8fr);

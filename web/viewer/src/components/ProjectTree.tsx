@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
-import type { ReviewGraph, ReviewGraphEdge, TreeNode, TreeReport } from '../types'
+import type { DependenciesReport, DependencyChange, DependencyEvidence, EdgeDependencyGroup, ReviewGraph, ReviewGraphEdge, TreeNode, TreeReport } from '../types'
 import { ArchitectureFlow } from './ArchitectureFlow'
 
 interface Props {
   tree: TreeReport
   graph: ReviewGraph
+  dependencies: DependenciesReport
 }
 
 interface FlatTreeNode {
@@ -13,17 +14,20 @@ interface FlatTreeNode {
   key: string
 }
 
-export function ProjectTree({ tree, graph }: Props) {
+export function ProjectTree({ tree, graph, dependencies }: Props) {
   const [selectedNodeKey, setSelectedNodeKey] = useState(nodeKey(tree.root))
   const [selectedEdgeKey, setSelectedEdgeKey] = useState<string | null>(null)
   const [selectedGraphNodeID, setSelectedGraphNodeID] = useState<string | null>(null)
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set())
 
   const selectedNode = useMemo(() => findNodeByKey(tree.root, selectedNodeKey), [tree.root, selectedNodeKey])
-  const selectedEdge = useMemo(
-    () => graph.edges.find((edge) => graphEdgeKey(edge) === selectedEdgeKey) ?? null,
-    [graph.edges, selectedEdgeKey],
-  )
+  const selectedEdge = useMemo(() => {
+    if (!selectedEdgeKey) {
+      return null
+    }
+
+    return graph.edges.find((edge) => graphEdgeKey(edge) === selectedEdgeKey) ?? edgeFromKey(selectedEdgeKey)
+  }, [graph.edges, selectedEdgeKey])
   const selectedGraphNode = useMemo(
     () => graph.nodes.find((node) => node.id === selectedGraphNodeID) ?? null,
     [graph.nodes, selectedGraphNodeID],
@@ -60,15 +64,30 @@ export function ProjectTree({ tree, graph }: Props) {
           graph={graph}
           selectedEdgeKey={selectedEdgeKey}
           selectedNodeID={selectedGraphNodeID}
-          onSelectEdge={setSelectedEdgeKey}
-          onSelectNode={setSelectedGraphNodeID}
+          onSelectEdge={(key) => {
+            setSelectedEdgeKey(key)
+            if (key) {
+              setSelectedGraphNodeID(null)
+            }
+          }}
+          onSelectNode={(id) => {
+            setSelectedGraphNodeID(id)
+            if (id) {
+              setSelectedEdgeKey(null)
+            }
+          }}
         />
 
         <TreeDetailsPanel
-          node={selectedNode}
+          node={selectedGraphNodeID || selectedEdge ? null : selectedNode}
           graphNode={selectedGraphNode}
           graph={graph}
           edge={selectedEdge}
+          dependencies={dependencies}
+          onSelectEdge={(key) => {
+            setSelectedEdgeKey(key)
+            setSelectedGraphNodeID(null)
+          }}
         />
       </div>
 
@@ -224,14 +243,22 @@ function TreeDetailsPanel({
   graphNode,
   graph,
   edge,
+  dependencies,
+  onSelectEdge,
 }: {
   node: TreeNode | null
   graphNode: ReviewGraph['nodes'][number] | null
   graph: ReviewGraph
   edge: ReviewGraphEdge | null
+  dependencies: DependenciesReport
+  onSelectEdge: (key: string) => void
 }) {
   const incoming = graphNode ? graph.edges.filter((item) => item.to === graphNode.id) : []
   const outgoing = graphNode ? graph.edges.filter((item) => item.from === graphNode.id) : []
+  const edgeDependencyChanges = edge
+    ? dependencies.dependency_changes.filter((change) => dependencyChangeMatchesEdge(change, edge)).slice(0, 12)
+    : []
+  const edgeDependencyGroup = edge ? findEdgeDependencyGroup(dependencies.edge_dependencies ?? [], edge) : null
 
   return (
     <aside className="tree-details-panel">
@@ -258,6 +285,38 @@ function TreeDetailsPanel({
               </div>
             </div>
           ) : null}
+
+          <div className="detail-row">
+            <span className="muted">Current dependency evidence</span>
+            {edgeDependencyGroup?.dependencies.length ? (
+              <div className="edge-evidence-list">
+                {edgeDependencyGroup.dependencies.map((dependency, index) => (
+                  <DependencyEvidenceCard
+                    key={`${dependency.from_file ?? 'unknown'}-${dependency.to_file ?? dependency.target ?? 'target'}-${index}`}
+                    dependency={dependency}
+                  />
+                ))}
+                {edgeDependencyGroup.truncated_count ? (
+                  <span className="muted">+{edgeDependencyGroup.truncated_count} more dependencies on this edge.</span>
+                ) : null}
+              </div>
+            ) : (
+              <span className="muted">No current dependency evidence for this edge.</span>
+            )}
+          </div>
+
+          <div className="detail-row">
+            <span className="muted">Changed dependency examples</span>
+            {edgeDependencyChanges.length ? (
+              <div className="edge-evidence-list">
+                {edgeDependencyChanges.map((change) => (
+                  <DependencyChangeCard key={change.key} change={change} />
+                ))}
+              </div>
+            ) : (
+              <span className="muted">No changed dependency examples for this edge in the review bundle.</span>
+            )}
+          </div>
         </div>
       ) : graphNode ? (
         <div className="details-stack">
@@ -275,7 +334,17 @@ function TreeDetailsPanel({
               <span className="muted">Outgoing</span>
               <div className="detail-chip-list">
                 {outgoing.slice(0, 8).map((item) => (
-                  <code key={`out-${graphEdgeKey(item)}`}>{item.to} · {item.movement}</code>
+                  <button
+                    key={`out-${graphEdgeKey(item)}`}
+                    className="edge-chip-button"
+                    type="button"
+                    onClick={() => onSelectEdge(graphEdgeKey(item))}
+                  >
+                    <code>{item.from}</code>
+                    <span>→</span>
+                    <code>{item.to}</code>
+                    <span className="muted">· {item.movement}</span>
+                  </button>
                 ))}
               </div>
             </div>
@@ -286,7 +355,17 @@ function TreeDetailsPanel({
               <span className="muted">Incoming</span>
               <div className="detail-chip-list">
                 {incoming.slice(0, 8).map((item) => (
-                  <code key={`in-${graphEdgeKey(item)}`}>{item.from} · {item.movement}</code>
+                  <button
+                    key={`in-${graphEdgeKey(item)}`}
+                    className="edge-chip-button"
+                    type="button"
+                    onClick={() => onSelectEdge(graphEdgeKey(item))}
+                  >
+                    <code>{item.from}</code>
+                    <span>→</span>
+                    <code>{item.to}</code>
+                    <span className="muted">· {item.movement}</span>
+                  </button>
                 ))}
               </div>
             </div>
@@ -319,6 +398,127 @@ function DetailRow({ label, value, code }: { label: string; value: string; code?
       {code ? <code>{value}</code> : <strong>{value}</strong>}
     </div>
   )
+}
+
+
+
+function DependencyEvidenceCard({ dependency }: { dependency: DependencyEvidence }) {
+  return (
+    <div className="dependency-evidence-card">
+      <div className="dependency-evidence-title">
+        {dependency.kind && <span className="tag">{dependency.kind}</span>}
+        {dependency.usage && <span className="tag">{dependency.usage}</span>}
+        {dependency.resolution_confidence && <span className="tag">{dependency.resolution_confidence}</span>}
+        {dependency.target && <code>{dependency.target}</code>}
+      </div>
+
+      <div className="dependency-evidence-files">
+        <code>{dependency.from_file ?? 'unknown source'}</code>
+        <span>→</span>
+        <code>{dependency.to_file ?? dependency.target ?? 'unresolved target'}</code>
+      </div>
+
+      {(dependency.from_layer || dependency.to_layer) && (
+        <div className="dependency-evidence-layers">
+          <span>{dependency.from_layer || 'unknown'}</span>
+          <span>→</span>
+          <span>{dependency.to_layer || 'unknown'}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function findEdgeDependencyGroup(groups: EdgeDependencyGroup[], edge: ReviewGraphEdge) {
+  return groups.find((group) => layerMatchesGraphNode(group.from_layer, edge.from) && layerMatchesGraphNode(group.to_layer, edge.to)) ?? null
+}
+
+function DependencyChangeCard({ change }: { change: DependencyChange }) {
+  const after = change.after
+  const before = change.before
+  const current = after ?? before
+
+  return (
+    <div className={['dependency-evidence-card', change.kind].join(' ')}>
+      <div className="dependency-evidence-title">
+        <span className="tag">{change.kind}</span>
+        {current?.kind && <span className="tag">{current.kind}</span>}
+        {current?.target && <code>{current.target}</code>}
+      </div>
+
+      <div className="dependency-evidence-files">
+        <code>{current?.from_file ?? 'unknown source'}</code>
+        <span>→</span>
+        <code>{current?.to_file ?? current?.target ?? 'unresolved target'}</code>
+      </div>
+
+      {(current?.from_layer || current?.to_layer) && (
+        <div className="dependency-evidence-layers">
+          <span>{current?.from_layer || 'unknown'}</span>
+          <span>→</span>
+          <span>{current?.to_layer || 'unknown'}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function dependencyChangeMatchesEdge(change: DependencyChange, edge: ReviewGraphEdge) {
+  return endpointMatchesEdge(change.after, edge) || endpointMatchesEdge(change.before, edge)
+}
+
+function endpointMatchesEdge(
+  endpoint: DependencyChange['before'] | DependencyChange['after'] | undefined,
+  edge: ReviewGraphEdge,
+) {
+  if (!endpoint?.from_layer || !endpoint?.to_layer) {
+    return false
+  }
+
+  return layerMatchesGraphNode(endpoint.from_layer, edge.from) && layerMatchesGraphNode(endpoint.to_layer, edge.to)
+}
+
+function layerMatchesGraphNode(layer: string, nodeID: string) {
+  return layer === nodeID || layer.startsWith(`${nodeID}_`) || layer.startsWith(`${nodeID}/`)
+}
+
+function edgeFromKey(key: string): ReviewGraphEdge | null {
+  const lastColon = key.lastIndexOf(':')
+  if (lastColon < 0) {
+    return null
+  }
+
+  const withoutMovement = key.slice(0, lastColon)
+  const movement = key.slice(lastColon + 1)
+
+  const afterColon = withoutMovement.lastIndexOf(':')
+  if (afterColon < 0) {
+    return null
+  }
+
+  const beforeAndEdge = withoutMovement.slice(0, afterColon)
+  const afterCount = Number(withoutMovement.slice(afterColon + 1))
+
+  const beforeColon = beforeAndEdge.lastIndexOf(':')
+  if (beforeColon < 0) {
+    return null
+  }
+
+  const edgePart = beforeAndEdge.slice(0, beforeColon)
+  const beforeCount = Number(beforeAndEdge.slice(beforeColon + 1))
+
+  const arrow = edgePart.indexOf('->')
+  if (arrow < 0) {
+    return null
+  }
+
+  return {
+    from: edgePart.slice(0, arrow),
+    to: edgePart.slice(arrow + 2),
+    before_count: Number.isFinite(beforeCount) ? beforeCount : 0,
+    after_count: Number.isFinite(afterCount) ? afterCount : 0,
+    movement,
+  }
 }
 
 function flattenVisibleTree(root: TreeNode, collapsed: Set<string>): FlatTreeNode[] {

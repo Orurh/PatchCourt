@@ -218,6 +218,29 @@ export interface ContractsReport {
   impacts?: ContractImpact[]
 }
 
+
+export interface DependencyEvidence {
+  from_file?: string
+  to_file?: string
+  from_layer?: string
+  to_layer?: string
+  target?: string
+  kind?: string
+  usage?: string
+  resolved?: boolean
+  external?: boolean
+  resolution_source?: string
+  resolution_confidence?: string
+}
+
+export interface EdgeDependencyGroup {
+  from_layer: string
+  to_layer: string
+  count: number
+  dependencies: DependencyEvidence[]
+  truncated_count?: number
+}
+
 export interface DependencyChange {
   kind: string
   key: string
@@ -252,6 +275,7 @@ export interface DependenciesReport {
   summary: SectionSummary
   dependency_changes: DependencyChange[]
   layer_edge_changes: LayerEdgeChange[]
+  edge_dependencies?: EdgeDependencyGroup[]
 }
 
 export interface GitStatus {

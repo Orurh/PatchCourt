@@ -51,7 +51,7 @@ export function ReviewDashboard({ review, graph, tree, runtime, findings, contra
       </nav>
 
       {activeTab === 'overview' && <Overview review={review} />}
-      {activeTab === 'tree' && <ProjectTree tree={tree} graph={graph} />}
+      {activeTab === 'tree' && <ProjectTree tree={tree} graph={graph} dependencies={dependencies} />}
       {activeTab === 'runtime' && <RuntimeView runtime={runtime} />}
       {activeTab === 'findings' && <FindingsView findings={findings} />}
       {activeTab === 'contracts' && <ContractsView contracts={contracts} />}
